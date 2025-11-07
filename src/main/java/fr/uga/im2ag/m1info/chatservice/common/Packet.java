@@ -21,10 +21,11 @@ import java.nio.ByteBuffer;
  */
 public class Packet {
 
-    private static final int OFFSET_LENGTH = 0;
-    private static final int OFFSET_FROM   = Integer.BYTES;
-    private static final int OFFSET_TO     = 2 * Integer.BYTES;
-    private final static int HEADER_SIZE = 3*Integer.BYTES;
+    private static final int OFFSET_TYPE = 0;
+    private static final int OFFSET_LENGTH = OFFSET_TYPE + Integer.BYTES;
+    private static final int OFFSET_FROM   = OFFSET_LENGTH + Integer.BYTES;
+    private static final int OFFSET_TO     = OFFSET_FROM + Integer.BYTES;
+    private final static int HEADER_SIZE = 4 * Integer.BYTES;
 
 
     /**
@@ -34,25 +35,31 @@ public class Packet {
 
         private ByteBuffer buf;
 
-        public PacketBuilder(int payloadSize,int from) {
+        public PacketBuilder(int payloadSize,int from, MessageType messageType) {
             buf = ByteBuffer.allocate(payloadSize+HEADER_SIZE);
+            buf.putInt(messageType.toByte());
             buf.putInt(payloadSize);
             buf.putInt(from);
         }
 
 
-        public PacketBuilder(int dataSize,int from, int to) {
-            this(dataSize,from);
+        public PacketBuilder(int dataSize,int from, int to, MessageType messageType) {
+            this(dataSize,from, messageType);
             buf.putInt(to);
         }
 
-       /* public PacketBuilder setFrom(int from) {
+        public PacketBuilder setFrom(int from) {
             buf.putInt(OFFSET_FROM,from);
             return this;
-        }*/
+        }
 
         public PacketBuilder setTo(int to) {
             buf.putInt(OFFSET_TO,to);
+            return this;
+        }
+        
+        public PacketBuilder setMessageType(MessageType messageType) {
+            buf.putInt(OFFSET_TYPE, messageType.toByte());
             return this;
         }
 
@@ -117,7 +124,11 @@ public class Packet {
 
 
     public int payloadSize() {
-        return buffer.getInt(0);
+        return buffer.getInt(OFFSET_LENGTH);
+    }
+    
+    public int messageType() {
+        return buffer.getInt(OFFSET_TYPE);
     }
 
     /**
@@ -145,12 +156,23 @@ public class Packet {
         return new Packet(buf);
     }
 
+    // public static Packet createFileMessage(int from, int to, String content) {
+    //     byte[] payload = content.getBytes();
+    //     return  new PacketBuilder(payload.length,from,to).setPayload(payload).build();
+    // }
+
     public static Packet createTextMessage(int from, int to, String content) {
         byte[] payload = content.getBytes();
-        return  new PacketBuilder(payload.length,from,to).setPayload(payload).build();
+        System.out.println("on veut envoyer " + content);
+        return  new PacketBuilder(payload.length,from,to, MessageType.TEXT).setPayload(payload).build();
     }
 
     public static Packet createEmptyPacket(int from, int to) {
-        return new PacketBuilder(0,from,to).build();
+        return new PacketBuilder(0,from,to, MessageType.EMPTY).build();
+    }
+
+    @Override
+    public String toString(){
+        return "from = " + this.from() + " to = " + this.to() + " messageType = " + MessageType.fromByte((byte) this.messageType()).name() + " payload size = " + this.payloadSize() + " payload = " + this.getPayload().toString();
     }
 }

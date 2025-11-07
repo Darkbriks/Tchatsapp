@@ -69,7 +69,8 @@ public class Client {
             }).start();
             return cnx.isConnected();
         } catch (IOException e) {
-            if (!cnx.isClosed()) e.printStackTrace();
+           // if (!cnx.isClosed()) e.printStackTrace();
+           System.err.println("Il semblerait que l'identifiant ne permette pas de se connecter !");
            return false;
         }
     }
@@ -103,8 +104,10 @@ public class Client {
 
     public boolean sendPacket(Packet m) {
         //if (m.from()!=clientId) throw new RuntimeException("Message from field must be equals to clientId");
+        System.out.println(m);
         try {
             DataOutputStream dos = new DataOutputStream(cnx.getOutputStream());
+            dos.writeInt(m.messageType());
             dos.writeInt(m.payloadSize());
             dos.writeInt(m.to());
             byte[] msg = new byte[m.payloadSize()];
@@ -127,6 +130,7 @@ public class Client {
 
         Client c = new Client(clientId);
         c.setPacketProcessor(msg -> {
+            System.out.println("ici");
             byte[] b = new byte[msg.getPayload().capacity()];
             msg.getPayload().get(b);
             System.out.println("Message from " + msg.from() + " to " + msg.to() + " : " + new String(b));
