@@ -107,13 +107,7 @@ public class Client {
         System.out.println(m);
         try {
             DataOutputStream dos = new DataOutputStream(cnx.getOutputStream());
-            dos.writeInt(m.messageType());
-            dos.writeInt(m.payloadSize());
-            dos.writeInt(m.to());
-            byte[] msg = new byte[m.payloadSize()];
-            m.getPayload().get(msg);
-            dos.write(msg);
-            dos.flush();
+            m.writeTo(dos);
             return true;
         } catch (IOException e) {
             e.printStackTrace();

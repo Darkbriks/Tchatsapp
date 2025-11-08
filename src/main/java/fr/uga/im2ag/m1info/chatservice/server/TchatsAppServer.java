@@ -294,7 +294,7 @@ public class TchatsAppServer {
                         // send an empty packet to indicate successful identification
                         // and by the way send the id to new client (in the to field)
                        // use directly write because it has to be send before any element from the queue
-                        sc.write(Packet.createEmptyPacket(0,clientId).asByteBuffer());
+                        sc.write(Packet.createEmptyPacket(0,clientId,MessageType.CREATE_USER).asByteBuffer());
 
                         // enventually send messages in the queue
                         wakeupSendQueue(state.channel);
@@ -307,7 +307,9 @@ public class TchatsAppServer {
                     if (state.currentPacket==null) {
                         if (buf.remaining() < Integer.BYTES) break loop;
                         //state.msgLength = buf.getInt();
-                        readPacket(buf, state);
+                        if (buf.remaining() >= Packet.getHeaderSize()) {
+                            readPacket(buf, state);
+                        }
                         // read the message content
                     }
                     // read the content of the message
@@ -334,18 +336,21 @@ public class TchatsAppServer {
      * @param state 
      */
     private void readPacket(ByteBuffer buf, ConnectionState state){
-        int msgType = buf.getInt();
-        System.out.println(MessageType.fromByte((byte) msgType).name());
         int msgLength = buf.getInt();
         if (msgLength < 0 || msgLength > MAX_MSG_SIZE) {
             LOG.warning("Invalid packet length " + msgLength + " from client " + state.clientId);
             closeChannel(state.channel); // ou closeChannelByState
-            state.currentPacket = new Packet.PacketBuilder(msgLength,state.clientId, MessageType.fromByte((byte) msgType));
-            LOG.info("packet length from client " + state.clientId + " = " + msgLength);
             return;
         }
-        state.currentPacket = new Packet.PacketBuilder(msgLength, state.clientId, MessageType.fromByte((byte) msgType));
 
+        MessageType mt = MessageType.fromInt(buf.getInt());
+        int from = buf.getInt();
+        int to = buf.getInt();
+
+        state.currentPacket = new Packet.PacketBuilder(msgLength)
+                .setFrom(from)
+                .setTo(to)
+                .setMessageType(mt);
     }
 
     private void write(SelectionKey key) {
