@@ -441,7 +441,7 @@ Solution (Future Enhancement):
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    SECURE MESSAGING FLOW                     │
+│                    SECURE MESSAGING FLOW                    │
 └─────────────────────────────────────────────────────────────┘
 
 PHASE 1: KEY EXCHANGE (once per conversation)
@@ -487,7 +487,7 @@ Can't read it!                            [Decrypt with
 ### Encryption Layers
 
 ```
-    Original Message: "Hello Bob!"
+     Original Message: "Hello Bob!"
                 ↓
 ┌──────────────────────────────────────┐
 │ Layer 1: Add sequence number         │
@@ -917,7 +917,6 @@ Server DOESN'T know:
 - NIST Guidelines: https://csrc.nist.gov/
 
 **Our Implementation:**
-- Design Document: `design/analysis.md`
 - Developer Guide: `README-dev.md`
 - Source Code: `src/main/java/.../crypto/`
 
