@@ -113,7 +113,7 @@ launch_clients() {
                 exit 1
                 ;;
         esac
-        sleep 0.5
+        sleep 2
     done
 }
 
