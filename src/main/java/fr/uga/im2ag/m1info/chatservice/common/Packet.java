@@ -205,8 +205,8 @@ public class Packet {
      *
      * @return the message type as an integer
      */
-    public int messageType() {
-        return buffer.getInt(OFFSET_TYPE);
+    public MessageType messageType() {
+        return MessageType.fromInt(buffer.getInt(OFFSET_TYPE));
     }
 
     /**
@@ -217,6 +217,19 @@ public class Packet {
      */
     public ByteBuffer getPayload() {
         return buffer.slice(HEADER_SIZE, buffer.getInt(0));
+    }
+
+    /** Returns a duplicate modifiable view of the payload.
+     * The position of the buffer is 0.
+     *
+     * @return a ByteBuffer containing the payload data (modifiable)
+     */
+    public ByteBuffer getModifiablePayload() {
+        ByteBuffer modifiableBuffer = ByteBuffer.allocate(payloadSize());
+        ByteBuffer payloadSlice = buffer.slice(HEADER_SIZE, payloadSize());
+        modifiableBuffer.put(payloadSlice);
+        modifiableBuffer.rewind();
+        return modifiableBuffer;
     }
 
     /**
@@ -331,7 +344,7 @@ public class Packet {
         return "Packet { " +
                 "from = " + this.from() + ", " +
                 "to = " + this.to() + ", " +
-                "messageType = " + MessageType.fromInt(this.messageType()).name() + ", " +
+                "messageType = " + this.messageType().name() + ", " +
                 "payload size = " + this.payloadSize() +
                 " }";
     }
