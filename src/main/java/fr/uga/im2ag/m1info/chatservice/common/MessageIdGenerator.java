@@ -15,12 +15,12 @@ public class MessageIdGenerator {
     /**
      * Generate a unique message ID based on user ID and current timestamp.
      *
-     * @param userId the ID of the user sending the message
+     * @param userId    the ID of the user sending the message
+     * @param timestamp the timestamp of the message
      * @return a unique message ID as a hexadecimal string
      */
-    public static String generateMessageId(int userId) {
+    public static String generateMessageId(int userId, long timestamp) {
         try {
-            long timestamp = System.currentTimeMillis();
             String input = userId + "-" + timestamp;
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
