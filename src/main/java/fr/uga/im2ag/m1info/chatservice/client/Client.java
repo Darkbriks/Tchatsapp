@@ -11,9 +11,7 @@
 
 package fr.uga.im2ag.m1info.chatservice.client;
 
-import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
-import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
+import fr.uga.im2ag.m1info.chatservice.common.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 
@@ -32,12 +30,14 @@ public class Client {
     private int clientId;
     private Socket cnx;
     private PacketProcessor processor;
+    private MessageIdGenerator messageIdGenerator;
 
     public Client() {
         this(0);
     }
     public Client(int clientId) {
         this.clientId=clientId;
+        this.messageIdGenerator = new ShaIdGenerator();
     }
 
     /**
@@ -80,6 +80,10 @@ public class Client {
 
     public int getClientId() {
         return clientId;
+    }
+
+    public void setMessageIdGenerator(MessageIdGenerator generator) {
+        this.messageIdGenerator=generator;
     }
 
     /**
@@ -144,6 +148,7 @@ public class Client {
                 String msg = sc.nextLine();
 
                 TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, clientId, to);
+                textMsg.generateNewMessageId(c.messageIdGenerator);
                 textMsg.setContent(msg);
                 c.sendPacket(textMsg.toPacket());
             }

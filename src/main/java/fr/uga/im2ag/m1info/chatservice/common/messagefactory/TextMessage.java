@@ -20,10 +20,21 @@ public class TextMessage extends ProtocolMessage {
      */
     public TextMessage() {
         super(MessageType.NONE, -1, -1);
+        timestamp = 0;
+        messageId = null;
+        this.content = "";
+        this.replyToMessageId = null;
+    }
+
+    /** Generate a new unique message ID using the provided MessageIdGenerator.
+     *
+     * @param messageIdGenerator the MessageIdGenerator to use for generating the ID
+     * @throws IllegalStateException if the 'from' field is not set
+     */
+    public void generateNewMessageId(MessageIdGenerator messageIdGenerator) {
+        if (this.from == -1) { throw new IllegalStateException("Cannot generate message ID: 'from' field is not set."); }
         timestamp = System.currentTimeMillis();
-        messageId = MessageIdGenerator.generateMessageId(from, timestamp);
-        this.content = content;
-        this.replyToMessageId = replyToMessageId;
+        messageId = messageIdGenerator.generateId(from, timestamp);
     }
 
     /** Get the message ID.
@@ -76,6 +87,7 @@ public class TextMessage extends ProtocolMessage {
 
     @Override
     public Packet toPacket() {
+        if (messageId == null) { throw  new IllegalArgumentException("Message id is null"); }
         StringBuilder sb = new StringBuilder();
         sb.append(messageId).append("|").append(timestamp).append("|");
         if (replyToMessageId != null) {
