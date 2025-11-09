@@ -140,13 +140,8 @@ public class TchatsAppServer {
         this.workers = Executors.newFixedThreadPool(workerThreads);
         setClientIdGenerator(new AtomicInteger(1)::getAndIncrement);
         this.serverContext = new ServerContext();
-        registerFactoryMessages();
         LOG.info("Server started on port " + port + " with " + workerThreads + " workers");
         // default processors left empty -> defaultForwardProcessor used when missing
-    }
-
-    private void registerFactoryMessages() {
-        MessageFactory.register(MessageType.TEXT, TextMessage::new);
     }
 
     /* ----------------------- configuration / registration ----------------------- */

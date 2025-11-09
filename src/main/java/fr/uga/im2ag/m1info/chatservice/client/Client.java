@@ -38,11 +38,6 @@ public class Client {
     }
     public Client(int clientId) {
         this.clientId=clientId;
-        registerFactoryMessages();
-    }
-
-    private void registerFactoryMessages() {
-        MessageFactory.register(MessageType.TEXT, TextMessage::new);
     }
 
     /**

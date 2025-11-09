@@ -2,9 +2,11 @@ package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.MessageProvider;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.function.Supplier;
 
 /**
@@ -13,13 +15,17 @@ import java.util.function.Supplier;
 public class MessageFactory {
     private static final Map<MessageType, Supplier<ProtocolMessage>> registry = new HashMap<>();
 
-    /** Register a ProtocolMessage constructor for a given MessageType.
-     *
-     * @param type the MessageType to register
-     * @param constructor a Supplier that constructs a ProtocolMessage of the given type
-     */
-    public static void register(MessageType type, Supplier<ProtocolMessage> constructor) {
-        registry.put(type, constructor);
+    /* Static initializer to load message providers using ServiceLoader. */
+    static {
+        ServiceLoader<MessageProvider> loader = ServiceLoader.load(MessageProvider.class);
+        for (MessageProvider provider : loader) {
+            registry.put(provider.getType(), provider::createInstance);
+            System.out.println("Registered message provider for type: " + provider.getType());
+        }
+
+        if (registry.isEmpty()) {
+            throw new IllegalStateException("No message providers found! Check META-INF/services configuration.");
+        }
     }
 
     /** Create a ProtocolMessage from a Packet.

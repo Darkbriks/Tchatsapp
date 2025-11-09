@@ -10,10 +10,6 @@ import java.nio.ByteBuffer;
  * Class representing a text message in the chat service protocol.
  */
 public class TextMessage extends ProtocolMessage {
-    /*static {
-        MessageFactory.register(MessageType.TEXT, TextMessage::new);
-    }*/
-
     private String messageId;
     private String content;
     private String replyToMessageId;
