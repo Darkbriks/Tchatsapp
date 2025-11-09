@@ -12,6 +12,8 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.common.*;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 
@@ -124,6 +126,7 @@ public class Client {
 
     /** A bsic client in command line **/
     public static void main(String[] args) throws IOException, InterruptedException {
+        final int serverId = 0;
         Scanner sc = new Scanner(System.in);
         System.out.println("Votre id ? (0 pour en créer un nouveau)");
         int clientId =  sc.nextInt();
@@ -131,8 +134,20 @@ public class Client {
 
         Client c = new Client(clientId);
         c.setPacketProcessor(msg -> {
-            TextMessage m = (TextMessage) msg;
-            System.out.printf("Message reçu de %d : %s%n", m.getFrom(), m.getContent());
+            switch (msg.getMessageType()) {
+                case TEXT -> {
+                    TextMessage m = (TextMessage) msg;
+                    System.out.printf("Message reçu de %d : %s%n", m.getFrom(), m.getContent());
+                }
+                case ERROR -> {
+                    ErrorMessage m = (ErrorMessage) msg;
+                    System.err.println("Message d'erreur reçu du serveur : ");
+                    System.err.println("\tNiveau : " + m.getErrorLevel());
+                    System.err.println("\tType : " + m.getErrorType());
+                    System.err.println("\tMessage : " + m.getErrorMessage());
+                }
+                default -> System.out.println("Message inconnu reçu du serveur : " + msg);
+            }
         });
 
         if (c.connect("localhost",1666)) {
@@ -141,16 +156,41 @@ public class Client {
             System.out.println("Vous êtes connecté avec l'id " + clientId);
 
             while (true) {
-                System.out.println("A qui envoyer ? (0 pour quitter)");
-                int to = sc.nextInt();sc.nextLine();
-                if (to==0) break;
-                System.out.println("Votre message :");
-                String msg = sc.nextLine();
-
-                TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, clientId, to);
-                textMsg.generateNewMessageId(c.messageIdGenerator);
-                textMsg.setContent(msg);
-                c.sendPacket(textMsg.toPacket());
+                System.out.println("Quelle action voulez-vous faire ?" +
+                        "\n\t1. Envoyer un message" +
+                        "\n\t2. Ajouter un contact" +
+                        "\n\t3. Supprimer un contact" +
+                        "\n\t0. Quitter");
+                int action = sc.nextInt(); sc.nextLine();
+                if (action == 0) break;
+                switch (action) {
+                    case 1 -> {
+                        System.out.println("A qui envoyer ? (id)");
+                        int to = sc.nextInt();
+                        sc.nextLine();
+                        System.out.println("Votre message :");
+                        String msg = sc.nextLine();
+                        TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, clientId, to);
+                        textMsg.generateNewMessageId(c.messageIdGenerator);
+                        textMsg.setContent(msg);
+                        c.sendPacket(textMsg.toPacket());
+                    }
+                    case 2 -> {
+                        System.out.println("Quel est l'id du contact à ajouter ?");
+                        int contactId = sc.nextInt();
+                        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(MessageType.ADD_CONTACT, clientId, serverId);
+                        mgmtMsg.addParam("contactId", Integer.toString(contactId));
+                        c.sendPacket(mgmtMsg.toPacket());
+                    }
+                    case 3 -> {
+                        System.out.println("Quel est l'id du contact à supprimer ?");
+                        int contactId = sc.nextInt();
+                        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(MessageType.REMOVE_CONTACT, clientId, serverId);
+                        mgmtMsg.addParam("contactId", Integer.toString(contactId));
+                        c.sendPacket(mgmtMsg.toPacket());
+                    }
+                    default -> System.out.println("Action non reconnue.");
+                }
             }
             c.disconnect();
             System.exit(0);
