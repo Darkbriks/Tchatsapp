@@ -4,10 +4,12 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 
+import java.util.Set;
+
 public class TextMessageProvider implements MessageProvider {
     @Override
-    public MessageType getType() {
-        return MessageType.TEXT;
+    public Set<MessageType> getType() {
+        return Set.of(MessageType.TEXT);
     }
 
     @Override

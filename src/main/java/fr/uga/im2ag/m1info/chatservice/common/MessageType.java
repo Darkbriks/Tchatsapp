@@ -8,6 +8,7 @@ public enum MessageType {
     CREATE_GROUP,
     UPDATE_PSEUDO,
     ADD_CONTACT,
+    REMOVE_CONTACT,
     ADD_GROUP_MEMBER,
     REMOVE_GROUP_MEMBER,
     UPDATE_GROUP_NAME,
@@ -63,6 +64,7 @@ public enum MessageType {
             case CREATE_GROUP -> "CREATE_GROUP";
             case UPDATE_PSEUDO -> "UPDATE_PSEUDO";
             case ADD_CONTACT -> "ADD_CONTACT";
+            case REMOVE_CONTACT -> "REMOVE_CONTACT";
             case ADD_GROUP_MEMBER -> "ADD_GROUP_MEMBER";
             case REMOVE_GROUP_MEMBER -> "REMOVE_GROUP_MEMBER";
             case UPDATE_GROUP_NAME -> "UPDATE_GROUP_NAME";

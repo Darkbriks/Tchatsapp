@@ -4,10 +4,15 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 
+import java.util.Set;
+
 public class ManagementMessageProvider implements MessageProvider {
     @Override
-    public MessageType getType() {
-        return MessageType.CREATE_USER; // TODO
+    public Set<MessageType> getType() {
+        return Set.of(
+                MessageType.ADD_CONTACT,
+                MessageType.REMOVE_CONTACT
+        );
     }
 
     @Override
