@@ -16,8 +16,11 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+import fr.uga.im2ag.m1info.chatservice.server.handlers.ErrorMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.TextMessageHandler;
+import fr.uga.im2ag.m1info.chatservice.server.handlers.UserManagementMessageHandler;
+import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
+import fr.uga.im2ag.m1info.chatservice.server.repository.UserRepository;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -114,6 +117,12 @@ public class TchatsAppServer {
     }
 
     public class ServerContext {
+        private final UserRepository userRepository = new UserRepository();
+
+        public UserRepository getUserRepository() {
+            return userRepository;
+        }
+
         public void sendPacketToClient(Packet pkt) {
             TchatsAppServer.this.sendPacket(pkt);
         }
@@ -235,6 +244,10 @@ public class TchatsAppServer {
                     if (clientId == 0) {
                         clientId = serverContext.generateClientId();
                         clientQueues.put(clientId, new ConcurrentLinkedQueue<>());
+
+                        // TODO: remove this from here and use a proper user registration process
+                        serverContext.getUserRepository().add(new UserInfo(clientId, "User"+clientId));
+                        LOG.info("Registered new client with id " + clientId);
                     } else if (!clientQueues.containsKey(clientId)) {
                         LOG.info("Client " + clientId + " is not registered. Closing connexion.");
                         closeChannel(sc);
@@ -253,6 +266,9 @@ public class TchatsAppServer {
 
                     wakeupSendQueue(state.channel);
                     LOG.info("Client " + state.clientId + " identified");
+
+                    // TODO: move this to a proper user management process
+                    serverContext.getUserRepository().findById(state.clientId).updateLastLogin();
                 }
 
                 if (state.currentPacket == null) {
@@ -409,6 +425,8 @@ public class TchatsAppServer {
 
         ServerPacketRouter router = new ServerPacketRouter(s.serverContext);
         router.addHandler(new TextMessageHandler());
+        router.addHandler(new UserManagementMessageHandler());
+        router.addHandler(new ErrorMessageHandler());
         s.setPacketProcessor(router);
 
         s.start();
