@@ -11,8 +11,9 @@
 
 package fr.uga.im2ag.m1info.chatservice.client;
 
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
-import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
+import fr.uga.im2ag.m1info.chatservice.common.*;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -29,12 +30,14 @@ public class Client {
     private int clientId;
     private Socket cnx;
     private PacketProcessor processor;
+    private MessageIdGenerator messageIdGenerator;
 
     public Client() {
         this(0);
     }
     public Client(int clientId) {
         this.clientId=clientId;
+        this.messageIdGenerator = new ShaIdGenerator();
     }
 
     /**
@@ -69,13 +72,18 @@ public class Client {
             }).start();
             return cnx.isConnected();
         } catch (IOException e) {
-            if (!cnx.isClosed()) e.printStackTrace();
+           // if (!cnx.isClosed()) e.printStackTrace();
+           System.err.println("Il semblerait que l'identifiant ne permette pas de se connecter !");
            return false;
         }
     }
 
     public int getClientId() {
         return clientId;
+    }
+
+    public void setMessageIdGenerator(MessageIdGenerator generator) {
+        this.messageIdGenerator=generator;
     }
 
     /**
@@ -87,7 +95,7 @@ public class Client {
     }
 
     private void processReceivedPacket(Packet m) {
-        if (processor!=null) processor.process(m);
+        if (processor!=null) processor.process(MessageFactory.fromPacket(m));
     }
 
     public boolean isConnected() {
@@ -103,14 +111,10 @@ public class Client {
 
     public boolean sendPacket(Packet m) {
         //if (m.from()!=clientId) throw new RuntimeException("Message from field must be equals to clientId");
+        System.out.println(m);
         try {
             DataOutputStream dos = new DataOutputStream(cnx.getOutputStream());
-            dos.writeInt(m.payloadSize());
-            dos.writeInt(m.to());
-            byte[] msg = new byte[m.payloadSize()];
-            m.getPayload().get(msg);
-            dos.write(msg);
-            dos.flush();
+            m.writeTo(dos);
             return true;
         } catch (IOException e) {
             e.printStackTrace();
@@ -127,18 +131,14 @@ public class Client {
 
         Client c = new Client(clientId);
         c.setPacketProcessor(msg -> {
-            byte[] b = new byte[msg.getPayload().capacity()];
-            msg.getPayload().get(b);
-            System.out.println("Message from " + msg.from() + " to " + msg.to() + " : " + new String(b));
+            TextMessage m = (TextMessage) msg;
+            System.out.printf("Message reçu de %d : %s%n", m.getFrom(), m.getContent());
         });
 
         if (c.connect("localhost",1666)) {
 
             clientId = c.getClientId();
             System.out.println("Vous êtes connecté avec l'id " + clientId);
-           // Packet m = Packet.createTextMessage(48, 2, "coucou 2 comment vas tu ?");
-
-            //c.sendPacket(m);
 
             while (true) {
                 System.out.println("A qui envoyer ? (0 pour quitter)");
@@ -146,7 +146,11 @@ public class Client {
                 if (to==0) break;
                 System.out.println("Votre message :");
                 String msg = sc.nextLine();
-                c.sendPacket(Packet.createTextMessage(c.getClientId(), to, msg));
+
+                TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, clientId, to);
+                textMsg.generateNewMessageId(c.messageIdGenerator);
+                textMsg.setContent(msg);
+                c.sendPacket(textMsg.toPacket());
             }
             c.disconnect();
             System.exit(0);

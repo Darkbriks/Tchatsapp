@@ -12,6 +12,7 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 
 import java.io.IOException;
 import java.util.Scanner;
@@ -30,9 +31,8 @@ public class Client2 {
             clientId = c.getClientId();
             System.out.println("Vous êtes connecté avec l'id " + clientId);
             c.setPacketProcessor(msg -> {
-                byte[] b = new byte[msg.getPayload().capacity()];
-                msg.getPayload().get(b);
-                System.out.println("Message from " + msg.from() + " to " + msg.to() + " : " + new String(b));
+                TextMessage m = (TextMessage) msg;
+                System.out.printf("Message reçu de %d : %s%n", m.getFrom(), m.getContent());
             });
 
             Packet m = Packet.createTextMessage(48, 2, "coucou 2 comment vas tu ?");

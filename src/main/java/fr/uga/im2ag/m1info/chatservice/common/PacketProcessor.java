@@ -11,6 +11,8 @@
 
 package fr.uga.im2ag.m1info.chatservice.common;
 
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
+
 public interface PacketProcessor {
-    public void process(Packet msg);
+    void process(ProtocolMessage message);
 }
