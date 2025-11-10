@@ -12,10 +12,7 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.common.*;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -46,18 +43,50 @@ public class Client {
      * Attemps to connect to a given server.
      * @param host
      * @param port
+     * @param username
      * @return false if there is an existing connection or if the connection fails.
      */
-    public boolean connect(String host, int port) {
+    public boolean connect(String host, int port, String username) {
         if (cnx!=null && cnx.isConnected()) return false;
         try {
             cnx = new Socket("localhost",1666);
             DataOutputStream dos = new DataOutputStream(cnx.getOutputStream());
             DataInputStream dis = new DataInputStream(cnx.getInputStream());
-            dos.writeInt(clientId);
-            dos.flush();
-            // read the empty packet and use the recipient id
-            clientId=Packet.readFrom(dis).to();
+
+            Packet connectionPacket;
+            if (clientId == 0) {
+                ManagementMessage createMsg = (ManagementMessage) MessageFactory.create(MessageType.CREATE_USER, 0, 0);
+                createMsg.addParam("pseudo", username);
+                connectionPacket = createMsg.toPacket();
+            } else {
+                ManagementMessage connectMsg = (ManagementMessage) MessageFactory.create(MessageType.CONNECT_USER, clientId, 0);
+                connectionPacket = connectMsg.toPacket();
+            }
+
+            connectionPacket.writeTo(dos);
+
+            Packet responsePacket = Packet.readFrom(dis);
+            ProtocolMessage responseMsg = MessageFactory.fromPacket(responsePacket);
+
+            if (responseMsg.getMessageType() == MessageType.ERROR) {
+                ErrorMessage errorMsg = (ErrorMessage) responseMsg;
+                System.err.println("Connection failed:");
+                System.err.println("\tLevel: " + errorMsg.getErrorLevel());
+                System.err.println("\tType: " + errorMsg.getErrorType());
+                System.err.println("\tMessage: " + errorMsg.getErrorMessage());
+                cnx.close();
+                cnx = null;
+                return false;
+            }
+
+            if (responseMsg.getMessageType() == MessageType.CREATE_USER || responseMsg.getMessageType() == MessageType.CONNECT_USER) {
+                ManagementMessage mgmtMsg = (ManagementMessage) responseMsg;
+                clientId = responsePacket.to();
+                System.out.println("Connected with client ID: " + clientId);
+                if (mgmtMsg.getParam("pseudo") != null) {
+                    System.out.println("Pseudo: " + mgmtMsg.getParam("pseudo"));
+                }
+            }
 
             // reception thread
             new Thread(() ->{
@@ -74,9 +103,8 @@ public class Client {
             }).start();
             return cnx.isConnected();
         } catch (IOException e) {
-           // if (!cnx.isClosed()) e.printStackTrace();
-           System.err.println("Il semblerait que l'identifiant ne permette pas de se connecter !");
-           return false;
+            System.err.println("Connection failed: " + e.getMessage());
+            return false;
         }
     }
 
@@ -130,6 +158,15 @@ public class Client {
         Scanner sc = new Scanner(System.in);
         System.out.println("Votre id ? (0 pour en créer un nouveau)");
         int clientId =  sc.nextInt();
+        sc.nextLine();
+        String pseudo = "";
+        if (clientId == 0) {
+            System.out.println("Choisissez votre pseudo :");
+            pseudo = sc.nextLine();
+            System.out.println("Création d'un nouveau compte pour " + pseudo);
+        } else {
+            System.out.println("Connexion avec l'id " + clientId);
+        }
 
 
         Client c = new Client(clientId);
@@ -150,7 +187,7 @@ public class Client {
             }
         });
 
-        if (c.connect("localhost",1666)) {
+        if (c.connect("localhost",1666, pseudo)) {
 
             clientId = c.getClientId();
             System.out.println("Vous êtes connecté avec l'id " + clientId);
@@ -160,6 +197,7 @@ public class Client {
                         "\n\t1. Envoyer un message" +
                         "\n\t2. Ajouter un contact" +
                         "\n\t3. Supprimer un contact" +
+                        "\n\t4. Changer de pseudo" +
                         "\n\t0. Quitter");
                 int action = sc.nextInt(); sc.nextLine();
                 if (action == 0) break;
@@ -187,6 +225,13 @@ public class Client {
                         int contactId = sc.nextInt();
                         ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(MessageType.REMOVE_CONTACT, clientId, serverId);
                         mgmtMsg.addParam("contactId", Integer.toString(contactId));
+                        c.sendPacket(mgmtMsg.toPacket());
+                    }
+                    case 4 -> {
+                        System.out.println("Quel est votre nouveau pseudo ?");
+                        String newPseudo = sc.nextLine();
+                        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, clientId, serverId);
+                        mgmtMsg.addParam("newPseudo", newPseudo);
                         c.sendPacket(mgmtMsg.toPacket());
                     }
                     default -> System.out.println("Action non reconnue.");

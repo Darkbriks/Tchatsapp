@@ -26,7 +26,7 @@ public class Client2 {
 
 
         Client c = new Client(clientId);
-        if (c.connect("localhost",1666)) {
+        if (c.connect("localhost",1666, "client2")) {
 
             clientId = c.getClientId();
             System.out.println("Vous êtes connecté avec l'id " + clientId);

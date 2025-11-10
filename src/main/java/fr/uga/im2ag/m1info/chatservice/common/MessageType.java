@@ -5,6 +5,7 @@ public enum MessageType {
     TEXT,
     MEDIA,
     CREATE_USER,
+    CONNECT_USER,
     CREATE_GROUP,
     UPDATE_PSEUDO,
     ADD_CONTACT,
@@ -61,6 +62,7 @@ public enum MessageType {
             case TEXT -> "TEXT";
             case MEDIA -> "MEDIA";
             case CREATE_USER -> "CREATE_USER";
+            case CONNECT_USER -> "CONNECT_USER";
             case CREATE_GROUP -> "CREATE_GROUP";
             case UPDATE_PSEUDO -> "UPDATE_PSEUDO";
             case ADD_CONTACT -> "ADD_CONTACT";

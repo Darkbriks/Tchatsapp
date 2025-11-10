@@ -98,13 +98,13 @@ public class TchatsAppServer {
 
     private final ServerContext serverContext;
 
-    static class ConnectionState {
-        final SocketChannel channel;
-        int clientId;
-        final Instant connectedAt;
-        final ByteBuffer readBuffer;
-        volatile boolean identified;
-        Packet.PacketBuilder currentPacket;
+    public static class ConnectionState {
+        private final SocketChannel channel;
+        private int clientId;
+        private final Instant connectedAt;
+        private final ByteBuffer readBuffer;
+        private volatile boolean identified;
+        private Packet.PacketBuilder currentPacket;
 
         ConnectionState(SocketChannel c) {
             this.clientId = 0;
@@ -118,17 +118,122 @@ public class TchatsAppServer {
 
     public class ServerContext {
         private final UserRepository userRepository = new UserRepository();
+        private final ThreadLocal<ConnectionState> currentConnectionState = new ThreadLocal<>();
 
+        /**
+         * Get the user repository.
+         *
+         * @return the user repository
+         */
         public UserRepository getUserRepository() {
             return userRepository;
         }
 
+        /**
+         * Send a packet to a client.
+         *
+         * @param pkt the packet to send
+         */
         public void sendPacketToClient(Packet pkt) {
             TchatsAppServer.this.sendPacket(pkt);
         }
 
+        /**
+         * Generate a new unique client ID.
+         *
+         * @return a new client ID
+         */
         public int generateClientId() {
             return idGenerator.generateId();
+        }
+
+        /**
+         * Set the current connection state for this thread.
+         * Used internally by the server to provide context to handlers.
+         *
+         * @param state the connection state
+         */
+        void setCurrentConnectionState(ConnectionState state) {
+            currentConnectionState.set(state);
+        }
+
+        /**
+         * Clear the current connection state for this thread.
+         */
+        void clearCurrentConnectionState() {
+            currentConnectionState.remove();
+        }
+
+        /**
+         * Get the current connection state for this thread.
+         * Only available during message processing.
+         *
+         * @return the current connection state, or null if not in a processing context
+         */
+        public ConnectionState getCurrentConnectionState() {
+            return currentConnectionState.get();
+        }
+
+        /**
+         * Register a new client connection with the given ID.
+         *
+         * @param state the connection state to register
+         * @param clientId the client ID to assign
+         * @return true if registration successful, false if client already connected
+         */
+        public boolean registerConnection(ConnectionState state, int clientId) {
+            if (connectedClients.putIfAbsent(clientId, state) != null) {
+                return false;
+            }
+            state.clientId = clientId;
+            state.identified = true;
+
+            // Create queue if it doesn't exist
+            clientQueues.putIfAbsent(clientId, new ConcurrentLinkedQueue<>());
+
+            wakeupSendQueue(state.channel);
+            return true;
+        }
+
+        /**
+         * Check if a client ID is registered in the system.
+         *
+         * @param clientId the client ID to check
+         * @return true if the client is registered
+         */
+        public boolean isClientRegistered(int clientId) {
+            return clientQueues.containsKey(clientId);
+        }
+
+        /**
+         * Check if a client is currently connected.
+         *
+         * @param clientId the client ID to check
+         * @return true if the client is currently connected
+         */
+        public boolean isClientConnected(int clientId) {
+            return connectedClients.containsKey(clientId);
+        }
+
+        /**
+         * Close a connection for the given state.
+         *
+         * @param state the connection state to close
+         */
+        public void closeConnection(ConnectionState state) {
+            if (state != null && state.channel != null) {
+                TchatsAppServer.this.closeChannel(state.channel);
+            }
+        }
+
+        /**
+         * Get the connection state from the channel.
+         *
+         * @param channel the socket channel
+         * @return the connection state, or null if not found
+         */
+        public ConnectionState getConnectionState(SocketChannel channel) {
+            return activeConnections.get(channel);
         }
     }
 
@@ -238,39 +343,6 @@ public class TchatsAppServer {
             buf.flip();
             loop:
             while (buf.hasRemaining()) {
-                if (!state.identified) {
-                    if (buf.remaining() < Integer.BYTES) break loop;
-                    int clientId = buf.getInt();
-                    if (clientId == 0) {
-                        clientId = serverContext.generateClientId();
-                        clientQueues.put(clientId, new ConcurrentLinkedQueue<>());
-
-                        // TODO: remove this from here and use a proper user registration process
-                        serverContext.getUserRepository().add(new UserInfo(clientId, "User"+clientId));
-                        LOG.info("Registered new client with id " + clientId);
-                    } else if (!clientQueues.containsKey(clientId)) {
-                        LOG.info("Client " + clientId + " is not registered. Closing connexion.");
-                        closeChannel(sc);
-                        return;
-                    }
-                    if (connectedClients.putIfAbsent(clientId, state) != null) {
-                        LOG.info("Client " + clientId + " already connected. Closing connexion.");
-                        closeChannel(sc);
-                        return;
-                    }
-                    state.clientId = clientId;
-                    state.identified = true;
-
-                    // send identification ok (empty packet) using same semantics as before
-                    sc.write(Packet.createEmptyPacket(0, clientId, MessageType.CREATE_USER).asByteBuffer());
-
-                    wakeupSendQueue(state.channel);
-                    LOG.info("Client " + state.clientId + " identified");
-
-                    // TODO: move this to a proper user management process
-                    serverContext.getUserRepository().findById(state.clientId).updateLastLogin();
-                }
-
                 if (state.currentPacket == null) {
                     if (buf.remaining() < Integer.BYTES) break loop;
                     if (buf.remaining() >= Packet.getHeaderSize()) {
@@ -286,13 +358,17 @@ public class TchatsAppServer {
                         state.currentPacket = null;
                         // désérialiser vers ProtocolMessage via MessageFactory
                         final Packet finalPkt = pkt;
+                        final ConnectionState finalState = state;
                         workers.submit(() -> {
                             try {
+                                serverContext.setCurrentConnectionState(finalState);
                                 ProtocolMessage message = MessageFactory.fromPacket(finalPkt);
-                                LOG.info("packet converted to ProtocolMessage of type " + message.getMessageType() + " from client " + state.clientId);
+                                LOG.info("packet converted to ProtocolMessage of type " + message.getMessageType() + " from client " + finalState.clientId);
                                 processMessage(message);
                             } catch (RuntimeException e) {
                                 LOG.warning("Failed to convert packet to ProtocolMessage: " + e.getMessage());
+                            } finally {
+                                serverContext.clearCurrentConnectionState();
                             }
                         });
                         LOG.info("packet read from client " + state.clientId);
