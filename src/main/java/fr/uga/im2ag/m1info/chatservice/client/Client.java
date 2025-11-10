@@ -132,8 +132,16 @@ public class Client {
 
         Client c = new Client(clientId);
         c.setPacketProcessor(msg -> {
-            TextMessage m = (TextMessage) msg;
-            System.out.printf("Message reçu de %d : %s%n", m.getFrom(), m.getContent());
+            if (msg.getMessageType() == MessageType.TEXT){
+
+                TextMessage m = (TextMessage) msg;
+                System.out.printf("Message reçu de %d : %s%n", m.getFrom(), m.getContent());
+            } else if ( msg.getMessageType() == MessageType.MEDIA){
+                MediaMessage m = (MediaMessage) msg;
+                System.out.printf("Media reçu de %d : nom = %s%n", m.getFrom(), m.getMediaName());
+            } else{
+                System.out.println("Cote client, pas de handler ytrtouve pour" + msg.getMessageType().toString()); 
+            }
         });
 
         if (c.connect("localhost",1666)) {
