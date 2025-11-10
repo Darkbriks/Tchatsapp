@@ -72,7 +72,8 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
 
         ManagementMessage response = ((ManagementMessage) MessageFactory.create(MessageType.CREATE_USER, 0, newClientId))
                 .addParam("clientId", newClientId)
-                .addParam("pseudo", pseudo);
+                .addParam("pseudo", pseudo)
+                .addParam("ack", "true");
         serverContext.sendPacketToClient(response.toPacket());
 
         System.out.printf("[Server] Created new user: id=%d, pseudo=%s%n", newClientId, pseudo);
@@ -131,6 +132,7 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
         if (user != null) {
             response.addParam("pseudo", user.getUsername());
         }
+        response.addParam("ack", "true");
         serverContext.sendPacketToClient(response.toPacket());
 
         System.out.printf("[Server] Client %d connected successfully%n", clientId);
@@ -169,6 +171,7 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
             serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_CONTACT, from, contactId))
                     .addParam("contactId", from)
                     .addParam("contactPseudo", user.getUsername())
+                    .addParam("ack", "true")
                     .toPacket()
             );
         }
@@ -200,6 +203,12 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
 
         user.removeContact(contactId);
         serverContext.getUserRepository().update(user.getId(), user);
+        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.REMOVE_CONTACT, from, contactId))
+                .addParam("contactId", contactId)
+                .addParam("contactPseudo", serverContext.getUserRepository().findById(contactId).getUsername())
+                .addParam("ack", "true")
+                .toPacket()
+        );
         System.out.printf("[Server] User %d removed contact %d%n", from, contactId);
     }
 
@@ -239,7 +248,10 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
             }
         }
 
-        // TODO: Send confirmation to the user (ACK message) ?
-        // TODO: Maybe a ACK Message type can be useful in several places
+        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, from, from))
+                .addParam("newPseudo", newPseudo)
+                .addParam("ack", "true")
+                .toPacket()
+        );
     }
 }

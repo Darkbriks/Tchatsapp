@@ -11,6 +11,9 @@
 
 package fr.uga.im2ag.m1info.chatservice.client;
 
+import fr.uga.im2ag.m1info.chatservice.client.handlers.ErrorMessageHandler;
+import fr.uga.im2ag.m1info.chatservice.client.handlers.ManagementMessageHandler;
+import fr.uga.im2ag.m1info.chatservice.client.handlers.TextMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.common.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 
@@ -152,8 +155,8 @@ public class Client {
         }
     }
 
-    /** A bsic client in command line **/
-    public static void main(String[] args) throws IOException, InterruptedException {
+    /** A basic client in command line **/
+    public static void main(String[] args) {
         final int serverId = 0;
         Scanner sc = new Scanner(System.in);
         System.out.println("Votre id ? (0 pour en créer un nouveau)");
@@ -163,34 +166,19 @@ public class Client {
         if (clientId == 0) {
             System.out.println("Choisissez votre pseudo :");
             pseudo = sc.nextLine();
-            System.out.println("Création d'un nouveau compte pour " + pseudo);
-        } else {
-            System.out.println("Connexion avec l'id " + clientId);
         }
 
-
         Client c = new Client(clientId);
-        c.setPacketProcessor(msg -> {
-            switch (msg.getMessageType()) {
-                case TEXT -> {
-                    TextMessage m = (TextMessage) msg;
-                    System.out.printf("Message reçu de %d : %s%n", m.getFrom(), m.getContent());
-                }
-                case ERROR -> {
-                    ErrorMessage m = (ErrorMessage) msg;
-                    System.err.println("Message d'erreur reçu du serveur : ");
-                    System.err.println("\tNiveau : " + m.getErrorLevel());
-                    System.err.println("\tType : " + m.getErrorType());
-                    System.err.println("\tMessage : " + m.getErrorMessage());
-                }
-                default -> System.out.println("Message inconnu reçu du serveur : " + msg);
-            }
-        });
+
+        ClientPaquetRouter router = new ClientPaquetRouter();
+        router.addHandler(new TextMessageHandler());
+        router.addHandler(new ErrorMessageHandler());
+        router.addHandler(new ManagementMessageHandler());
+        c.setPacketProcessor(router);
 
         if (c.connect("localhost",1666, pseudo)) {
 
             clientId = c.getClientId();
-            System.out.println("Vous êtes connecté avec l'id " + clientId);
 
             while (true) {
                 System.out.println("Quelle action voulez-vous faire ?" +
@@ -240,8 +228,5 @@ public class Client {
             c.disconnect();
             System.exit(0);
         }
-
     }
-
-
 }
