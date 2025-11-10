@@ -9,10 +9,10 @@ public class SequentialIdGenerator implements IdGenerator {
     private final AtomicInteger nextId;
 
     /**
-     * Creates a SequantialIdGenerator that starts generating IDs from 0.
+     * Creates a SequantialIdGenerator that starts generating IDs from 1.
      */
     public SequentialIdGenerator() {
-        this.nextId = new AtomicInteger(0);
+        this.nextId = new AtomicInteger(1);
     }
 
     /**
