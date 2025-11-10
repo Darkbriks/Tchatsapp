@@ -336,42 +336,23 @@ public class TchatsAppServer {
 
         try {
             int read = sc.read(buf);
-            if (read == -1) {
-                closeChannel(sc);
-                return;
-            }
+            if (read == -1) { closeChannel(sc); return; }
             buf.flip();
             loop:
             while (buf.hasRemaining()) {
                 if (state.currentPacket == null) {
-                    if (buf.remaining() < Integer.BYTES) break loop;
-                    if (buf.remaining() >= Packet.getHeaderSize()) {
-                        readPacket(buf, state);
-                    } else {
-                        break loop;
+                    if (buf.remaining() < Integer.BYTES || buf.remaining() < Packet.getHeaderSize()) { break loop; }
+                    readPacketHeader(buf, state);
+
+                    // Read packet immediately to avoid issue with empty payload packets
+                    if (state.currentPacket.isCompleted()) {
+                        readPacket(state);
                     }
                 }
 
                 if (state.currentPacket != null && state.currentPacket.isReady()) {
                     if (state.currentPacket.fillFrom(buf).isCompleted()) {
-                        Packet pkt = state.currentPacket.build();
-                        state.currentPacket = null;
-                        // désérialiser vers ProtocolMessage via MessageFactory
-                        final Packet finalPkt = pkt;
-                        final ConnectionState finalState = state;
-                        workers.submit(() -> {
-                            try {
-                                serverContext.setCurrentConnectionState(finalState);
-                                ProtocolMessage message = MessageFactory.fromPacket(finalPkt);
-                                LOG.info("packet converted to ProtocolMessage of type " + message.getMessageType() + " from client " + finalState.clientId);
-                                processMessage(message);
-                            } catch (RuntimeException e) {
-                                LOG.warning("Failed to convert packet to ProtocolMessage: " + e.getMessage());
-                            } finally {
-                                serverContext.clearCurrentConnectionState();
-                            }
-                        });
-                        LOG.info("packet read from client " + state.clientId);
+                        readPacket(state);
                     }
                 }
             }
@@ -381,7 +362,28 @@ public class TchatsAppServer {
         }
     }
 
-    private void readPacket(ByteBuffer buf, ConnectionState state) {
+    private void readPacket(ConnectionState state) {
+        Packet pkt = state.currentPacket.build();
+        state.currentPacket = null;
+        // désérialiser vers ProtocolMessage via MessageFactory
+        final Packet finalPkt = pkt;
+        final ConnectionState finalState = state;
+        workers.submit(() -> {
+            try {
+                serverContext.setCurrentConnectionState(finalState);
+                ProtocolMessage message = MessageFactory.fromPacket(finalPkt);
+                LOG.info("packet converted to ProtocolMessage of type " + message.getMessageType() + " from client " + finalState.clientId);
+                processMessage(message);
+            } catch (RuntimeException e) {
+                LOG.warning("Failed to convert packet to ProtocolMessage: " + e.getMessage());
+            } finally {
+                serverContext.clearCurrentConnectionState();
+            }
+        });
+        LOG.info("packet read from client " + state.clientId);
+    }
+
+    private void readPacketHeader(ByteBuffer buf, ConnectionState state) {
         int msgLength = buf.getInt();
         if (msgLength < 0 || msgLength > MAX_MSG_SIZE) {
             LOG.warning("Invalid packet length " + msgLength + " from client " + state.clientId);
