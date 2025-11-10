@@ -14,6 +14,7 @@ package fr.uga.im2ag.m1info.chatservice.client;
 import fr.uga.im2ag.m1info.chatservice.common.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MediaMessage;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -147,10 +148,18 @@ public class Client {
                 System.out.println("Votre message :");
                 String msg = sc.nextLine();
 
-                TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, clientId, to);
-                textMsg.generateNewMessageId(c.messageIdGenerator);
-                textMsg.setContent(msg);
-                c.sendPacket(textMsg.toPacket());
+                if (msg.charAt(0) == '/'){
+                    MediaMessage mediaMsg = (MediaMessage) MessageFactory.create(MessageType.MEDIA, clientId, to);
+                    mediaMsg.generateNewMessageId(c.messageIdGenerator);
+                    mediaMsg.setMediaName(msg.substring(1));
+                    c.sendPacket(mediaMsg.toPacket());
+                    // On est sur un media
+                } else{
+                    TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, clientId, to);
+                    textMsg.generateNewMessageId(c.messageIdGenerator);
+                    textMsg.setContent(msg);
+                    c.sendPacket(textMsg.toPacket());
+                }
             }
             c.disconnect();
             System.exit(0);
