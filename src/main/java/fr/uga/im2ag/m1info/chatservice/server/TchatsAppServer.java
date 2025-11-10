@@ -29,7 +29,6 @@ import java.nio.channels.*;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 /**
@@ -271,7 +270,7 @@ public class TchatsAppServer {
         serverChannel.configureBlocking(false);
         serverChannel.register(selector, SelectionKey.OP_ACCEPT);
         this.workers = Executors.newFixedThreadPool(workerThreads);
-        setClientIdGenerator(new AtomicInteger(1)::getAndIncrement);
+        setClientIdGenerator(new SequentialIdGenerator());
         this.serverContext = new ServerContext();
         LOG.info("Server started on port " + port + " with " + workerThreads + " workers");
         // default processors left empty -> defaultForwardProcessor used when missing
@@ -527,12 +526,5 @@ public class TchatsAppServer {
         s.setPacketProcessor(router);
 
         s.start();
-    }
-
-    /* ----------------------- simple IdGenerator functional type ----------------------- */
-
-    @FunctionalInterface
-    public interface IdGenerator {
-        int generateId();
     }
 }
