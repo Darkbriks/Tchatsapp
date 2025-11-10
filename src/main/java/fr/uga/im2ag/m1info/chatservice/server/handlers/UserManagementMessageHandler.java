@@ -65,18 +65,14 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
 
         if (!serverContext.registerConnection(state, newClientId)) {
             System.err.println("[Server] Failed to register connection for new user " + newClientId);
-            ErrorMessage errorMessage = (ErrorMessage) MessageFactory.create(MessageType.ERROR, 0, 0);
-            errorMessage.setErrorLevel("ERROR");
-            errorMessage.setErrorType("CONNECTION_FAILED");
-            errorMessage.setErrorMessage("Failed to register connection");
-            serverContext.sendPacketToClient(errorMessage.toPacket());
+            serverContext.sendErrorMessage(0, newClientId, ErrorMessage.ErrorLevel.ERROR, "CONNECTION_FAILED", "Failed to register connection");
             serverContext.closeConnection(state);
             return;
         }
 
-        ManagementMessage response = (ManagementMessage) MessageFactory.create(MessageType.CREATE_USER, 0, newClientId);
-        response.addParam("clientId", newClientId);
-        response.addParam("pseudo", pseudo);
+        ManagementMessage response = ((ManagementMessage) MessageFactory.create(MessageType.CREATE_USER, 0, newClientId))
+                .addParam("clientId", newClientId)
+                .addParam("pseudo", pseudo);
         serverContext.sendPacketToClient(response.toPacket());
 
         System.out.printf("[Server] Created new user: id=%d, pseudo=%s%n", newClientId, pseudo);
@@ -101,11 +97,7 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
         // Check if client is registered
         if (!serverContext.isClientRegistered(clientId)) {
             System.out.printf("[Server] Client %d tried to connect but is not registered%n", clientId);
-            ErrorMessage errorMessage = (ErrorMessage) MessageFactory.create(MessageType.ERROR, 0, clientId);
-            errorMessage.setErrorLevel("ERROR");
-            errorMessage.setErrorType("USER_NOT_FOUND");
-            errorMessage.setErrorMessage("Client ID not registered. Please create an account first.");
-            serverContext.sendPacketToClient(errorMessage.toPacket());
+            serverContext.sendErrorMessage(0, clientId, ErrorMessage.ErrorLevel.ERROR, "USER_NOT_FOUND", "Client ID not registered. Please create an account first.");
             serverContext.closeConnection(state);
             return;
         }
@@ -113,11 +105,7 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
         // Check if already connected
         if (serverContext.isClientConnected(clientId)) {
             System.out.printf("[Server] Client %d is already connected%n", clientId);
-            ErrorMessage errorMessage = (ErrorMessage) MessageFactory.create(MessageType.ERROR, 0, clientId);
-            errorMessage.setErrorLevel("ERROR");
-            errorMessage.setErrorType("ALREADY_CONNECTED");
-            errorMessage.setErrorMessage("This account is already connected from another location.");
-            serverContext.sendPacketToClient(errorMessage.toPacket());
+            serverContext.sendErrorMessage(0, clientId, ErrorMessage.ErrorLevel.ERROR, "ALREADY_CONNECTED", "This account is already connected from another location.");
             serverContext.closeConnection(state);
             return;
         }
@@ -125,11 +113,7 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
         // Register the connection
         if (!serverContext.registerConnection(state, clientId)) {
             System.err.println("[Server] Failed to register connection for user " + clientId);
-            ErrorMessage errorMessage = (ErrorMessage) MessageFactory.create(MessageType.ERROR, 0, clientId);
-            errorMessage.setErrorLevel("ERROR");
-            errorMessage.setErrorType("CONNECTION_FAILED");
-            errorMessage.setErrorMessage("Failed to register connection");
-            serverContext.sendPacketToClient(errorMessage.toPacket());
+            serverContext.sendErrorMessage(0, clientId, ErrorMessage.ErrorLevel.ERROR, "CONNECTION_FAILED", "Failed to register connection");
             serverContext.closeConnection(state);
             return;
         }
@@ -172,11 +156,7 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
 
         if (serverContext.getUserRepository().findById(contactId) == null) {
             System.out.printf("[Server] User %d tried to add non-existing contact %d%n", from, contactId);
-            ErrorMessage errorMessage = (ErrorMessage) MessageFactory.create(MessageType.ERROR, 0, from);
-            errorMessage.setErrorLevel("WARNING");
-            errorMessage.setErrorType("CONTACT_NOT_EXISTING");
-            errorMessage.setErrorMessage("Cannot add non-existing user as contact.");
-            serverContext.sendPacketToClient(errorMessage.toPacket());
+            serverContext.sendErrorMessage(0, from, ErrorMessage.ErrorLevel.WARNING, "CONTACT_NOT_EXISTING", "Cannot add non-existing user as contact.");
             return;
         }
 
@@ -186,10 +166,11 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
 
         UserInfo contactUser = serverContext.getUserRepository().findById(contactId);
         if (contactUser != null && serverContext.isClientConnected(contactId)) {
-            ManagementMessage notifyMsg = (ManagementMessage) MessageFactory.create(MessageType.ADD_CONTACT, from, contactId);
-            notifyMsg.addParam("contactId", from);
-            notifyMsg.addParam("contactPseudo", user.getUsername());
-            serverContext.sendPacketToClient(notifyMsg.toPacket());
+            serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_CONTACT, from, contactId))
+                    .addParam("contactId", from)
+                    .addParam("contactPseudo", user.getUsername())
+                    .toPacket()
+            );
         }
     }
 
@@ -213,11 +194,7 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
 
         if (!user.getContacts().contains(contactId)) {
             System.out.printf("[Server] User %d tried to remove non-existing contact %d%n", from, contactId);
-            ErrorMessage errorMessage = (ErrorMessage) MessageFactory.create(MessageType.ERROR, 0, from);
-            errorMessage.setErrorLevel("WARNING");
-            errorMessage.setErrorType("CONTACT_NOT_FOUND");
-            errorMessage.setErrorMessage("Cannot remove contact who is not in your contacts.");
-            serverContext.sendPacketToClient(errorMessage.toPacket());
+            serverContext.sendErrorMessage(0, from, ErrorMessage.ErrorLevel.WARNING, "CONTACT_NOT_FOUND", "Cannot remove contact who is not in your contacts.");
             return;
         }
 
@@ -244,11 +221,7 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
 
         if (newPseudo == null || newPseudo.isEmpty()) {
             System.out.printf("[Server] User %d provided invalid new pseudo%n", from);
-            ErrorMessage errorMessage = (ErrorMessage) MessageFactory.create(MessageType.ERROR, 0, from);
-            errorMessage.setErrorLevel("WARNING");
-            errorMessage.setErrorType("INVALID_PSEUDO");
-            errorMessage.setErrorMessage("The new pseudo cannot be null or empty.");
-            serverContext.sendPacketToClient(errorMessage.toPacket());
+            serverContext.sendErrorMessage(0, from, ErrorMessage.ErrorLevel.ERROR, "INVALID_PSEUDO", "The new pseudo cannot be null or empty.");
             return;
         }
 
@@ -258,16 +231,15 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
 
         for (int contactId : user.getContacts()) {
             if (serverContext.isClientConnected(contactId)) {
-                ManagementMessage notifyMsg = (ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, from, contactId);
-                notifyMsg.addParam("contactId", from);
-                notifyMsg.addParam("newPseudo", newPseudo);
-                serverContext.sendPacketToClient(notifyMsg.toPacket());
+                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, from, contactId))
+                        .addParam("contactId", from)
+                        .addParam("newPseudo", newPseudo)
+                        .toPacket()
+                );
             }
         }
 
         // TODO: Send confirmation to the user (ACK message) ?
         // TODO: Maybe a ACK Message type can be useful in several places
-        // TODO: Chained methods for ProtocolMessage building would be nice
-        // TODO: Simplify ErrorMessage creation (static factory methods?)
     }
 }
