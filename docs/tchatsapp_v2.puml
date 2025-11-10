@@ -18,9 +18,6 @@ package "common" {
         + asByteArray(): byte[]
         + writeTo(dos: DataOutputStream): void
         + {static} readFrom(dis: DataInputStream): Packet
-        + {static} createTextMessage(from: int, to: int, content: String): Packet
-        + {static} createMediaMessage(from: int, to: int, mediaData: byte[]): Packet
-        + {static} createEmptyPacket(from: int, to: int, messageType: MessageType): Packet
     }
     note bottom of Packet
         **Structure de l'en-tête:**

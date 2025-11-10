@@ -14,7 +14,7 @@ public abstract class ProtocolMessage {
     protected int to;
 
     public abstract Packet toPacket();
-    public abstract void fromPacket(Packet packet);
+    public abstract ProtocolMessage fromPacket(Packet packet);
 
     /** Constructor for ProtocolMessage.
      *

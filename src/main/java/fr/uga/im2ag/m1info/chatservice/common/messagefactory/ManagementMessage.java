@@ -96,7 +96,7 @@ public class ManagementMessage extends ProtocolMessage {
     }
 
     @Override
-    public void fromPacket(Packet packet) {
+    public ManagementMessage fromPacket(Packet packet) {
         this.messageType = packet.messageType();
         this.from = packet.from();
         this.to = packet.to();
@@ -109,5 +109,6 @@ public class ManagementMessage extends ProtocolMessage {
                 params.put(keyValue[0], keyValue[1]);
             }
         }
+        return this;
     }
 }

@@ -14,10 +14,13 @@ package fr.uga.im2ag.m1info.chatservice.server;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+import fr.uga.im2ag.m1info.chatservice.server.handlers.ErrorMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.TextMessageHandler;
+import fr.uga.im2ag.m1info.chatservice.server.handlers.UserManagementMessageHandler;
+import fr.uga.im2ag.m1info.chatservice.server.repository.UserRepository;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -26,7 +29,6 @@ import java.nio.channels.*;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 /**
@@ -95,13 +97,13 @@ public class TchatsAppServer {
 
     private final ServerContext serverContext;
 
-    static class ConnectionState {
-        final SocketChannel channel;
-        int clientId;
-        final Instant connectedAt;
-        final ByteBuffer readBuffer;
-        volatile boolean identified;
-        Packet.PacketBuilder currentPacket;
+    public static class ConnectionState {
+        private final SocketChannel channel;
+        private int clientId;
+        private final Instant connectedAt;
+        private final ByteBuffer readBuffer;
+        private volatile boolean identified;
+        private Packet.PacketBuilder currentPacket;
 
         ConnectionState(SocketChannel c) {
             this.clientId = 0;
@@ -114,12 +116,142 @@ public class TchatsAppServer {
     }
 
     public class ServerContext {
+        private final UserRepository userRepository = new UserRepository();
+        private final ThreadLocal<ConnectionState> currentConnectionState = new ThreadLocal<>();
+
+        /**
+         * Get the user repository.
+         *
+         * @return the user repository
+         */
+        public UserRepository getUserRepository() {
+            return userRepository;
+        }
+
+        /**
+         * Send a packet to a client.
+         *
+         * @param pkt the packet to send
+         */
         public void sendPacketToClient(Packet pkt) {
             TchatsAppServer.this.sendPacket(pkt);
         }
 
+        /**
+         * Generate a new unique client ID.
+         *
+         * @return a new client ID
+         */
         public int generateClientId() {
             return idGenerator.generateId();
+        }
+
+        /**
+         * Set the current connection state for this thread.
+         * Used internally by the server to provide context to handlers.
+         *
+         * @param state the connection state
+         */
+        void setCurrentConnectionState(ConnectionState state) {
+            currentConnectionState.set(state);
+        }
+
+        /**
+         * Clear the current connection state for this thread.
+         */
+        void clearCurrentConnectionState() {
+            currentConnectionState.remove();
+        }
+
+        /**
+         * Get the current connection state for this thread.
+         * Only available during message processing.
+         *
+         * @return the current connection state, or null if not in a processing context
+         */
+        public ConnectionState getCurrentConnectionState() {
+            return currentConnectionState.get();
+        }
+
+        /**
+         * Register a new client connection with the given ID.
+         *
+         * @param state the connection state to register
+         * @param clientId the client ID to assign
+         * @return true if registration successful, false if client already connected
+         */
+        public boolean registerConnection(ConnectionState state, int clientId) {
+            if (connectedClients.putIfAbsent(clientId, state) != null) {
+                return false;
+            }
+            state.clientId = clientId;
+            state.identified = true;
+
+            // Create queue if it doesn't exist
+            clientQueues.putIfAbsent(clientId, new ConcurrentLinkedQueue<>());
+
+            wakeupSendQueue(state.channel);
+            return true;
+        }
+
+        /**
+         * Check if a client ID is registered in the system.
+         *
+         * @param clientId the client ID to check
+         * @return true if the client is registered
+         */
+        public boolean isClientRegistered(int clientId) {
+            return clientQueues.containsKey(clientId);
+        }
+
+        /**
+         * Check if a client is currently connected.
+         *
+         * @param clientId the client ID to check
+         * @return true if the client is currently connected
+         */
+        public boolean isClientConnected(int clientId) {
+            return connectedClients.containsKey(clientId);
+        }
+
+        /**
+         * Close a connection for the given state.
+         *
+         * @param state the connection state to close
+         */
+        public void closeConnection(ConnectionState state) {
+            if (state != null && state.channel != null) {
+                TchatsAppServer.this.closeChannel(state.channel);
+            }
+        }
+
+        /**
+         * Get the connection state from the channel.
+         *
+         * @param channel the socket channel
+         * @return the connection state, or null if not found
+         */
+        public ConnectionState getConnectionState(SocketChannel channel) {
+            return activeConnections.get(channel);
+        }
+
+        /**
+         * Send an error message to a client.
+         *
+         * @param from the sender client ID
+         * @param to the recipient client ID
+         * @param level the error level
+         * @param type the error type
+         * @param message the error message
+         */
+        public void sendErrorMessage(int from, int to, ErrorMessage.ErrorLevel level, String type, String message) {
+            sendPacketToClient(
+                    ((ErrorMessage) MessageFactory.create(MessageType.ERROR, from, to))
+                            .setErrorLevel(level)
+                            .setErrorType(type)
+                            .setErrorMessage(message)
+                            .toPacket()
+            );
         }
     }
 
@@ -138,7 +270,7 @@ public class TchatsAppServer {
         serverChannel.configureBlocking(false);
         serverChannel.register(selector, SelectionKey.OP_ACCEPT);
         this.workers = Executors.newFixedThreadPool(workerThreads);
-        setClientIdGenerator(new AtomicInteger(1)::getAndIncrement);
+        setClientIdGenerator(new SequentialIdGenerator());
         this.serverContext = new ServerContext();
         LOG.info("Server started on port " + port + " with " + workerThreads + " workers");
         // default processors left empty -> defaultForwardProcessor used when missing
@@ -222,64 +354,23 @@ public class TchatsAppServer {
 
         try {
             int read = sc.read(buf);
-            if (read == -1) {
-                closeChannel(sc);
-                return;
-            }
+            if (read == -1) { closeChannel(sc); return; }
             buf.flip();
             loop:
             while (buf.hasRemaining()) {
-                if (!state.identified) {
-                    if (buf.remaining() < Integer.BYTES) break loop;
-                    int clientId = buf.getInt();
-                    if (clientId == 0) {
-                        clientId = serverContext.generateClientId();
-                        clientQueues.put(clientId, new ConcurrentLinkedQueue<>());
-                    } else if (!clientQueues.containsKey(clientId)) {
-                        LOG.info("Client " + clientId + " is not registered. Closing connexion.");
-                        closeChannel(sc);
-                        return;
-                    }
-                    if (connectedClients.putIfAbsent(clientId, state) != null) {
-                        LOG.info("Client " + clientId + " already connected. Closing connexion.");
-                        closeChannel(sc);
-                        return;
-                    }
-                    state.clientId = clientId;
-                    state.identified = true;
-
-                    // send identification ok (empty packet) using same semantics as before
-                    sc.write(Packet.createEmptyPacket(0, clientId, MessageType.CREATE_USER).asByteBuffer());
-
-                    wakeupSendQueue(state.channel);
-                    LOG.info("Client " + state.clientId + " identified");
-                }
-
                 if (state.currentPacket == null) {
-                    if (buf.remaining() < Integer.BYTES) break loop;
-                    if (buf.remaining() >= Packet.getHeaderSize()) {
-                        readPacket(buf, state);
-                    } else {
-                        break loop;
+                    if (buf.remaining() < Integer.BYTES || buf.remaining() < Packet.getHeaderSize()) { break loop; }
+                    readPacketHeader(buf, state);
+
+                    // Read packet immediately to avoid issue with empty payload packets
+                    if (state.currentPacket.isCompleted()) {
+                        readPacket(state);
                     }
                 }
 
                 if (state.currentPacket != null && state.currentPacket.isReady()) {
                     if (state.currentPacket.fillFrom(buf).isCompleted()) {
-                        Packet pkt = state.currentPacket.build();
-                        state.currentPacket = null;
-                        // désérialiser vers ProtocolMessage via MessageFactory
-                        final Packet finalPkt = pkt;
-                        workers.submit(() -> {
-                            try {
-                                ProtocolMessage message = MessageFactory.fromPacket(finalPkt);
-                                LOG.info("packet converted to ProtocolMessage of type " + message.getMessageType() + " from client " + state.clientId);
-                                processMessage(message);
-                            } catch (RuntimeException e) {
-                                LOG.warning("Failed to convert packet to ProtocolMessage: " + e.getMessage());
-                            }
-                        });
-                        LOG.info("packet read from client " + state.clientId);
+                        readPacket(state);
                     }
                 }
             }
@@ -289,7 +380,28 @@ public class TchatsAppServer {
         }
     }
 
-    private void readPacket(ByteBuffer buf, ConnectionState state) {
+    private void readPacket(ConnectionState state) {
+        Packet pkt = state.currentPacket.build();
+        state.currentPacket = null;
+        // désérialiser vers ProtocolMessage via MessageFactory
+        final Packet finalPkt = pkt;
+        final ConnectionState finalState = state;
+        workers.submit(() -> {
+            try {
+                serverContext.setCurrentConnectionState(finalState);
+                ProtocolMessage message = MessageFactory.fromPacket(finalPkt);
+                LOG.info("packet converted to ProtocolMessage of type " + message.getMessageType() + " from client " + finalState.clientId);
+                processMessage(message);
+            } catch (RuntimeException e) {
+                LOG.warning("Failed to convert packet to ProtocolMessage: " + e.getMessage());
+            } finally {
+                serverContext.clearCurrentConnectionState();
+            }
+        });
+        LOG.info("packet read from client " + state.clientId);
+    }
+
+    private void readPacketHeader(ByteBuffer buf, ConnectionState state) {
         int msgLength = buf.getInt();
         if (msgLength < 0 || msgLength > MAX_MSG_SIZE) {
             LOG.warning("Invalid packet length " + msgLength + " from client " + state.clientId);
@@ -409,15 +521,10 @@ public class TchatsAppServer {
 
         ServerPacketRouter router = new ServerPacketRouter(s.serverContext);
         router.addHandler(new TextMessageHandler());
+        router.addHandler(new UserManagementMessageHandler());
+        router.addHandler(new ErrorMessageHandler());
         s.setPacketProcessor(router);
 
         s.start();
-    }
-
-    /* ----------------------- simple IdGenerator functional type ----------------------- */
-
-    @FunctionalInterface
-    public interface IdGenerator {
-        int generateId();
     }
 }
