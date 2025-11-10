@@ -42,25 +42,77 @@ public class EncryptedMessage {
     public byte[] getCiphertext() {
         return ciphertext;
     }
- 
     /**
-     * Serializes the message to bytes.
-     * Format: [1 byte type][8 bytes sequence][12 bytes nonce][N bytes ciphertext]
+     * Minimum size: 21 bytes (1 + 8 + 12 + 0)
+     *
      * @return The serialized message
      */
     public byte[] serialize() {
-        // TODO: Implement serialization
-        throw new UnsupportedOperationException("Not implemented yet");
+        if (nonce == null) {
+            throw new IllegalStateException("Nonce cannot be null");
+        }
+        if (ciphertext == null) {
+            throw new IllegalStateException("Ciphertext cannot be null");
+        }
+ 
+        // Calculate total size: 1 (type) + 8 (sequence) + 12 (nonce) + N (ciphertext)
+        int totalSize = 1 + 8 + 12 + ciphertext.length;
+        ByteBuffer buffer = ByteBuffer.allocate(totalSize);
+ 
+        // Write fields in order
+        buffer.put(type.getCode());              // 1 byte: message type
+        buffer.putLong(sequenceNumber);          // 8 bytes: sequence number
+        buffer.put(nonce);                       // 12 bytes: nonce
+        buffer.put(ciphertext);                  // N bytes: ciphertext + GCM tag
+ 
+        return buffer.array();
+    } 
+    
+    /**
+     * Deserializes a message from bytes.
+     *
+     * @param data The serialized message data
+     * @return The deserialized EncryptedMessage
+     * @throws IllegalArgumentException if data is invalid or too small
+     */
+    public static EncryptedMessage deserialize(byte[] data) {
+        if (data == null) {
+            throw new IllegalArgumentException("Data cannot be null");
+        }
+ 
+        // Minimum size: 1 (type) + 8 (sequence) + 12 (nonce) = 21 bytes
+        final int MIN_SIZE = 21;
+        if (data.length < MIN_SIZE) {
+            throw new IllegalArgumentException(
+                "Data too small: " + data.length + " bytes, minimum " + MIN_SIZE + " bytes required"
+            );
+        }
+ 
+        ByteBuffer buffer = ByteBuffer.wrap(data);
+ 
+        // Read fields in order
+        byte typeCode = buffer.get();                    // 1 byte: message type
+        MessageType type = MessageType.fromCode(typeCode);
+ 
+        long sequenceNumber = buffer.getLong();          // 8 bytes: sequence number
+ 
+        byte[] nonce = new byte[12];                     // 12 bytes: nonce
+        buffer.get(nonce);
+ 
+        // Remaining bytes are ciphertext (including GCM tag)
+        int ciphertextLength = buffer.remaining();
+        byte[] ciphertext = new byte[ciphertextLength];
+        buffer.get(ciphertext);
+ 
+        return new EncryptedMessage(type, sequenceNumber, nonce, ciphertext);
     }
  
     /**
-     * Deserializes a message from bytes.
-     * @param data The serialized message data
-     * @return The deserialized EncryptedMessage
-     * @throws IllegalArgumentException if data is invalid
+     * Gets the total serialized size of this message.
+     * @return The size in bytes (minimum 21 bytes)
      */
-    public static EncryptedMessage deserialize(byte[] data) {
-        // TODO: Implement deserialization
-        throw new UnsupportedOperationException("Not implemented yet");
+    public int getSerializedSize() {
+        return 1 + 8 + 12 + (ciphertext != null ? ciphertext.length : 0);
     }
+
 }
