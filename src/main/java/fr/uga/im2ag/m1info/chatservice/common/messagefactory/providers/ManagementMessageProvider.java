@@ -12,6 +12,7 @@ public class ManagementMessageProvider implements MessageProvider {
         return Set.of(
                 MessageType.CREATE_USER,
                 MessageType.CONNECT_USER,
+                MessageType.ACK_CONNECTION,  // Added ACK_CONNECTION support
                 MessageType.ADD_CONTACT,
                 MessageType.REMOVE_CONTACT,
                 MessageType.UPDATE_PSEUDO
