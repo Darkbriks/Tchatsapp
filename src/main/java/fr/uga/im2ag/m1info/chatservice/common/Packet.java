@@ -13,6 +13,7 @@ package fr.uga.im2ag.m1info.chatservice.common;
 
 import java.io.*;
 import java.nio.ByteBuffer;
+import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 
 /**
  * Represents a packet sent between the client and the server (or vice versa)

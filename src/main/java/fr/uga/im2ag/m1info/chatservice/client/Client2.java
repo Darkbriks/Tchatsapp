@@ -1,29 +1,29 @@
-/*
- * Copyright (c) 2025.  Jerome David. Univ. Grenoble Alpes.
- * This file is part of TchatsApp.
- *
- * TchatsApp is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
- *
- * TchatsApp is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with TchatsApp. If not, see <https://www.gnu.org/licenses/>.
- */
+// /*
+//  * Copyright (c) 2025.  Jerome David. Univ. Grenoble Alpes.
+//  * This file is part of TchatsApp.
+//  *
+//  * TchatsApp is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+//  *
+//  * TchatsApp is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+//  *
+//  * You should have received a copy of the GNU General Public License along with TchatsApp. If not, see <https://www.gnu.org/licenses/>.
+//  */
 
-package fr.uga.im2ag.m1info.chatservice.client;
+// package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 
-import java.io.IOException;
-import java.util.Scanner;
+// import java.io.IOException;
+// import java.util.Scanner;
 
-public class Client2 {
+// public class Client2 {
 
-    public static void main(String[] args) throws IOException, InterruptedException {
-        Scanner sc = new Scanner(System.in);
-        System.out.println("Votre id ? (0 pour en créer un nouveau)");
-        int clientId =  sc.nextInt();
+//     public static void main(String[] args) throws IOException, InterruptedException {
+//         Scanner sc = new Scanner(System.in);
+//         System.out.println("Votre id ? (0 pour en créer un nouveau)");
+//         int clientId =  sc.nextInt();
 
 
         Client c = new Client(clientId);
@@ -50,5 +50,5 @@ public class Client2 {
 
 
 
-    }
-}
+//     }
+// }
