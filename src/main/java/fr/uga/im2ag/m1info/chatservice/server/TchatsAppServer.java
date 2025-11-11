@@ -17,6 +17,8 @@ import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+import fr.uga.im2ag.m1info.chatservice.server.handlers.MediaMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.ErrorMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.TextMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.UserManagementMessageHandler;
@@ -521,6 +523,7 @@ public class TchatsAppServer {
 
         ServerPacketRouter router = new ServerPacketRouter(s.serverContext);
         router.addHandler(new TextMessageHandler());
+        router.addHandler(new MediaMessageHandler());
         router.addHandler(new UserManagementMessageHandler());
         router.addHandler(new ErrorMessageHandler());
         s.setPacketProcessor(router);

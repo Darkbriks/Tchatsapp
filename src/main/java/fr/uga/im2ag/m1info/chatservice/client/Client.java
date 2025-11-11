@@ -13,13 +13,20 @@ package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.client.handlers.ErrorMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.ManagementMessageHandler;
+import fr.uga.im2ag.m1info.chatservice.client.handlers.MediaMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.TextMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.common.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 
+import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.Socket;
 import java.util.Scanner;
 
@@ -155,8 +162,29 @@ public class Client {
         }
     }
 
+    public void sendMedia(String msg, int to){
+        try {
+            String fileName = msg.substring(1);
+            InputStream fileStream = new FileInputStream(new File(fileName));
+            int count = 0;
+            byte[] buffer = new byte[8192]; // or 4096, or more
+            while ((count = fileStream.read(buffer)) > 0)
+            {
+                MediaMessage mediaMsg = (MediaMessage) MessageFactory.create(MessageType.MEDIA, clientId, to);
+                mediaMsg.generateNewMessageId(messageIdGenerator);
+                mediaMsg.setMediaName(fileName);
+                mediaMsg.setContent(buffer);
+                mediaMsg.setSizeContent(count);
+                sendPacket(mediaMsg.toPacket());
+            }
+            fileStream.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     /** A basic client in command line **/
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException, InterruptedException {
         final int serverId = 0;
         Scanner sc = new Scanner(System.in);
         System.out.println("Votre id ? (0 pour en créer un nouveau)");
@@ -172,6 +200,7 @@ public class Client {
 
         ClientPaquetRouter router = new ClientPaquetRouter();
         router.addHandler(new TextMessageHandler());
+        router.addHandler(new MediaMessageHandler());
         router.addHandler(new ErrorMessageHandler());
         router.addHandler(new ManagementMessageHandler());
         c.setPacketProcessor(router);
@@ -196,10 +225,14 @@ public class Client {
                         sc.nextLine();
                         System.out.println("Votre message :");
                         String msg = sc.nextLine();
-                        TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, clientId, to);
-                        textMsg.generateNewMessageId(c.messageIdGenerator);
-                        textMsg.setContent(msg);
-                        c.sendPacket(textMsg.toPacket());
+                        if (msg.charAt(0) == '/'){
+                            c.sendMedia(msg, to);
+                        } else{
+                            TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, clientId, to);
+                            textMsg.generateNewMessageId(c.messageIdGenerator);
+                            textMsg.setContent(msg);
+                            c.sendPacket(textMsg.toPacket());
+                        }
                     }
                     case 2 -> {
                         System.out.println("Quel est l'id du contact à ajouter ?");
