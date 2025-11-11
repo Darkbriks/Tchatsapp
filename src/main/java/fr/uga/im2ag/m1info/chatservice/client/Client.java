@@ -13,6 +13,7 @@ package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.client.handlers.ErrorMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.ManagementMessageHandler;
+import fr.uga.im2ag.m1info.chatservice.client.handlers.MediaMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.TextMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.common.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
@@ -199,6 +200,7 @@ public class Client {
 
         ClientPaquetRouter router = new ClientPaquetRouter();
         router.addHandler(new TextMessageHandler());
+        router.addHandler(new MediaMessageHandler());
         router.addHandler(new ErrorMessageHandler());
         router.addHandler(new ManagementMessageHandler());
         c.setPacketProcessor(router);
