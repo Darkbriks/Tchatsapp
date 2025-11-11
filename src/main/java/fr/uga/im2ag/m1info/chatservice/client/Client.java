@@ -18,13 +18,10 @@ import fr.uga.im2ag.m1info.chatservice.client.handlers.TextMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.common.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 
-import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
@@ -36,6 +33,7 @@ import java.util.Scanner;
  */
 public class Client {
 
+    private static final int MAX_SIZE_CHUNK_FILE = 8192;
     private int clientId;
     private Socket cnx;
     private PacketProcessor processor;
@@ -167,7 +165,7 @@ public class Client {
             String fileName = msg.substring(1);
             InputStream fileStream = new FileInputStream(new File(fileName));
             int count = 0;
-            byte[] buffer = new byte[8192]; // or 4096, or more
+            byte[] buffer = new byte[MAX_SIZE_CHUNK_FILE];
             while ((count = fileStream.read(buffer)) > 0)
             {
                 MediaMessage mediaMsg = (MediaMessage) MessageFactory.create(MessageType.MEDIA, clientId, to);
@@ -197,7 +195,6 @@ public class Client {
         }
 
         Client c = new Client(clientId);
-
         ClientPaquetRouter router = new ClientPaquetRouter();
         router.addHandler(new TextMessageHandler());
         router.addHandler(new MediaMessageHandler());
@@ -259,6 +256,7 @@ public class Client {
                 }
             }
             c.disconnect();
+            sc.close();
             System.exit(0);
         }
     }
