@@ -113,7 +113,7 @@ launch_clients() {
                 exit 1
                 ;;
         esac
-        sleep 2
+        sleep 5
     done
 }
 
@@ -127,7 +127,7 @@ case $MODE in
         ;;
     "all")
         launch_server
-        sleep 2
+        sleep 5
         launch_clients
         ;;
 esac

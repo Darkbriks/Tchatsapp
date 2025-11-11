@@ -19,6 +19,13 @@ public enum MessageType {
     NOTIFICATION,
     EMPTY,
     ERROR,
+    KEY_EXCHANGE,
+    KEY_EXCHANGE_RESPONSE,
+    ENCRYPTED_TEXT,
+    ENCRYPTED_FILE_CHUNK,
+    FILE_TRANSFER_START,
+    FILE_TRANSFER_ACK,
+    GROUP_KEY_DISTRIBUTION,
     NONE;
 
     /** Convert an integer to a MessageType enum.
@@ -77,6 +84,13 @@ public enum MessageType {
             case EMPTY -> "EMPTY";
             case ERROR -> "ERROR";
             case NONE -> "NONE";
+            case KEY_EXCHANGE -> "KEY_EXCHANGE";
+            case KEY_EXCHANGE_RESPONSE -> "KEY_EXCHANGE_RESPONSE";
+            case ENCRYPTED_TEXT -> "ENCRYPTED_TEXT";
+            case ENCRYPTED_FILE_CHUNK -> "ENCRYPTED_FILE_CHUNK";
+            case FILE_TRANSFER_START -> "FILE_TRANSFER_START";
+            case FILE_TRANSFER_ACK -> "FILE_TRANSFER_ACK";
+            case GROUP_KEY_DISTRIBUTION -> "GROUP_KEY_DISTRIBUTION";
         };
     }
 }

@@ -1,6 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.protocol;
  
 import fr.uga.im2ag.m1info.chatservice.common.*;
+import fr.uga.im2ag.m1info.chatservice.common.MessageType;
  
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
