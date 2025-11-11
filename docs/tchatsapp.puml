@@ -1,0 +1,731 @@
+@startuml TchatsApp
+
+skinparam linetype ortho
+
+package "common" {
+    
+    ' ===== PACKET STRUCTURE =====
+    class Packet {
+        - buffer: ByteBuffer {readOnly}
+        --
+        + from(): int
+        + to(): int
+        + payloadSize(): int
+        + getPayload(): ByteBuffer
+        + asByteBuffer(): ByteBuffer
+        + {static} readFrom(dis: DataInputStream): Packet
+        + {static} createTextMessage(from: int, to: int, content: String): Packet
+        + {static} createEmptyPacket(from: int, to: int): Packet
+    }
+
+    class PacketBuilder {
+        - buf: ByteBuffer
+        --
+        + PacketBuilder(payloadSize: int, from: int)
+        + PacketBuilder(dataSize: int, from: int, to: int)
+        + setTo(to: int): PacketBuilder
+        + setPayload(payload: byte[]): PacketBuilder
+        + fillFrom(bf: ByteBuffer): PacketBuilder
+        + isReady(): boolean
+        + isCompleted(): boolean
+        + build(): Packet
+        + getPayload(): ByteBuffer
+    }
+
+    PacketBuilder --> Packet : creates
+    
+    ' ===== PACKET PROCESSOR =====
+    interface PacketProcessor {
+        + process(pkt: Packet): void
+    }
+    note right of PacketProcessor
+        **Pattern: Strategy**
+        Permet de définir différents traitements pour les packets
+    end note
+    
+    ' ===== MESSAGE TYPES =====
+    enum MessageType {
+        TEXT
+        MEDIA
+        CREATE_USER
+        CREATE_GROUP
+        UPDATE_PSEUDO
+        ADD_CONTACT
+        ADD_GROUP_MEMBER
+        REMOVE_GROUP_MEMBER
+        UPDATE_GROUP_NAME
+        DELETE_GROUP
+        LEAVE_GROUP
+        MESSAGE_REACTION
+        NOTIFICATION
+        ERROR
+        ...
+        --
+        + fromByte(b: byte): MessageType
+        + toByte(): byte
+    }
+    
+    ' ===== PROTOCOL MESSAGE =====
+    abstract class ProtocolMessage {
+        # type: MessageType
+        # from: int
+        # to: int
+        --
+        + {abstract} toPacket(): Packet
+        + {abstract} toBytes(): byte[]
+        + getType(): MessageType
+        + getFrom(): int
+        + getTo(): int
+    }
+    
+    class TextMessage extends ProtocolMessage {
+        - messageId: String
+        - content: String
+        - replyToId: String
+        - timestamp: long
+        --
+        + TextMessage(from: int, to: int, messageId: String, content: String)
+        + getMessageId(): String
+        + getContent(): String
+        + getReplyToId(): String
+        + setReplyToId(replyToId: String): void
+        + getTimestamp(): long
+        + toPacket(): Packet
+        + toBytes(): byte[]
+    }
+    
+    class MediaMessage extends ProtocolMessage {
+        - messageId: String
+        - mediaType: String
+        - mediaId: String
+        - thumbnailData: byte[]
+        - replyToId: String
+        - timestamp: long
+        --
+        + MediaMessage(from: int, to: int, messageId: String, mediaType: String)
+        + getMessageId(): String
+        + getMediaId(): String
+        + getThumbnailData(): byte[]
+        + toPacket(): Packet
+        + toBytes(): byte[]
+    }
+    
+    class ManagementMessage extends ProtocolMessage {
+        - action: MessageType
+        - parameters: Map<String, Object>
+        --
+        + ManagementMessage(from: int, action: MessageType)
+        + addParameter(key: String, value: Object): void
+        + getParameter(key: String): Object
+        + toPacket(): Packet
+        + toBytes(): byte[]
+    }
+    
+    class ReactionMessage extends ProtocolMessage {
+        - targetMessageId: String
+        - emoji: String
+        - isAdd: boolean
+        --
+        + ReactionMessage(from: int, to: int, targetMessageId: String, emoji: String, isAdd: boolean)
+        + getTargetMessageId(): String
+        + getEmoji(): String
+        + isAdd(): boolean
+        + toPacket(): Packet
+        + toBytes(): byte[]
+    }
+    
+    class NotificationMessage extends ProtocolMessage {
+        - notificationType: String
+        - data: String
+        --
+        + NotificationMessage(from: int, to: int, type: String, data: String)
+        + toPacket(): Packet
+        + toBytes(): byte[]
+    }
+    
+    ' ===== MESSAGE FACTORY =====
+    class MessageFactory {
+        --
+        + {static} createTextMessage(from: int, to: int, messageId: String, content: String): TextMessage
+        + {static} createMediaMessage(from: int, to: int, messageId: String, mediaType: String): MediaMessage
+        + {static} createReactionMessage(from: int, to: int, targetMessageId: String, emoji: String, isAdd: boolean): ReactionMessage
+        + {static} createManagementMessage(from: int, action: MessageType): ManagementMessage
+        + {static} createNotification(from: int, to: int, type: String, data: String): NotificationMessage
+        + {static} parsePacket(pkt: Packet): ProtocolMessage
+    }
+    note right of MessageFactory
+        **Pattern: Factory**
+        Centralise la création des messages
+    end note
+    
+    ' ===== MESSAGE ID GENERATOR =====
+    class MessageIdGenerator {
+        - counter: AtomicLong
+        --
+        + MessageIdGenerator()
+        + generateId(userId: int): String
+        - generateHash(userId: int, timestamp: long, counter: long): String
+    }
+    note bottom of MessageIdGenerator
+        **Génération ID unique**
+        Hash: SHA-256(userId + timestamp + counter) ?
+    end note
+    
+    ' ===== ENCRYPTION =====
+    interface CryptoStrategy {
+        + encrypt(data: byte[]): byte[]
+        + decrypt(data: byte[]): byte[]
+    }
+    note top of CryptoStrategy
+        **Pattern: Strategy**
+        Différents algorithmes de chiffrement possibles
+    end note
+    
+    class AESCryptoStrategy implements CryptoStrategy {
+        - key: SecretKey
+        --
+        + AESCryptoStrategy(key: SecretKey)
+        + encrypt(data: byte[]): byte[]
+        + decrypt(data: byte[]): byte[]
+    }
+    
+    class E2ECryptoStrategy implements CryptoStrategy {
+        - privateKey: PrivateKey
+        - publicKeys: Map<Integer, PublicKey>
+        --
+        + E2ECryptoStrategy(privateKey: PrivateKey)
+        + addPublicKey(userId: int, publicKey: PublicKey): void
+        + encrypt(data: byte[]): byte[]
+        + decrypt(data: byte[]): byte[]
+    }
+    
+    abstract class ProtocolMessageDecorator extends ProtocolMessage {
+        # wrappedMessage: ProtocolMessage
+        --
+        + ProtocolMessageDecorator(msg: ProtocolMessage)
+        + getType(): MessageType
+        + getFrom(): int
+        + getTo(): int
+    }
+    note right of ProtocolMessageDecorator
+        **Pattern: Decorator**
+        Ajoute chiffrement aux messages
+    end note
+    
+    class EncryptedMessage extends ProtocolMessageDecorator {
+        - cryptoStrategy: CryptoStrategy
+        - isEncrypted: boolean
+        --
+        + EncryptedMessage(msg: ProtocolMessage, crypto: CryptoStrategy)
+        + toPacket(): Packet
+        + toBytes(): byte[]
+        + decrypt(): ProtocolMessage
+        + isEncrypted(): boolean
+    }
+    
+    EncryptedMessage --> CryptoStrategy
+    
+    MessageFactory ..> ProtocolMessage : creates
+    MessageFactory ..> Packet : uses
+}
+
+' ============================================
+' PACKAGE SERVER
+' ============================================
+package "server" {
+    
+    ' ===== ID GENERATOR =====
+    interface IdGenerator {
+        + generateId(): int
+    }
+    
+    class SequentialIdGenerator implements IdGenerator {
+        - counter: AtomicInteger
+        --
+        + SequentialIdGenerator(start: int)
+        + generateId(): int
+    }
+    note bottom of IdGenerator
+        **Pattern: Strategy**
+        Permet différentes stratégies de génération d'IDs
+    end note
+    
+    ' ===== CONNECTION STATE =====
+    class ConnectionState {
+        + channel: SocketChannel {final}
+        + clientId: int
+        + connectedAt: Instant {final}
+        + readBuffer: ByteBuffer {final}
+        + identified: boolean {volatile}
+        + currentPacket: PacketBuilder
+        --
+        + ConnectionState(c: SocketChannel)
+    }
+    
+    ' ===== SERVER MAIN CLASS =====
+    class TchatsAppServer {
+        - {static} MAX_MSG_SIZE: int
+        - {static} BUFFER_LENGTH: int
+        - IDENTIFY_TIMEOUT: int
+        - activeConnections: Map<SocketChannel, ConnectionState>
+        - connectedClients: Map<Integer, ConnectionState>
+        - clientQueues: Map<Integer, Queue<ByteBuffer>>
+        - packetProcessor: PacketProcessor
+        - idGenerator: IdGenerator
+        - workers: ExecutorService
+        - scheduler: ScheduledExecutorService
+        - selector: Selector
+        - started: boolean {volatile}
+        --
+        + TchatsAppServer(port: int, workerThreads: int)
+        + start(): void
+        + stop(): void
+        + setPacketProcessor(pp: PacketProcessor): void
+        + setClientIdGenerator(gen: IdGenerator): void
+        + sendPacket(pkt: Packet): void
+        + removeClient(clientId: int): void
+        + isConnected(clientId: int): boolean
+        - accept(key: SelectionKey): void
+        - read(key: SelectionKey): void
+        - write(key: SelectionKey): void
+        - closeChannel(sc: SocketChannel): void
+        - wakeupSendQueue(channel: SocketChannel): void
+    }
+    
+    ' ===== SERVER PACKET HANDLERS =====
+    abstract class ServerPacketHandler {
+        # server: TchatsAppServer
+        --
+        + ServerPacketHandler(server: TchatsAppServer)
+        + {abstract} handle(msg: ProtocolMessage): void
+        + {abstract} canHandle(type: MessageType): boolean
+    }
+    
+    class TextMessageHandler extends ServerPacketHandler {
+        --
+        + handle(msg: ProtocolMessage): void
+        + canHandle(type: MessageType): boolean
+    }
+    
+    class MediaMessageHandler extends ServerPacketHandler {
+        - mediaStorage: MediaStorage
+        --
+        + MediaMessageHandler(server: TchatsAppServer, storage: MediaStorage)
+        + handle(msg: ProtocolMessage): void
+        + canHandle(type: MessageType): boolean
+    }
+    
+    class ReactionHandler extends ServerPacketHandler {
+        --
+        + handle(msg: ProtocolMessage): void
+        + canHandle(type: MessageType): boolean
+    }
+    
+    class GroupManagementHandler extends ServerPacketHandler {
+        - groups: Map<Integer, GroupInfo>
+        - groupIdGenerator: IdGenerator
+        --
+        + handle(msg: ProtocolMessage): void
+        + canHandle(type: MessageType): boolean
+        - createGroup(adminId: int, name: String): int
+        - addMember(groupId: int, memberId: int, requesterId: int): void
+        - removeMember(groupId: int, memberId: int, requesterId: int): void
+        - deleteGroup(groupId: int, requesterId: int): void
+    }
+    note right of ServerPacketHandler
+        **Pattern: Command**
+        Encapsule les opérations de traitement des messages
+    end note
+    
+    class ServerPacketRouter implements PacketProcessor {
+        - handlers: List<ServerPacketHandler>
+        --
+        + ServerPacketRouter()
+        + addHandler(handler: ServerPacketHandler): void
+        + process(pkt: Packet): void
+    }
+    note bottom of ServerPacketRouter
+        **Pattern: Chain of Responsibility**
+        Route les packets vers le handler approprié
+    end note
+    
+    ' ===== GROUP INFO =====
+    class GroupInfo {
+        + groupId: int {final}
+        + adminId: int {final}
+        + members: Set<Integer>
+        --
+        + GroupInfo(groupId: int, adminId: int)
+        + addMember(memberId: int): void
+        + removeMember(memberId: int): void
+        + isMember(userId: int): boolean
+        + isAdmin(userId: int): boolean
+    }
+    
+    ' ===== MEDIA STORAGE =====
+    interface MediaStorage {
+        + storeMedia(mediaId: String, data: byte[]): void
+        + retrieveMedia(mediaId: String): byte[]
+        + deleteMedia(mediaId: String): void
+        + exists(mediaId: String): boolean
+    }
+    
+    class FileSystemMediaStorage implements MediaStorage {
+        - baseDir: Path
+        --
+        + FileSystemMediaStorage(baseDir: Path)
+        + storeMedia(mediaId: String, data: byte[]): void
+        + retrieveMedia(mediaId: String): byte[]
+        + deleteMedia(mediaId: String): void
+        + exists(mediaId: String): boolean
+    }
+    
+    TchatsAppServer "1" *-- "many" ConnectionState
+    TchatsAppServer o-- IdGenerator
+    TchatsAppServer o-- PacketProcessor
+    ServerPacketRouter "1" *-- "many" ServerPacketHandler
+    GroupManagementHandler "1" *-- "many" GroupInfo
+    MediaMessageHandler o-- MediaStorage
+}
+
+' ============================================
+' PACKAGE CLIENT
+' ============================================
+package "client" {
+    
+    ' ===== USER (Local representation) =====
+    class User {
+        - userId: int {final}
+        - pseudo: String
+        - publicKey: PublicKey
+        - privateKey: PrivateKey
+        --
+        + User(userId: int, pseudo: String)
+        + getUserId(): int
+        + getPseudo(): String
+        + setPseudo(pseudo: String): void
+        + getPublicKey(): PublicKey
+        + setKeyPair(publicKey: PublicKey, privateKey: PrivateKey): void
+    }
+    
+    ' ===== CONTACT =====
+    class Contact {
+        - contactId: int {final}
+        - pseudo: String
+        - publicKey: PublicKey
+        - lastSeen: Instant
+        --
+        + Contact(contactId: int, pseudo: String)
+        + getContactId(): int
+        + getPseudo(): String
+        + updatePseudo(pseudo: String): void
+        + updateLastSeen(): void
+        + getPublicKey(): PublicKey
+        + setPublicKey(key: PublicKey): void
+    }
+    
+    ' ===== GROUP =====
+    class Group {
+        - groupId: int {final}
+        - name: String
+        - adminId: int {final}
+        - members: Set<Integer>
+        --
+        + Group(groupId: int, name: String, adminId: int)
+        + getGroupId(): int
+        + getName(): String
+        + setName(name: String): void
+        + getAdminId(): int
+        + getMembers(): Set<Integer>
+        + addMember(memberId: int): void
+        + removeMember(memberId: int): void
+        + isAdmin(userId: int): boolean
+        + isMember(userId: int): boolean
+    }
+    
+    ' ===== MESSAGE (Stored locally) =====
+    class Message {
+        - messageId: String {final}
+        - from: int
+        - to: int
+        - content: String
+        - timestamp: Instant {final}
+        - isRead: boolean
+        - replyToId: String
+        - reactions: Map<String, Set<Integer>>
+        - mediaAttachment: Media
+        --
+        + Message(messageId: String, from: int, to: int, content: String)
+        + getMessageId(): String
+        + getFrom(): int
+        + getTo(): int
+        + getContent(): String
+        + getTimestamp(): Instant
+        + markAsRead(): void
+        + isRead(): boolean
+        + setReplyTo(messageId: String): void
+        + getReplyToId(): String
+        + addReaction(emoji: String, userId: int): void
+        + removeReaction(emoji: String, userId: int): void
+        + getReactions(): Map<String, Set<Integer>>
+        + setMediaAttachment(media: Media): void
+        + getMediaAttachment(): Media
+    }
+    note right of Message
+        **ID unique généré client**
+        messageId = SHA-256(userId + timestamp + counter)
+        Permet réponses, réactions, etc.
+    end note
+    
+    ' ===== MEDIA =====
+    interface Media {
+        + getMediaId(): String
+        + getMediaType(): String
+        + getThumbnail(): byte[]
+        + getContent(): byte[]
+        + isLoaded(): boolean
+    }
+    note top of Media
+        **Pattern: Proxy**
+        Lazy loading des médias
+    end note
+    
+    class RealMedia implements Media {
+        - mediaId: String
+        - mediaType: String
+        - thumbnail: byte[]
+        - content: byte[]
+        --
+        + RealMedia(mediaId: String, mediaType: String, content: byte[])
+        + getMediaId(): String
+        + getMediaType(): String
+        + getThumbnail(): byte[]
+        + getContent(): byte[]
+        + isLoaded(): boolean
+    }
+    
+    class MediaProxy implements Media {
+        - mediaId: String
+        - mediaType: String
+        - thumbnail: byte[]
+        - realMedia: RealMedia
+        - client: Client
+        --
+        + MediaProxy(mediaId: String, mediaType: String, thumbnail: byte[], client: Client)
+        + getMediaId(): String
+        + getMediaType(): String
+        + getThumbnail(): byte[]
+        + getContent(): byte[]
+        + isLoaded(): boolean
+        - loadMedia(): void
+    }
+    
+    MediaProxy --> RealMedia : creates on demand
+    MediaProxy --> Client : requests media
+    Message --> Media
+    
+    ' ===== CONVERSATION =====
+    class Conversation {
+        - conversationId: int {final}
+        - messages: Map<String, Message>
+        - messageOrder: List<String>
+        - isGroup: boolean
+        --
+        + Conversation(conversationId: int, isGroup: boolean)
+        + addMessage(msg: Message): void
+        + getMessage(messageId: String): Message
+        + getMessages(): List<Message>
+        + getUnreadCount(): int
+        + markAllAsRead(): void
+        + addReactionToMessage(messageId: String, emoji: String, userId: int): void
+    }
+    
+    ' ===== REPOSITORIES =====
+    interface Repository<T> {
+        + add(item: T): void
+        + remove(id: int): void
+        + get(id: int): T
+        + getAll(): List<T>
+    }
+    note top of Repository
+        **Pattern: Repository**
+        Abstrait l'accès aux données stockées localement
+    end note
+    
+    class ContactRepository implements Repository {
+        - contacts: Map<Integer, Contact>
+        --
+        + add(contact: Contact): void
+        + remove(id: int): void
+        + get(id: int): Contact
+        + getAll(): List<Contact>
+    }
+    
+    class GroupRepository implements Repository {
+        - groups: Map<Integer, Group>
+        --
+        + add(group: Group): void
+        + remove(id: int): void
+        + get(id: int): Group
+        + getAll(): List<Group>
+    }
+    
+    class ConversationRepository implements Repository {
+        - conversations: Map<Integer, Conversation>
+        --
+        + add(conversation: Conversation): void
+        + remove(id: int): void
+        + get(id: int): Conversation
+        + getAll(): List<Conversation>
+        + getOrCreate(id: int, isGroup: boolean): Conversation
+    }
+    
+    ' ===== CLIENT LISTENER =====
+    interface ClientEventListener {
+        + onMessageReceived(msg: Message): void
+        + onReactionAdded(messageId: String, emoji: String, userId: int): void
+        + onContactAdded(contact: Contact): void
+        + onGroupUpdated(group: Group): void
+        + onConnectionStateChanged(connected: boolean): void
+        + onError(error: String): void
+    }
+    note right of ClientEventListener
+        **Pattern: Observer**
+        Permet à l'UI d'être notifiée des événements
+    end note
+    
+    ' ===== CLIENT PACKET HANDLERS =====
+    abstract class ClientPacketHandler {
+        # client: ClientController
+        --
+        + ClientPacketHandler(client: ClientController)
+        + {abstract} handle(msg: ProtocolMessage): void
+        + {abstract} canHandle(type: MessageType): boolean
+    }
+    
+    class ClientTextMessageHandler extends ClientPacketHandler {
+        --
+        + handle(msg: ProtocolMessage): void
+        + canHandle(type: MessageType): boolean
+    }
+    
+    class ClientMediaMessageHandler extends ClientPacketHandler {
+        --
+        + handle(msg: ProtocolMessage): void
+        + canHandle(type: MessageType): boolean
+    }
+    
+    class ClientReactionHandler extends ClientPacketHandler {
+        --
+        + handle(msg: ProtocolMessage): void
+        + canHandle(type: MessageType): boolean
+    }
+    
+    class ClientManagementHandler extends ClientPacketHandler {
+        --
+        + handle(msg: ProtocolMessage): void
+        + canHandle(type: MessageType): boolean
+    }
+    
+    class ClientPacketRouter implements PacketProcessor {
+        - handlers: List<ClientPacketHandler>
+        --
+        + addHandler(handler: ClientPacketHandler): void
+        + process(pkt: Packet): void
+    }
+    
+    ' ===== CLIENT CONNECTION =====
+    class Client {
+        - clientId: int
+        - cnx: Socket
+        - processor: PacketProcessor
+        --
+        + Client()
+        + Client(clientId: int)
+        + connect(host: String, port: int): boolean
+        + disconnect(): void
+        + sendPacket(pkt: Packet): boolean
+        + setPacketProcessor(p: PacketProcessor): void
+        + isConnected(): boolean
+        + getClientId(): int
+        + requestMedia(mediaId: String): byte[]
+    }
+    
+    ' ===== CLIENT CONTROLLER =====
+    class ClientController {
+        - client: Client
+        - currentUser: User
+        - contactRepository: ContactRepository
+        - groupRepository: GroupRepository
+        - conversationRepository: ConversationRepository
+        - listeners: List<ClientEventListener>
+        - packetRouter: ClientPacketRouter
+        - messageIdGenerator: MessageIdGenerator
+        - cryptoStrategy: CryptoStrategy
+        --
+        + ClientController()
+        + connect(host: String, port: int, userId: int): boolean
+        + disconnect(): void
+        + getCurrentUser(): User
+        + addListener(listener: ClientEventListener): void
+        + removeListener(listener: ClientEventListener): void
+        + sendTextMessage(to: int, content: String): String
+        + sendTextMessage(to: int, content: String, replyToId: String): String
+        + sendMediaMessage(to: int, media: byte[], mediaType: String): String
+        + addReaction(conversationId: int, messageId: String, emoji: String): void
+        + removeReaction(conversationId: int, messageId: String, emoji: String): void
+        + addContact(contactId: int): void
+        + createGroup(name: String): void
+        + addGroupMember(groupId: int, memberId: int): void
+        + removeGroupMember(groupId: int, memberId: int): void
+        + leaveGroup(groupId: int): void
+        + deleteGroup(groupId: int): void
+        + updatePseudo(newPseudo: String): void
+        + getContact(contactId: int): Contact
+        + getGroup(groupId: int): Group
+        + getConversation(conversationId: int): Conversation
+        + setCryptoStrategy(strategy: CryptoStrategy): void
+        - notifyMessageReceived(msg: Message): void
+        - notifyReactionAdded(messageId: String, emoji: String, userId: int): void
+        - notifyGroupUpdated(group: Group): void
+        - notifyError(error: String): void
+    }
+    note bottom of ClientController
+        **Pattern: Facade**
+        Fournit une interface simplifiée pour toutes les opérations client
+    end note
+    
+    ' ===== RELATIONS CLIENT =====
+    ClientController "1" *-- "1" Client
+    ClientController "1" *-- "1" User
+    ClientController "1" *-- "1" ContactRepository
+    ClientController "1" *-- "1" GroupRepository
+    ClientController "1" *-- "1" ConversationRepository
+    ClientController "1" *-- "1" ClientPacketRouter
+    ClientController "1" *-- "1" MessageIdGenerator
+    ClientController "1" o-- "many" ClientEventListener
+    ClientController o-- CryptoStrategy
+    
+    ContactRepository "1" *-- "many" Contact
+    GroupRepository "1" *-- "many" Group
+    ConversationRepository "1" *-- "many" Conversation
+    Conversation "1" *-- "many" Message
+    
+    ClientPacketRouter "1" *-- "many" ClientPacketHandler
+    Client o-- PacketProcessor
+}
+
+' ============================================
+' RELATIONS ENTRE PACKAGES
+' ============================================
+Client ..> Packet : uses
+TchatsAppServer ..> Packet : uses
+MessageFactory ..> MessageType : uses
+ProtocolMessage --> MessageType
+
+ServerPacketRouter ..> MessageFactory : uses
+ClientPacketRouter ..> MessageFactory : uses
+
+TchatsAppServer ..> MessageFactory : uses
+
+@enduml

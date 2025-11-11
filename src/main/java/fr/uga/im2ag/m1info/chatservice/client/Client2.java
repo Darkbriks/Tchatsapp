@@ -11,9 +11,9 @@
 
 // package fr.uga.im2ag.m1info.chatservice.client;
 
-// import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-// import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
-// import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 
 // import java.io.IOException;
 // import java.util.Scanner;
@@ -26,27 +26,27 @@
 //         int clientId =  sc.nextInt();
 
 
-//         Client c = new Client(clientId);
-//         if (c.connect("localhost",1666, "client2")) {
+        Client c = new Client(clientId);
+        if (c.connect("localhost",1666, "client2")) {
 
-//             clientId = c.getClientId();
-//             System.out.println("Vous êtes connecté avec l'id " + clientId);
-//             c.setPacketProcessor(msg -> {
-//                 TextMessage m = (TextMessage) msg;
-//                 System.out.printf("Message reçu de %d : %s%n", m.getFrom(), m.getContent());
-//             });
+            clientId = c.getClientId();
+            System.out.println("Vous êtes connecté avec l'id " + clientId);
+            c.setPacketProcessor(msg -> {
+                TextMessage m = (TextMessage) msg;
+                System.out.printf("Message reçu de %d : %s%n", m.getFrom(), m.getContent());
+            });
 
-//             while (true) {
-//                 System.out.println("A qui envoyer ? (0 pour quitter)");
-//                 int to = sc.nextInt();sc.nextLine();
-//                 if (to==0) break;
-//                 System.out.println("Votre message :");
-//                 String msg = sc.nextLine();
-//                 c.sendPacket(((TextMessage) MessageFactory.create(MessageType.TEXT, clientId, to)).setContent(msg).toPacket());
-//             }
-//             c.disconnect();
-//             System.exit(0);
-//         }
+            while (true) {
+                System.out.println("A qui envoyer ? (0 pour quitter)");
+                int to = sc.nextInt();sc.nextLine();
+                if (to==0) break;
+                System.out.println("Votre message :");
+                String msg = sc.nextLine();
+                c.sendPacket(((TextMessage) MessageFactory.create(MessageType.TEXT, clientId, to)).setContent(msg).toPacket());
+            }
+            c.disconnect();
+            System.exit(0);
+        }
 
 
 
