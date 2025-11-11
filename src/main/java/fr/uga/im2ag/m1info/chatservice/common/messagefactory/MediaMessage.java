@@ -4,11 +4,8 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Base64;
 
 /**
  * Class representing a media message in the chat service protocol.
@@ -99,6 +96,15 @@ public class MediaMessage extends ProtocolMessage {
         this.size = size;
     }
 
+    /**
+     * get The size of real data in payload
+     *
+     * @return  Size of real data in payload
+     */
+    public int getSizeContent() {
+        return size;
+    }
+
     /** Set the name of the media content of the message.
      *
      * @param mediaName the media name to set
@@ -124,7 +130,8 @@ public class MediaMessage extends ProtocolMessage {
             sb.append(replyToMessageId);
         }
         sb.append("|").append(mediaName);
-        sb.append("|").append(new String(Arrays.copyOfRange(content, 0, size)));
+        String encodedContent = Base64.getEncoder().encodeToString(Arrays.copyOfRange(content, 0, size));
+        sb.append("|").append(encodedContent);
         byte[] payload = sb.toString().getBytes();
         int length = payload.length;
         return new Packet.PacketBuilder(length)
@@ -146,7 +153,8 @@ public class MediaMessage extends ProtocolMessage {
         this.timestamp = Long.parseLong(parts[1]);
         this.replyToMessageId = parts[2].isEmpty() ? null : parts[2];
         this.mediaName = parts[3];
-        this.content = parts[4].getBytes();
+        this.content = Base64.getDecoder().decode(parts[4]);
+        this.size = content.length;
         return this;
     }
 }
