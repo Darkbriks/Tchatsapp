@@ -15,7 +15,7 @@ import java.util.List;
  */
 public class MediaMessage extends ProtocolMessage {
     private String messageId;
-    private List<Byte> content;
+    private byte[] content;
     private String mediaName;
     private String replyToMessageId;
     private long timestamp;
@@ -28,7 +28,6 @@ public class MediaMessage extends ProtocolMessage {
         timestamp = 0;
         messageId = null;
         this.mediaName = "";
-        this.content = new ArrayList<Byte>();;
         this.replyToMessageId = null;
     }
 
@@ -55,7 +54,7 @@ public class MediaMessage extends ProtocolMessage {
      *
      * @return the media in byte representation
      */
-    public List<Byte> getContent() {
+    public byte[] getContent() {
         return content;
     }
 
@@ -87,7 +86,7 @@ public class MediaMessage extends ProtocolMessage {
      *
      * @param content the media content to set
      */
-    public void setContent(List<Byte> content) {
+    public void setContent(byte[] content) {
         this.content = content;
     }
     
@@ -116,13 +115,14 @@ public class MediaMessage extends ProtocolMessage {
             sb.append(replyToMessageId);
         }
         sb.append("|").append(mediaName);
-        sb.append("|").append(content);
-        int length = sb.length();
+        sb.append("|").append(new String(content));
+        byte[] payload = sb.toString().getBytes();
+        int length = payload.length;
         return new Packet.PacketBuilder(length)
                 .setMessageType(messageType)
                 .setFrom(from)
                 .setTo(to)
-                .setPayload(sb.toString().getBytes())
+                .setPayload(payload)
                 .build();
     }
 
@@ -137,7 +137,7 @@ public class MediaMessage extends ProtocolMessage {
         this.timestamp = Long.parseLong(parts[1]);
         this.replyToMessageId = parts[2].isEmpty() ? null : parts[2];
         this.mediaName = parts[3];
-//        this.content = Arrays.asList(parts[4].getBytes());
+        this.content = parts[4].getBytes();
         return this;
     }
 }
