@@ -127,7 +127,7 @@ public class MediaMessage extends ProtocolMessage {
     }
 
     @Override
-    public void fromPacket(Packet packet) {
+    public MediaMessage fromPacket(Packet packet) {
         this.messageType = packet.messageType();
         this.from = packet.from();
         this.to = packet.to();
@@ -138,6 +138,7 @@ public class MediaMessage extends ProtocolMessage {
         this.replyToMessageId = parts[2].isEmpty() ? null : parts[2];
         this.mediaName = parts[3];
 //        this.content = Arrays.asList(parts[4].getBytes());
+        return this;
     }
 }
 
