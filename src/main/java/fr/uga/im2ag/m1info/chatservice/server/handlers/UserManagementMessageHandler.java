@@ -9,7 +9,7 @@ import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
 import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
 
 /**
- * Handler for user management messages such as adding or removing contacts.
+ * Handler for user management messages such as user creation, connection, and contact management.
  * TODO: Discuss if we keep handlers like this one, with multiple message types,
  * or if we create one handler per message type for clarity (but more classes).
  */
@@ -70,10 +70,10 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
             return;
         }
 
-        ManagementMessage response = ((ManagementMessage) MessageFactory.create(MessageType.CREATE_USER, 0, newClientId))
+        ManagementMessage response = ((ManagementMessage) MessageFactory.create(MessageType.ACK_CONNECTION, 0, newClientId))
                 .addParam("clientId", newClientId)
                 .addParam("pseudo", pseudo)
-                .addParam("ack", "true");
+                .addParam("newUser", true);
         serverContext.sendPacketToClient(response.toPacket());
 
         System.out.printf("[Server] Created new user: id=%d, pseudo=%s%n", newClientId, pseudo);
@@ -126,13 +126,12 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
             serverContext.getUserRepository().update(clientId, user);
         }
 
-        // Send success response
-        ManagementMessage response = (ManagementMessage) MessageFactory.create(MessageType.CONNECT_USER, 0, clientId);
+        ManagementMessage response = (ManagementMessage) MessageFactory.create(MessageType.ACK_CONNECTION, 0, clientId);
         response.addParam("clientId", clientId);
         if (user != null) {
             response.addParam("pseudo", user.getUsername());
         }
-        response.addParam("ack", "true");
+        response.addParam("newUser", false);
         serverContext.sendPacketToClient(response.toPacket());
 
         System.out.printf("[Server] Client %d connected successfully%n", clientId);

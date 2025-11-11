@@ -8,7 +8,7 @@
 CONFIG_FILE="./config.local.sh"
 PROJECT_DIR="$(pwd)"
 SERVER_CLASS="fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer"
-CLIENT_CLASS="fr.uga.im2ag.m1info.chatservice.client.Client"
+CLIENT_CLASS="fr.uga.im2ag.m1info.chatservice.client.CliClient"
 
 # === CRÉATION DU FICHIER DE CONFIG SI INEXISTANT ===
 if [ ! -f "$CONFIG_FILE" ]; then
@@ -80,13 +80,13 @@ launch_server() {
     echo "Lancement du serveur..."
     case $TERMINAL in
         gnome-terminal)
-            gnome-terminal --title="Serveur" -- bash -c "cd '$PROJECT_DIR' && mvn package exec:java -Dexec.mainClass='$SERVER_CLASS'; echo -e '\n[Serveur terminé]'; exec bash" &
+            gnome-terminal --title="Serveur" -- bash -c "cd '$PROJECT_DIR' && mvn exec:java -Dexec.mainClass='$SERVER_CLASS'; echo -e '\n[Serveur terminé]'; exec bash" &
             ;;
         konsole)
-            konsole --noclose --new-tab --title "Serveur" -e bash -c "cd '$PROJECT_DIR' && mvn package exec:java -Dexec.mainClass='$SERVER_CLASS'; echo -e '\n[Serveur terminé]'; exec bash" &
+            konsole --noclose --new-tab --title "Serveur" -e bash -c "cd '$PROJECT_DIR' && mvn exec:java -Dexec.mainClass='$SERVER_CLASS'; echo -e '\n[Serveur terminé]'; exec bash" &
             ;;
         xfce4-terminal)
-            xfce4-terminal --title="Serveur" --hold -e "bash -c 'cd \"$PROJECT_DIR\" && mvn package exec:java -Dexec.mainClass=\"$SERVER_CLASS\"; exec bash'" &
+            xfce4-terminal --title="Serveur" --hold -e "bash -c 'cd \"$PROJECT_DIR\" && mvn exec:java -Dexec.mainClass=\"$SERVER_CLASS\"; exec bash'" &
             ;;
         *)
             echo "Terminal non supporté : $TERMINAL"
@@ -100,24 +100,27 @@ launch_clients() {
     for i in $(seq 1 $NUM_CLIENTS); do
         case $TERMINAL in
             gnome-terminal)
-                gnome-terminal --title="Client $i" -- bash -c "cd '$PROJECT_DIR' && mvn package exec:java -Dexec.mainClass='$CLIENT_CLASS'; echo -e '\n[Client $i terminé]'; exec bash" &
+                gnome-terminal --title="Client $i" -- bash -c "cd '$PROJECT_DIR' && mvn exec:java -Dexec.mainClass='$CLIENT_CLASS'; echo -e '\n[Client $i terminé]'; exec bash" &
                 ;;
             konsole)
-                konsole --noclose --new-tab --title "Client $i" -e bash -c "cd '$PROJECT_DIR' && mvn package exec:java -Dexec.mainClass='$CLIENT_CLASS'; echo -e '\n[Client $i terminé]'; exec bash" &
+                konsole --noclose --new-tab --title "Client $i" -e bash -c "cd '$PROJECT_DIR' && mvn exec:java -Dexec.mainClass='$CLIENT_CLASS'; echo -e '\n[Client $i terminé]'; exec bash" &
                 ;;
             xfce4-terminal)
-                xfce4-terminal --title="Client $i" --hold -e "bash -c 'cd \"$PROJECT_DIR\" && mvn package exec:java -Dexec.mainClass=\"$CLIENT_CLASS\"; exec bash'" &
+                xfce4-terminal --title="Client $i" --hold -e "bash -c 'cd \"$PROJECT_DIR\" && mvn exec:java -Dexec.mainClass=\"$CLIENT_CLASS\"; exec bash'" &
                 ;;
             *)
                 echo "Terminal non supporté : $TERMINAL"
                 exit 1
                 ;;
         esac
-        sleep 5
+        sleep 1
     done
 }
 
 # === MAIN ===
+echo "Compilation du projet..."
+mvn clean package
+
 case $MODE in
     "server")
         launch_server
@@ -127,7 +130,7 @@ case $MODE in
         ;;
     "all")
         launch_server
-        sleep 5
+        sleep 2
         launch_clients
         ;;
 esac

@@ -11,10 +11,7 @@
 
 package fr.uga.im2ag.m1info.chatservice.client;
 
-import fr.uga.im2ag.m1info.chatservice.client.handlers.ErrorMessageHandler;
-import fr.uga.im2ag.m1info.chatservice.client.handlers.ManagementMessageHandler;
-import fr.uga.im2ag.m1info.chatservice.client.handlers.MediaMessageHandler;
-import fr.uga.im2ag.m1info.chatservice.client.handlers.TextMessageHandler;
+import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
 import fr.uga.im2ag.m1info.chatservice.common.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 
@@ -25,7 +22,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
-import java.util.Scanner;
 
 /**
  * A basic client for Tchatsapp.
@@ -38,136 +34,192 @@ public class Client {
     private Socket cnx;
     private PacketProcessor processor;
     private MessageIdGenerator messageIdGenerator;
+    private Thread receptionThread;
 
+    /**
+     * Creates a new Client with clientId 0 (for user creation).
+     */
     public Client() {
         this(0);
     }
+
+    /**
+     * Creates a new Client with the specified clientId.
+     *
+     * @param clientId the client ID (0 for new user creation)
+     */
     public Client(int clientId) {
-        this.clientId=clientId;
-        this.messageIdGenerator = new ShaIdGenerator();
+        this.clientId = clientId;
     }
 
     /**
-     * Attemps to connect to a given server.
-     * @param host
-     * @param port
-     * @param username
-     * @return false if there is an existing connection or if the connection fails.
+     * Attempts to connect to the server.
+     *
+     * @param host the server hostname or IP address
+     * @param port the server port
+     * @param username the username to use for the connection (only used if clientId is 0)
+     * @return true if the connection socket was established, false otherwise
+     * @throws IOException if a network error occurs
      */
-    public boolean connect(String host, int port, String username) {
-        if (cnx!=null && cnx.isConnected()) return false;
-        try {
-            cnx = new Socket("localhost",1666);
-            DataOutputStream dos = new DataOutputStream(cnx.getOutputStream());
-            DataInputStream dis = new DataInputStream(cnx.getInputStream());
-
-            Packet connectionPacket;
-            if (clientId == 0) {
-                ManagementMessage createMsg = (ManagementMessage) MessageFactory.create(MessageType.CREATE_USER, 0, 0);
-                createMsg.addParam("pseudo", username);
-                connectionPacket = createMsg.toPacket();
-            } else {
-                ManagementMessage connectMsg = (ManagementMessage) MessageFactory.create(MessageType.CONNECT_USER, clientId, 0);
-                connectionPacket = connectMsg.toPacket();
-            }
-
-            connectionPacket.writeTo(dos);
-
-            Packet responsePacket = Packet.readFrom(dis);
-            ProtocolMessage responseMsg = MessageFactory.fromPacket(responsePacket);
-
-            if (responseMsg.getMessageType() == MessageType.ERROR) {
-                ErrorMessage errorMsg = (ErrorMessage) responseMsg;
-                System.err.println("Connection failed:");
-                System.err.println("\tLevel: " + errorMsg.getErrorLevel());
-                System.err.println("\tType: " + errorMsg.getErrorType());
-                System.err.println("\tMessage: " + errorMsg.getErrorMessage());
-                cnx.close();
-                cnx = null;
-                return false;
-            }
-
-            if (responseMsg.getMessageType() == MessageType.CREATE_USER || responseMsg.getMessageType() == MessageType.CONNECT_USER) {
-                ManagementMessage mgmtMsg = (ManagementMessage) responseMsg;
-                clientId = responsePacket.to();
-                System.out.println("Connected with client ID: " + clientId);
-                if (mgmtMsg.getParam("pseudo") != null) {
-                    System.out.println("Pseudo: " + mgmtMsg.getParam("pseudo"));
-                }
-            }
-
-            // reception thread
-            new Thread(() ->{
-                try {
-                    while (cnx!=null && !cnx.isInputShutdown()) {
-                        Packet m = Packet.readFrom(dis);
-                        processReceivedPacket(m);
-                    }
-                } catch (IOException e) {
-                    if (cnx==null || !cnx.isConnected()) return;
-                    e.printStackTrace();
-                }
-
-            }).start();
-            return cnx.isConnected();
-        } catch (IOException e) {
-            System.err.println("Connection failed: " + e.getMessage());
+    public boolean connect(String host, int port, String username) throws IOException {
+        if (cnx != null && cnx.isConnected()) {
             return false;
         }
+
+        cnx = new Socket(host, port);
+        DataOutputStream dos = new DataOutputStream(cnx.getOutputStream());
+        DataInputStream dis = new DataInputStream(cnx.getInputStream());
+
+        Packet connectionPacket;
+        if (clientId == 0) {
+            ManagementMessage createMsg = (ManagementMessage) MessageFactory.create(MessageType.CREATE_USER, 0, 0);
+            createMsg.addParam("pseudo", username);
+            connectionPacket = createMsg.toPacket();
+        } else {
+            ManagementMessage connectMsg = (ManagementMessage) MessageFactory.create(MessageType.CONNECT_USER, clientId, 0);
+            connectionPacket = connectMsg.toPacket();
+        }
+
+        connectionPacket.writeTo(dos);
+
+        startReceptionThread(dis);
+
+        return cnx.isConnected();
     }
 
+    /**
+     * Start the reception thread for handling incoming packets.
+     *
+     * @param dis the DataInputStream to read from
+     */
+    private void startReceptionThread(DataInputStream dis) {
+        receptionThread = new Thread(() -> {
+            try {
+                while (cnx != null && !cnx.isInputShutdown()) {
+                    Packet packet = Packet.readFrom(dis);
+                    processReceivedPacket(packet);
+                }
+            } catch (IOException e) {
+                if (cnx == null || !cnx.isConnected()) {
+                    return;
+                }
+                System.err.println("[Client] Reception thread error: " + e.getMessage());
+            }
+        }, "Client-Reception-Thread");
+        receptionThread.setDaemon(true);
+        receptionThread.start();
+    }
+
+    /**
+     * Get the client ID.
+     *
+     * @return the client ID
+     */
     public int getClientId() {
         return clientId;
     }
 
-    public void setMessageIdGenerator(MessageIdGenerator generator) {
-        this.messageIdGenerator=generator;
+    /**
+     * Update the client ID (used after successful user creation).
+     *
+     * @param clientId the new client ID
+     */
+    void updateClientId(int clientId) {
+        this.clientId = clientId;
     }
 
     /**
-     * Set the packet processor to be called when packet are received by the client
-     * @param p
+     * Set the message ID generator.
+     *
+     * @param generator the MessageIdGenerator to use
      */
-    public void setPacketProcessor(PacketProcessor p ) {
-        processor=p;
+    public void setMessageIdGenerator(MessageIdGenerator generator) {
+        this.messageIdGenerator = generator;
     }
 
+    /**
+     * Get the message ID generator.
+     *
+     * @return the message ID generator
+     */
+    public MessageIdGenerator getMessageIdGenerator() {
+        return messageIdGenerator;
+    }
+
+    /**
+     * Set the packet processor to be called when packets are received by the client.
+     *
+     * @param p the PacketProcessor to use
+     */
+    public void setPacketProcessor(PacketProcessor p) {
+        processor = p;
+    }
+
+    /**
+     * Process a received packet by delegating to the registered processor.
+     *
+     * @param m the received packet
+     */
     private void processReceivedPacket(Packet m) {
-        if (processor!=null) processor.process(MessageFactory.fromPacket(m));
+        if (processor != null) { processor.process(MessageFactory.fromPacket(m)); }
     }
 
+    /**
+     * Check if the client is connected to the server.
+     *
+     * @return true if connected, false otherwise
+     */
     public boolean isConnected() {
-        return cnx!=null && cnx.isConnected();
+        return cnx != null && cnx.isConnected();
     }
 
+    /**
+     * Disconnect from the server.
+     */
     public void disconnect() {
         try {
-            if (cnx != null) cnx.close();
+            if (cnx != null) { cnx.close(); }
             cnx = null;
-        } catch (IOException e) {/* ignored */}
+            if (receptionThread != null && receptionThread.isAlive()) {
+                receptionThread.interrupt();
+            }
+        } catch (IOException e) {
+            /* ignored */
+        }
     }
 
+    /**
+     * Send a packet to the server.
+     *
+     * @param m the packet to send
+     * @return true if the packet was sent successfully, false otherwise
+     */
     public boolean sendPacket(Packet m) {
-        //if (m.from()!=clientId) throw new RuntimeException("Message from field must be equals to clientId");
-        System.out.println(m);
+        System.out.println("[Client] Sending: " + m);
         try {
             DataOutputStream dos = new DataOutputStream(cnx.getOutputStream());
             m.writeTo(dos);
             return true;
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("[Client] Failed to send packet: " + e.getMessage());
             return false;
         }
     }
 
-    public void sendMedia(String msg, int to){
+    /**
+     * Send a media file to a recipient.
+     * The file is split into chunks and sent as multiple MediaMessage packets.
+     *
+     * @param msg the filename path (should start with '/')
+     * @param to the recipient ID
+     */
+    public void sendMedia(String msg, int to) {
         try {
             String fileName = msg.substring(1);
             InputStream fileStream = new FileInputStream(new File(fileName));
             int count = 0;
             byte[] buffer = new byte[MAX_SIZE_CHUNK_FILE];
-            while ((count = fileStream.read(buffer)) > 0)
-            {
+            while ((count = fileStream.read(buffer)) > 0) {
                 MediaMessage mediaMsg = (MediaMessage) MessageFactory.create(MessageType.MEDIA, clientId, to);
                 mediaMsg.generateNewMessageId(messageIdGenerator);
                 mediaMsg.setMediaName(fileName);
@@ -177,87 +229,7 @@ public class Client {
             }
             fileStream.close();
         } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    /** A basic client in command line **/
-    public static void main(String[] args) throws IOException, InterruptedException {
-        final int serverId = 0;
-        Scanner sc = new Scanner(System.in);
-        System.out.println("Votre id ? (0 pour en créer un nouveau)");
-        int clientId =  sc.nextInt();
-        sc.nextLine();
-        String pseudo = "";
-        if (clientId == 0) {
-            System.out.println("Choisissez votre pseudo :");
-            pseudo = sc.nextLine();
-        }
-
-        Client c = new Client(clientId);
-        ClientPaquetRouter router = new ClientPaquetRouter();
-        router.addHandler(new TextMessageHandler());
-        router.addHandler(new MediaMessageHandler());
-        router.addHandler(new ErrorMessageHandler());
-        router.addHandler(new ManagementMessageHandler());
-        c.setPacketProcessor(router);
-
-        if (c.connect("localhost",1666, pseudo)) {
-
-            clientId = c.getClientId();
-
-            while (true) {
-                System.out.println("Quelle action voulez-vous faire ?" +
-                        "\n\t1. Envoyer un message" +
-                        "\n\t2. Ajouter un contact" +
-                        "\n\t3. Supprimer un contact" +
-                        "\n\t4. Changer de pseudo" +
-                        "\n\t0. Quitter");
-                int action = sc.nextInt(); sc.nextLine();
-                if (action == 0) break;
-                switch (action) {
-                    case 1 -> {
-                        System.out.println("A qui envoyer ? (id)");
-                        int to = sc.nextInt();
-                        sc.nextLine();
-                        System.out.println("Votre message :");
-                        String msg = sc.nextLine();
-                        if (msg.charAt(0) == '/'){
-                            c.sendMedia(msg, to);
-                        } else{
-                            TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, clientId, to);
-                            textMsg.generateNewMessageId(c.messageIdGenerator);
-                            textMsg.setContent(msg);
-                            c.sendPacket(textMsg.toPacket());
-                        }
-                    }
-                    case 2 -> {
-                        System.out.println("Quel est l'id du contact à ajouter ?");
-                        int contactId = sc.nextInt();
-                        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(MessageType.ADD_CONTACT, clientId, serverId);
-                        mgmtMsg.addParam("contactId", Integer.toString(contactId));
-                        c.sendPacket(mgmtMsg.toPacket());
-                    }
-                    case 3 -> {
-                        System.out.println("Quel est l'id du contact à supprimer ?");
-                        int contactId = sc.nextInt();
-                        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(MessageType.REMOVE_CONTACT, clientId, serverId);
-                        mgmtMsg.addParam("contactId", Integer.toString(contactId));
-                        c.sendPacket(mgmtMsg.toPacket());
-                    }
-                    case 4 -> {
-                        System.out.println("Quel est votre nouveau pseudo ?");
-                        String newPseudo = sc.nextLine();
-                        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, clientId, serverId);
-                        mgmtMsg.addParam("newPseudo", newPseudo);
-                        c.sendPacket(mgmtMsg.toPacket());
-                    }
-                    default -> System.out.println("Action non reconnue.");
-                }
-            }
-            c.disconnect();
-            sc.close();
-            System.exit(0);
+            System.err.println("[Client] Failed to send media: " + e.getMessage());
         }
     }
 }

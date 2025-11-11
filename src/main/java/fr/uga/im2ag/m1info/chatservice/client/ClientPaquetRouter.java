@@ -9,24 +9,31 @@ import java.util.List;
 
 /**
  * A ClientPaquetRouter that routes incoming protocol messages to the appropriate ClientPacketHandler.
+ * This router maintains a ClientContext that is passed to all handlers.
  */
 public class ClientPaquetRouter implements PacketProcessor {
-    private List<ClientPacketHandler> handlers;
+    private final List<ClientPacketHandler> handlers;
+    private final ClientContext context;
 
     /**
-     * Creates a ClientPaquetRouter with the specified list of handlers.
+     * Creates a ClientPaquetRouter with the specified list of handlers and context.
      *
      * @param handlers the list of ClientPacketHandler to be used by this router
+     * @param context the client context to pass to handlers
      */
-    public ClientPaquetRouter(List<ClientPacketHandler> handlers) {
+    public ClientPaquetRouter(List<ClientPacketHandler> handlers, ClientContext context) {
         this.handlers = handlers;
+        this.context = context;
     }
 
     /**
-     * Creates a ClientPaquetRouter with an empty list of handlers.
+     * Creates a ClientPaquetRouter with an empty list of handlers and the given context.
+     *
+     * @param context the client context to pass to handlers
      */
-    public ClientPaquetRouter() {
+    public ClientPaquetRouter(ClientContext context) {
         this.handlers = new ArrayList<>();
+        this.context = context;
     }
 
     /**
@@ -51,7 +58,7 @@ public class ClientPaquetRouter implements PacketProcessor {
     public void process(ProtocolMessage message) {
         for (ClientPacketHandler handler : handlers) {
             if (handler.canHandle(message.getMessageType())) {
-                handler.handle(message);
+                handler.handle(message, context);
                 return;
             }
         }

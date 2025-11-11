@@ -107,7 +107,7 @@ public class MediaMessage extends ProtocolMessage {
 
     /** Set the name of the media content of the message.
      *
-     * @param mediaName the media name to set
+     * @param name the media name to set
      */
     public void setMediaName(String name) {
         this.mediaName = name;
