@@ -27,6 +27,7 @@ public class MediaMessageHandler extends ClientPacketHandler {
             System.out.println("\tFrom: " + mediaMessage.getFrom());
             System.out.println("\tTo: " + mediaMessage.getTo());
             System.out.println("\tMedia name: " + mediaMessage.getMediaName());
+            System.out.println("\tSize: " + mediaMessage.getSizeContent());
             System.out.println("\tSaved to: " + outputFile.getAbsolutePath());
         } catch (IOException e) {
             System.err.println("[Client] Failed to save media file: " + e.getMessage());
