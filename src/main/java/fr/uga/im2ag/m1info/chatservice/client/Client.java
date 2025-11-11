@@ -170,6 +170,7 @@ public class Client {
                 mediaMsg.generateNewMessageId(messageIdGenerator);
                 mediaMsg.setMediaName(fileName);
                 mediaMsg.setContent(buffer);
+                mediaMsg.setSizeContent(count);
                 sendPacket(mediaMsg.toPacket());
             }
             fileStream.close();

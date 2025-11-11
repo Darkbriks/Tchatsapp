@@ -19,6 +19,7 @@ public class MediaMessage extends ProtocolMessage {
     private String mediaName;
     private String replyToMessageId;
     private long timestamp;
+    private int size;
 
     /** Default constructor for MediaMessage.
      * This is used for message factory registration only.
@@ -90,6 +91,14 @@ public class MediaMessage extends ProtocolMessage {
         this.content = content;
     }
     
+    /** Set the size of the content. 
+     *
+     * @param size the size  
+     */
+    public void setSizeContent(int size){
+        this.size = size;
+    }
+
     /** Set the name of the media content of the message.
      *
      * @param mediaName the media name to set
@@ -115,7 +124,7 @@ public class MediaMessage extends ProtocolMessage {
             sb.append(replyToMessageId);
         }
         sb.append("|").append(mediaName);
-        sb.append("|").append(new String(content));
+        sb.append("|").append(new String(Arrays.copyOfRange(content, 0, size)));
         byte[] payload = sb.toString().getBytes();
         int length = payload.length;
         return new Packet.PacketBuilder(length)
