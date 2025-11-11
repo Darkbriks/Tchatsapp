@@ -19,8 +19,13 @@ public class MessageFactory {
     static {
         ServiceLoader<MessageProvider> loader = ServiceLoader.load(MessageProvider.class);
         for (MessageProvider provider : loader) {
-            registry.put(provider.getType(), provider::createInstance);
-            System.out.println("Registered message provider for type: " + provider.getType());
+            for (MessageType type : provider.getType()) {
+                if (registry.containsKey(type)) {
+                    System.err.println("Warning: Overriding existing message provider for type: " + type);
+                }
+                registry.put(type, provider::createInstance);
+                System.out.println("Registered message provider for type: " + type);
+            }
         }
 
         if (registry.isEmpty()) {

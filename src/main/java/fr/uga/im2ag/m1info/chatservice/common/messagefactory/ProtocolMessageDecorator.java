@@ -26,8 +26,8 @@ public abstract class ProtocolMessageDecorator extends ProtocolMessage {
     }
 
     @Override
-    public void fromPacket(Packet packet) {
-        decoratedMessage.fromPacket(packet);
+    public ProtocolMessageDecorator fromPacket(Packet packet) {
+        return (ProtocolMessageDecorator) decoratedMessage.fromPacket(packet);
     }
 
     @Override

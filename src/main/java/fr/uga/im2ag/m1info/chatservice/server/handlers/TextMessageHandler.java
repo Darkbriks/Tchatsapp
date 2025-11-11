@@ -1,6 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.server.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
@@ -12,10 +13,26 @@ public class TextMessageHandler extends ServerPacketHandler {
             throw new IllegalArgumentException("Invalid message type for TextMessageProcessor");
         }
 
-        System.out.printf("[Server] Message reçu de %d à %d : %s%n",
-                textMsg.getFrom(), textMsg.getTo(), textMsg.getContent());
+        int from = textMsg.getFrom();
+        int to = textMsg.getTo();
+        var userRepo = serverContext.getUserRepository();
+        var fromUser = userRepo.findById(from);
+        if (fromUser == null) {
+            System.out.printf("[Server] User %d not found while trying to send message to %d%n", from, to);
+            return;
+        }
+        if (userRepo.findById(to) == null) {
+            System.out.printf("[Server] User %d tried to send message to non-existing user %d%n", from, to);
+            return;
+        }
+        if (!fromUser.getContacts().contains(to)) {
+            System.out.printf("[Server] User %d tried to send message to non-contact %d%n", from, to);
+            serverContext.sendErrorMessage(to, from, ErrorMessage.ErrorLevel.ERROR, "NOT_A_CONTACT", "Cannot send message to user who is not in your contacts.");
+            return;
+        }
 
         serverContext.sendPacketToClient(message.toPacket());
+        System.out.printf("[Server] Message from %d to %d forwarded%n", from, to);
     }
 
     @Override

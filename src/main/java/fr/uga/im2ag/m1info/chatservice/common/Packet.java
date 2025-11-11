@@ -252,58 +252,6 @@ public class Packet {
         return arr;
     }
 
-    /** Creates an empty Packet with specified parameters.
-     * TODO: Probably better to move this method in MessageFactory when it will be created
-     *
-     * @param from the sender ID
-     * @param to the recipient ID
-     * @param messageType the message type
-     * @return the constructed Packet
-     */
-    public static Packet createEmptyPacket(int from, int to, MessageType messageType) {
-        return new PacketBuilder(0)
-                .setMessageType(messageType)
-                .setFrom(from)
-                .setTo(to)
-                .setPayload(new byte[0])
-                .build();
-    }
-
-    /** Creates a text message Packet.
-     * TODO: Probably better to move this method in MessageFactory when it will be created
-     *
-     * @param from the sender ID
-     * @param to the recipient ID
-     * @param content the text content
-     * @return the constructed Packet
-     */
-    public static Packet createTextMessage(int from, int to, String content) {
-        byte[] payload = content.getBytes();
-        return  new PacketBuilder(payload.length)
-                .setFrom(from)
-                .setTo(to)
-                .setMessageType(MessageType.TEXT)
-                .setPayload(payload)
-                .build();
-    }
-
-    /** Creates a media message Packet.
-     * TODO: Probably better to move this method in MessageFactory when it will be created
-     *
-     * @param from the sender ID
-     * @param to the recipient ID
-     * @param mediaData the media content as a byte array
-     * @return the constructed Packet
-     */
-    public static Packet createMediaMessage(int from, int to, byte[] mediaData) {
-        return  new PacketBuilder(mediaData.length)
-                .setFrom(from)
-                .setTo(to)
-                .setMessageType(MessageType.MEDIA)
-                .setPayload(mediaData)
-                .build();
-    }
-
     /** Reads a Packet from a DataInputStream.
      *
      * @param dis the DataInputStream to read from

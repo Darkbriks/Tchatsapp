@@ -29,12 +29,14 @@ public class TextMessage extends ProtocolMessage {
     /** Generate a new unique message ID using the provided MessageIdGenerator.
      *
      * @param messageIdGenerator the MessageIdGenerator to use for generating the ID
+     * @return the TextMessage instance for method chaining
      * @throws IllegalStateException if the 'from' field is not set
      */
-    public void generateNewMessageId(MessageIdGenerator messageIdGenerator) {
+    public TextMessage generateNewMessageId(MessageIdGenerator messageIdGenerator) {
         if (this.from == -1) { throw new IllegalStateException("Cannot generate message ID: 'from' field is not set."); }
         timestamp = System.currentTimeMillis();
         messageId = messageIdGenerator.generateId(from, timestamp);
+        return this;
     }
 
     /** Get the message ID.
@@ -72,17 +74,21 @@ public class TextMessage extends ProtocolMessage {
     /** Set the text content of the message.
      *
      * @param content the text content to set
+     * @return the TextMessage instance for method chaining
      */
-    public void setContent(String content) {
+    public TextMessage setContent(String content) {
         this.content = content;
+        return this;
     }
 
     /** Set the ID of the message being replied to.
      *
      * @param replyToMessageId the reply-to message ID to set
+     * @return the TextMessage instance for method chaining
      */
-    public void setReplyToMessageId(String replyToMessageId) {
+    public TextMessage setReplyToMessageId(String replyToMessageId) {
         this.replyToMessageId = replyToMessageId;
+        return this;
     }
 
     @Override
@@ -104,7 +110,7 @@ public class TextMessage extends ProtocolMessage {
     }
 
     @Override
-    public void fromPacket(Packet packet) {
+    public TextMessage fromPacket(Packet packet) {
         this.messageType = packet.messageType();
         this.from = packet.from();
         this.to = packet.to();
@@ -114,5 +120,6 @@ public class TextMessage extends ProtocolMessage {
         this.timestamp = Long.parseLong(parts[1]);
         this.replyToMessageId = parts[2].isEmpty() ? null : parts[2];
         this.content = parts[3];
+        return this;
     }
 }
