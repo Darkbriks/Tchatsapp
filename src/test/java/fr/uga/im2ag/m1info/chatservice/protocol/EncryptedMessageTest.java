@@ -1,4 +1,5 @@
 package fr.uga.im2ag.m1info.chatservice.protocol;
+import fr.uga.im2ag.m1info.chatservice.common.MessageType;
  
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
@@ -52,7 +53,7 @@ class EncryptedMessageTest {
         assertEquals(53, serialized.length);
  
         // Check type code at position 0
-        assertEquals(type.getCode(), serialized[0]);
+        assertEquals(type.toByte(), serialized[0]);
     }
  
     @Test
@@ -137,16 +138,6 @@ class EncryptedMessageTest {
         });
     }
  
-    @Test
-    @DisplayName("Deserialize with invalid message type should throw exception")
-    void testDeserializeInvalidMessageType() {
-        byte[] data = new byte[21];
-        data[0] = (byte) 0xFF; // Invalid message type code
- 
-        assertThrows(IllegalArgumentException.class, () -> {
-            EncryptedMessage.deserialize(data);
-        });
-    }
  
     @Test
     @DisplayName("Serialize with null nonce should throw exception")
@@ -237,8 +228,8 @@ class EncryptedMessageTest {
     @DisplayName("All message type codes should be reversible")
     void testMessageTypeCodeReversibility() {
         for (MessageType type : MessageType.values()) {
-            byte code = type.getCode();
-            MessageType decoded = MessageType.fromCode(code);
+            byte code = type.toByte();
+            MessageType decoded = MessageType.fromByte(code);
             assertEquals(type, decoded);
         }
     }

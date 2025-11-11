@@ -1,4 +1,5 @@
 package fr.uga.im2ag.m1info.chatservice.protocol;
+import fr.uga.im2ag.m1info.chatservice.common.MessageType;
  
 import java.nio.ByteBuffer;
  
@@ -60,7 +61,7 @@ public class EncryptedMessage {
         ByteBuffer buffer = ByteBuffer.allocate(totalSize);
  
         // Write fields in order
-        buffer.put(type.getCode());              // 1 byte: message type
+        buffer.put(type.toByte());              // 1 byte: message type
         buffer.putLong(sequenceNumber);          // 8 bytes: sequence number
         buffer.put(nonce);                       // 12 bytes: nonce
         buffer.put(ciphertext);                  // N bytes: ciphertext + GCM tag
@@ -92,7 +93,7 @@ public class EncryptedMessage {
  
         // Read fields in order
         byte typeCode = buffer.get();                    // 1 byte: message type
-        MessageType type = MessageType.fromCode(typeCode);
+        MessageType type = MessageType.fromByte(typeCode);
  
         long sequenceNumber = buffer.getLong();          // 8 bytes: sequence number
  

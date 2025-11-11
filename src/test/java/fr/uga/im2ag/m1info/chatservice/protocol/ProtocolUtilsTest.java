@@ -2,7 +2,7 @@ package fr.uga.im2ag.m1info.chatservice.protocol;
  
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
- 
+ import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import static org.junit.jupiter.api.Assertions.*;
  
 /**

@@ -1,6 +1,6 @@
 package fr.uga.im2ag.m1info.chatservice.protocol;
  
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
+import fr.uga.im2ag.m1info.chatservice.common.*;
  
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -139,7 +139,9 @@ public class ProtocolUtils {
      */
     public static Packet createPacketFromEncryptedMessage(int from, int to, EncryptedMessage encryptedMessage) {
         byte[] payload = encryptedMessage.serialize();
-        return new Packet.PacketBuilder(payload.length, from, to)
+        return new Packet.PacketBuilder(payload.length)
+                .setFrom(from)
+                .setTo(to)
                 .setPayload(payload)
                 .build();
     }

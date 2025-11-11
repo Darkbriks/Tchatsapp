@@ -6,6 +6,7 @@ import fr.uga.im2ag.m1info.chatservice.crypto.SymmetricCipher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import fr.uga.im2ag.m1info.chatservice.common.MessageType;
  
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
