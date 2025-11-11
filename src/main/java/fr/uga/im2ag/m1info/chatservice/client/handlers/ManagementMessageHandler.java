@@ -1,5 +1,6 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
+import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
@@ -7,51 +8,58 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 // TODO: Interact with repositories and notify observers
 public class ManagementMessageHandler extends ClientPacketHandler {
     @Override
-    public void handle(ProtocolMessage message) {
+    public void handle(ProtocolMessage message, ClientContext context) {
         if (!(message instanceof ManagementMessage userMsg)) {
-            throw new IllegalArgumentException("Invalid message type for UserManagementHandler");
+            throw new IllegalArgumentException("Invalid message type for ManagementMessageHandler");
         }
 
         switch (userMsg.getMessageType()) {
-            case CREATE_USER -> createUser(userMsg);
-            case CONNECT_USER -> connectUser(userMsg);
-            case ADD_CONTACT -> addContact(userMsg);
-            case REMOVE_CONTACT -> removeContact(userMsg);
-            case UPDATE_PSEUDO -> updatePseudo(userMsg);
-            default -> throw new IllegalArgumentException("Unsupported management message type");
+            case ADD_CONTACT -> addContact(userMsg, context);
+            case REMOVE_CONTACT -> removeContact(userMsg, context);
+            case UPDATE_PSEUDO -> updatePseudo(userMsg, context);
+            default -> throw new IllegalArgumentException("Unsupported management message type: " + userMsg.getMessageType());
         }
     }
 
     @Override
     public boolean canHandle(MessageType messageType) {
-        return messageType == MessageType.CREATE_USER
-                || messageType == MessageType.CONNECT_USER
-                || messageType == MessageType.ADD_CONTACT
+        return messageType == MessageType.ADD_CONTACT
                 || messageType == MessageType.REMOVE_CONTACT
                 || messageType == MessageType.UPDATE_PSEUDO;
     }
 
-    private void createUser(ManagementMessage message) {
-        System.out.println("User created with ID: " + message.getParam("userId") + " and pseudo: " + message.getParam("pseudo"));
+    private void addContact(ManagementMessage message, ClientContext context) {
+        String contactPseudo = message.getParamAsType("contactPseudo", String.class);
+        Integer contactId = message.getParamAsType("contactId", Integer.class);
+
+        if (contactPseudo != null && contactId != null) {
+            System.out.println("[Client] Contact added: " + contactPseudo + " (ID: " + contactId + ")");
+            // TODO: Add to ContactRepository
+        }
     }
 
-    private void connectUser(ManagementMessage message) {
-        System.out.println("User connected with ID: " + message.getParam("userId") + " and pseudo: " + message.getParam("pseudo"));
+    private void removeContact(ManagementMessage message, ClientContext context) {
+        String contactPseudo = message.getParamAsType("contactPseudo", String.class);
+        Integer contactId = message.getParamAsType("contactId", Integer.class);
+
+        if (contactPseudo != null && contactId != null) {
+            System.out.println("[Client] Contact removed: " + contactPseudo + " (ID: " + contactId + ")");
+            // TODO: Remove from ContactRepository
+        }
     }
 
-    private void addContact(ManagementMessage message) {
-        System.out.println("Contact added: " + message.getParam("contactPseudo") + " (ID: " + message.getParam("contactId") + ")");
-    }
+    private void updatePseudo(ManagementMessage message, ClientContext context) {
+        String newPseudo = message.getParamAsType("newPseudo", String.class);
+        Integer contactId = message.getParamAsType("contactId", Integer.class);
 
-    private void removeContact(ManagementMessage message) {
-        System.out.println("Contact removed: " + message.getParam("contactPseudo") + " (ID: " + message.getParam("contactId") + ")");
-    }
-
-    private void updatePseudo(ManagementMessage message) {
-        if (message.getParamAsType("ack", Boolean.class) == null) {
-            System.out.println("Contact pseudo updated: " + message.getParam("newPseudo") + " (ID: " + message.getParam("contactId") + ")");
-        } else {
-            System.out.println("Pseudo updated to: " + message.getParam("newPseudo"));
+        if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
+            // This is an acknowledgment of our own pseudo update
+            System.out.println("[Client] Your pseudo has been updated to: " + newPseudo);
+            // TODO: Update in UserRepository
+        } else if (contactId != null && newPseudo != null) {
+            // A contact has updated their pseudo
+            System.out.println("[Client] Contact " + contactId + " updated pseudo to: " + newPseudo);
+            // TODO: Update in ContactRepository
         }
     }
 }
