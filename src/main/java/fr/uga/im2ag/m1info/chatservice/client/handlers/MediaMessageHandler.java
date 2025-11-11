@@ -1,5 +1,6 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
+import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MediaMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
@@ -10,9 +11,9 @@ import java.io.IOException;
 
 public class MediaMessageHandler extends ClientPacketHandler {
     @Override
-    public void handle(ProtocolMessage message) {
+    public void handle(ProtocolMessage message, ClientContext context) {
         if (!(message instanceof MediaMessage mediaMessage)) {
-            throw new IllegalArgumentException("Invalid message type for TextMessageHandler");
+            throw new IllegalArgumentException("Invalid message type for MediaMessageHandler");
         }
 
         try {
@@ -20,9 +21,15 @@ public class MediaMessageHandler extends ClientPacketHandler {
             try (FileOutputStream outputStream = new FileOutputStream(outputFile, true)) {
                 outputStream.write(mediaMessage.getContent());
             }
-            System.out.println("Media message received and saved to " + outputFile.getAbsolutePath());
+
+            // TODO: Add the media to ConversationRepository and notify observers
+            System.out.println("[Media received]");
+            System.out.println("\tFrom: " + mediaMessage.getFrom());
+            System.out.println("\tTo: " + mediaMessage.getTo());
+            System.out.println("\tMedia name: " + mediaMessage.getMediaName());
+            System.out.println("\tSaved to: " + outputFile.getAbsolutePath());
         } catch (IOException e) {
-            System.out.println("exception occurred" + e);
+            System.err.println("[Client] Failed to save media file: " + e.getMessage());
         }
     }
 
