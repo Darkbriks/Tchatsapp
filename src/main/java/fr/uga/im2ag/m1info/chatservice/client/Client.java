@@ -32,6 +32,7 @@ import java.util.Scanner;
  */
 public class Client {
 
+    private static final int MAX_SIZE_CHUNK_FILE = 8192;
     private int clientId;
     private Socket cnx;
     private PacketProcessor processor;
@@ -163,7 +164,7 @@ public class Client {
             String fileName = msg.substring(1);
             InputStream fileStream = new FileInputStream(new File(fileName));
             int count = 0;
-            byte[] buffer = new byte[8192]; // or 4096, or more
+            byte[] buffer = new byte[MAX_SIZE_CHUNK_FILE];
             while ((count = fileStream.read(buffer)) > 0)
             {
                 MediaMessage mediaMsg = (MediaMessage) MessageFactory.create(MessageType.MEDIA, clientId, to);
