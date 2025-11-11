@@ -206,7 +206,6 @@ public class Client {
                 }
                 case MEDIA -> {
                     MediaMessage m = (MediaMessage) msg;
-                    System.out.printf("Media reçu de %d : nom = %s_test_receive%n", m.getFrom(), m.getMediaName());
                     try {
                         File outputFile = new File(m.getMediaName() + "_test_receive");
                         try (FileOutputStream outputStream = new FileOutputStream(outputFile, true)) {
@@ -282,6 +281,7 @@ public class Client {
                 }
             }
             c.disconnect();
+            sc.close();
             System.exit(0);
         }
 

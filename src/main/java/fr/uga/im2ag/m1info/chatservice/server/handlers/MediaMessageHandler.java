@@ -12,8 +12,8 @@ public class MediaMessageHandler extends ServerPacketHandler {
             throw new IllegalArgumentException("Invalid message type for TextMessageProcessor");
         }
 
-        System.out.printf("[Server] Message Media reçu de %d à %d : nom du fichier = %s%n",
-                mediaMsg.getFrom(), mediaMsg.getTo(), mediaMsg.getMediaName());
+        System.out.printf("[Server] Message Media reçu de %d à %d : nom du fichier = %s, size = %d%n",
+                mediaMsg.getFrom(), mediaMsg.getTo(), mediaMsg.getMediaName(), mediaMsg.getSizeContent());
 
         serverContext.sendPacketToClient(message.toPacket());
     }
