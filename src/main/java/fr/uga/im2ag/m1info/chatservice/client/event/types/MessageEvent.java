@@ -8,7 +8,7 @@ import fr.uga.im2ag.m1info.chatservice.client.model.Message;
  */
 public abstract class MessageEvent extends Event {
     private final Message message;
-    private final int conversationId;
+    private final String conversationId;
 
     /** Constructor for the MessageEvent class.
      *
@@ -16,7 +16,7 @@ public abstract class MessageEvent extends Event {
      * @param conversationId The ID of the conversation related to the message.
      * @param message The message associated with the event.
      */
-    public MessageEvent(Object source, int conversationId, Message message) {
+    public MessageEvent(Object source, String conversationId, Message message) {
         super(source);
         this.conversationId = conversationId;
         this.message = message;
@@ -34,7 +34,7 @@ public abstract class MessageEvent extends Event {
      *
      * @return The conversation ID.
      */
-    public int getConversationId() {
+    public String getConversationId() {
         return conversationId;
     }
 }

@@ -14,7 +14,7 @@ public class MediaMessageReceivedEvent extends MessageEvent {
      * @param conversationId The ID of the conversation where the message was received.
      * @param message The media message that was received.
      */
-    public MediaMessageReceivedEvent(Object source, int conversationId, Message message) {
+    public MediaMessageReceivedEvent(Object source, String conversationId, Message message) {
         super(source, conversationId, message);
     }
 

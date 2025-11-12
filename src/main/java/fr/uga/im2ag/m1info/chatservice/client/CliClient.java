@@ -1,5 +1,6 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
+import fr.uga.im2ag.m1info.chatservice.client.event.types.TextMessageReceivedEvent;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.ShaIdGenerator;
@@ -7,7 +8,6 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 
-import java.io.IOException;
 import java.util.Scanner;
 
 /**
@@ -19,21 +19,19 @@ public class CliClient {
     private static final String DEFAULT_HOST = "localhost";
     private static final int DEFAULT_PORT = 1666;
 
-    // TODO: client attributes should be removed in favor of context methods
-    // when possible
-    private final Client client;
-    private final ClientController context;
+    private final ClientController clientController;
     private final Scanner scanner;
 
     /**
      * Creates a new CLI client.
      */
     CliClient(int clientId, Scanner scanner) {
-        this.client = new Client(clientId);
-        this.client.setMessageIdGenerator(new ShaIdGenerator());
-        this.context = new ClientController(client);
+        Client client = new Client(clientId);
+        client.setMessageIdGenerator(new ShaIdGenerator());
+        this.clientController = new ClientController(client);
         this.scanner = scanner;
-        initializeHandlers();
+        initializeHandlers(client);
+        registerEventListeners();
     }
 
     public static CliClient createClient() {
@@ -56,14 +54,18 @@ public class CliClient {
     /**
      * Initialize the client with packet handlers.
      */
-    private void initializeHandlers() {
-        ClientPaquetRouter router = new ClientPaquetRouter(context);
+    private void initializeHandlers(Client client) {
+        ClientPaquetRouter router = new ClientPaquetRouter(clientController);
         router.addHandler(new AckConnectionHandler());
         router.addHandler(new TextMessageHandler());
         router.addHandler(new MediaMessageHandler());
         router.addHandler(new ErrorMessageHandler());
         router.addHandler(new ManagementMessageHandler());
         client.setPacketProcessor(router);
+    }
+
+    private void registerEventListeners() {
+        clientController.subscribeToEvent(TextMessageReceivedEvent.class, this::textMessageEventCallback);
     }
 
     /**
@@ -73,13 +75,13 @@ public class CliClient {
      */
     public boolean connect() {
         String pseudo = "";
-        if (client.getClientId() == 0) {
+        if (clientController.getClientId() == 0) {
             System.out.println("Choose your username:");
             pseudo = scanner.nextLine().trim();
         }
         try {
-            return client.connect(DEFAULT_HOST, DEFAULT_PORT, pseudo);
-        } catch (IOException e) {
+            return clientController.connect(DEFAULT_HOST, DEFAULT_PORT, pseudo);
+        } catch (Exception e) {
             System.err.println("[Client] Connection error: " + e.getMessage());
             return false;
         }
@@ -117,12 +119,12 @@ public class CliClient {
         String msg = scanner.nextLine();
 
         if (!msg.isEmpty() && msg.charAt(0) == '/') {
-            client.sendMedia(msg, to);
+            clientController.sendMedia(msg, to);
         } else {
-            TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, context.getClientId(), to);
-            textMsg.generateNewMessageId(client.getMessageIdGenerator());
+            TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, clientController.getClientId(), to);
+            textMsg.generateNewMessageId(clientController.getMessageIdGenerator());
             textMsg.setContent(msg);
-            context.sendPacket(textMsg.toPacket());
+            clientController.sendPacket(textMsg.toPacket());
         }
     }
 
@@ -142,9 +144,9 @@ public class CliClient {
         }
 
         ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
-                MessageType.ADD_CONTACT, context.getClientId(), SERVER_ID);
+                MessageType.ADD_CONTACT, clientController.getClientId(), SERVER_ID);
         mgmtMsg.addParam("contactId", Integer.toString(contactId));
-        context.sendPacket(mgmtMsg.toPacket());
+        clientController.sendPacket(mgmtMsg.toPacket());
     }
 
     /**
@@ -163,9 +165,9 @@ public class CliClient {
         }
 
         ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
-                MessageType.REMOVE_CONTACT, context.getClientId(), SERVER_ID);
+                MessageType.REMOVE_CONTACT, clientController.getClientId(), SERVER_ID);
         mgmtMsg.addParam("contactId", Integer.toString(contactId));
-        context.sendPacket(mgmtMsg.toPacket());
+        clientController.sendPacket(mgmtMsg.toPacket());
     }
 
     /**
@@ -181,9 +183,9 @@ public class CliClient {
         }
 
         ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
-                MessageType.UPDATE_PSEUDO, context.getClientId(), SERVER_ID);
+                MessageType.UPDATE_PSEUDO, clientController.getClientId(), SERVER_ID);
         mgmtMsg.addParam("newPseudo", newPseudo);
-        context.sendPacket(mgmtMsg.toPacket());
+        clientController.sendPacket(mgmtMsg.toPacket());
     }
 
     /**
@@ -222,8 +224,20 @@ public class CliClient {
      * Close resources and disconnect.
      */
     public void cleanup() {
-        context.disconnect();
+        clientController.disconnect();
         scanner.close();
+    }
+
+    private void textMessageEventCallback(TextMessageReceivedEvent event) {
+        System.out.println("\n[New message received in conversation " + event.getConversationId() + "]");
+        System.out.println("\tFrom: " + event.getMessage().getFromUserId());
+        System.out.println("\tTo: " + event.getMessage().getToUserId());
+        System.out.println("\tMessageId: " + event.getMessage().getMessageId());
+        System.out.println("\tTimestamp: " + event.getMessage().getTimestamp());
+        if (event.getMessage().getReplyToMessageId() != null) {
+            System.out.println("\tReply to: " + event.getMessage().getReplyToMessageId());
+        }
+        System.out.println("\tContent: " + event.getMessage().getContent());
     }
 
     /**

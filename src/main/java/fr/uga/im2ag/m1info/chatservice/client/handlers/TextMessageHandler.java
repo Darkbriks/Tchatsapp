@@ -1,9 +1,14 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.TextMessageReceivedEvent;
+import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+
+import java.time.Instant;
 
 public class TextMessageHandler extends ClientPacketHandler {
     @Override
@@ -12,16 +17,21 @@ public class TextMessageHandler extends ClientPacketHandler {
             throw new IllegalArgumentException("Invalid message type for TextMessageHandler");
         }
 
-        // TODO: Add the message to ConversationRepository and notify observers
-        System.out.println("[Message received]");
-        System.out.println("\tFrom: " + textMsg.getFrom());
-        System.out.println("\tTo: " + textMsg.getTo());
-        System.out.println("\tMessageId: " + textMsg.getMessageId());
-        System.out.println("\tTimestamp: " + textMsg.getTimestamp());
-        if (textMsg.getReplyToMessageId() != null) {
-            System.out.println("\tReply to: " + textMsg.getReplyToMessageId());
+        // TODO: Remove hardcoded conversation ID
+        ConversationClient conversation = context.getConversationRepository().findById("0");
+        if (conversation != null) {
+            Message msg = new Message(
+                    textMsg.getMessageId(),
+                    textMsg.getFrom(),
+                    textMsg.getTo(),
+                    textMsg.getContent(),
+                    Instant.ofEpochMilli(textMsg.getTimestamp()),
+                    textMsg.getReplyToMessageId()
+            );
+            conversation.addMessage(msg);
+
+            publishEvent(new TextMessageReceivedEvent(this, "0", msg), context);
         }
-        System.out.println("\tContent: " + textMsg.getContent());
     }
 
     @Override

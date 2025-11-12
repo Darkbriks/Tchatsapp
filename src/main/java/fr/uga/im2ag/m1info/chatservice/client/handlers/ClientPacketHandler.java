@@ -1,6 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
+import fr.uga.im2ag.m1info.chatservice.client.event.system.Event;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 
@@ -9,6 +10,23 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
  * Handlers receive a ClientContext to interact with client functionality.
  */
 public abstract class ClientPacketHandler {
+
+    /**
+     * Class used to simulate C++ friend classes for event publishing.
+     * TODO: Make some test to ensure that only ClientPacketHandler can call ClientController::publishEvent.
+     */
+    public static final class PublishEventToken {
+        private PublishEventToken() {
+            // Private constructor to prevent external instantiation
+        }
+
+        public boolean isValidFor(ClientController controller) {
+            return true;
+        }
+    }
+
+    private final PublishEventToken publishEventToken = new PublishEventToken();
+
     /**
      * Handles the given protocol message.
      *
@@ -24,4 +42,14 @@ public abstract class ClientPacketHandler {
      * @return true if this handler can handle the specified message type, false otherwise
      */
     public abstract boolean canHandle(MessageType messageType);
+
+    /**
+     * Publishes an event using the provided client context.
+     *
+     * @param event the event to be published
+     * @param context the client context used to publish the event
+     */
+    protected void publishEvent(Event event, ClientController context) {
+        context.publishEvent(event, publishEventToken);
+    }
 }
