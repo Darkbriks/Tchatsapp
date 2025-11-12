@@ -11,7 +11,7 @@ import fr.uga.im2ag.m1info.chatservice.common.Packet;
  * This class encapsulates the client and provides controlled access to its operations.
  */
 // TODO: Add access to repositories
-public class ClientContext {
+public class ClientController {
     private final Client client;
     private volatile boolean connectionEstablished;
     private volatile String lastErrorMessage;
@@ -29,11 +29,11 @@ public class ClientContext {
      * @param contactRepository the contact repository
      * @param groupRepository the group repository
      */
-    public ClientContext(Client client,
-                         ConversationClientRepository conversationRepository,
-                         ContactClientRepository contactRepository,
-                         GroupClientRepository groupRepository,
-                         UserClient user) {
+    public ClientController(Client client,
+                            ConversationClientRepository conversationRepository,
+                            ContactClientRepository contactRepository,
+                            GroupClientRepository groupRepository,
+                            UserClient user) {
         this.client = client;
         this.connectionEstablished = false;
         this.lastErrorMessage = null;
@@ -48,7 +48,7 @@ public class ClientContext {
      *
      * @param client the client instance to wrap
      */
-    public ClientContext(Client client) {
+    public ClientController(Client client) {
         this(client, new ConversationClientRepository(),
              new ContactClientRepository(),
              new GroupClientRepository(),

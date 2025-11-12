@@ -13,7 +13,7 @@ import java.util.List;
  */
 public class ClientPaquetRouter implements PacketProcessor {
     private final List<ClientPacketHandler> handlers;
-    private final ClientContext context;
+    private final ClientController context;
 
     /**
      * Creates a ClientPaquetRouter with the specified list of handlers and context.
@@ -21,7 +21,7 @@ public class ClientPaquetRouter implements PacketProcessor {
      * @param handlers the list of ClientPacketHandler to be used by this router
      * @param context the client context to pass to handlers
      */
-    public ClientPaquetRouter(List<ClientPacketHandler> handlers, ClientContext context) {
+    public ClientPaquetRouter(List<ClientPacketHandler> handlers, ClientController context) {
         this.handlers = handlers;
         this.context = context;
     }
@@ -31,7 +31,7 @@ public class ClientPaquetRouter implements PacketProcessor {
      *
      * @param context the client context to pass to handlers
      */
-    public ClientPaquetRouter(ClientContext context) {
+    public ClientPaquetRouter(ClientController context) {
         this.handlers = new ArrayList<>();
         this.context = context;
     }

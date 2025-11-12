@@ -22,7 +22,7 @@ public class CliClient {
     // TODO: client attributes should be removed in favor of context methods
     // when possible
     private final Client client;
-    private final ClientContext context;
+    private final ClientController context;
     private final Scanner scanner;
 
     /**
@@ -31,7 +31,7 @@ public class CliClient {
     CliClient(int clientId, Scanner scanner) {
         this.client = new Client(clientId);
         this.client.setMessageIdGenerator(new ShaIdGenerator());
-        this.context = new ClientContext(client);
+        this.context = new ClientController(client);
         this.scanner = scanner;
         initializeHandlers();
     }

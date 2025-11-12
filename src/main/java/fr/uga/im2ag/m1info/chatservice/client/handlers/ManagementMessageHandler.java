@@ -1,6 +1,6 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
-import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
+import fr.uga.im2ag.m1info.chatservice.client.ClientController;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
@@ -8,7 +8,7 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 // TODO: Interact with repositories and notify observers
 public class ManagementMessageHandler extends ClientPacketHandler {
     @Override
-    public void handle(ProtocolMessage message, ClientContext context) {
+    public void handle(ProtocolMessage message, ClientController context) {
         if (!(message instanceof ManagementMessage userMsg)) {
             throw new IllegalArgumentException("Invalid message type for ManagementMessageHandler");
         }
@@ -28,7 +28,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
                 || messageType == MessageType.UPDATE_PSEUDO;
     }
 
-    private void addContact(ManagementMessage message, ClientContext context) {
+    private void addContact(ManagementMessage message, ClientController context) {
         String contactPseudo = message.getParamAsType("contactPseudo", String.class);
         Integer contactId = message.getParamAsType("contactId", Integer.class);
 
@@ -38,7 +38,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         }
     }
 
-    private void removeContact(ManagementMessage message, ClientContext context) {
+    private void removeContact(ManagementMessage message, ClientController context) {
         String contactPseudo = message.getParamAsType("contactPseudo", String.class);
         Integer contactId = message.getParamAsType("contactId", Integer.class);
 
@@ -48,7 +48,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         }
     }
 
-    private void updatePseudo(ManagementMessage message, ClientContext context) {
+    private void updatePseudo(ManagementMessage message, ClientController context) {
         String newPseudo = message.getParamAsType("newPseudo", String.class);
         Integer contactId = message.getParamAsType("contactId", Integer.class);
 
