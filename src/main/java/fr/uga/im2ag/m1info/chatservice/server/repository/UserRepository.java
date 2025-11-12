@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-public class UserRepository implements Repository<UserInfo> {
+public class UserRepository implements Repository<Integer, UserInfo> {
     private final Map<Integer, UserInfo> users;
 
     public UserRepository(Map<Integer, UserInfo> users) {
@@ -24,17 +24,17 @@ public class UserRepository implements Repository<UserInfo> {
     }
 
     @Override
-    public void update(int id, UserInfo entity) {
+    public void update(Integer id, UserInfo entity) {
         users.put(id, entity);
     }
 
     @Override
-    public void delete(int id) {
+    public void delete(Integer id) {
         users.remove(id);
     }
 
     @Override
-    public UserInfo findById(int id) {
+    public UserInfo findById(Integer id) {
         return users.get(id);
     }
 

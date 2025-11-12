@@ -1,4 +1,4 @@
-package fr.uga.im2ag.m1info.chatservice.client.Model;
+package fr.uga.im2ag.m1info.chatservice.client.model;
 
 import java.security.PublicKey;
 import java.time.Instant;
