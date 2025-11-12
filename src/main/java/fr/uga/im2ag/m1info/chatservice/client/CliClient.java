@@ -19,6 +19,8 @@ public class CliClient {
     private static final String DEFAULT_HOST = "localhost";
     private static final int DEFAULT_PORT = 1666;
 
+    // TODO: client attributes should be removed in favor of context methods
+    // when possible
     private final Client client;
     private final ClientContext context;
     private final Scanner scanner;

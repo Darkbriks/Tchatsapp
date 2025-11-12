@@ -1,5 +1,9 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
+import fr.uga.im2ag.m1info.chatservice.client.model.UserClient;
+import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
+import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
+import fr.uga.im2ag.m1info.chatservice.client.repository.GroupClientRepository;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
 /**
@@ -12,15 +16,43 @@ public class ClientContext {
     private volatile boolean connectionEstablished;
     private volatile String lastErrorMessage;
 
+    private final ConversationClientRepository conversationRepository;
+    private final ContactClientRepository contactRepository;
+    private final GroupClientRepository groupRepository;
+    private final UserClient activeUser;
+
+    /**
+     * Creates a new ClientContext with specified repositories.
+     *
+     * @param client the client instance to wrap
+     * @param conversationRepository the conversation repository
+     * @param contactRepository the contact repository
+     * @param groupRepository the group repository
+     */
+    public ClientContext(Client client,
+                         ConversationClientRepository conversationRepository,
+                         ContactClientRepository contactRepository,
+                         GroupClientRepository groupRepository,
+                         UserClient user) {
+        this.client = client;
+        this.connectionEstablished = false;
+        this.lastErrorMessage = null;
+        this.conversationRepository = conversationRepository;
+        this.contactRepository = contactRepository;
+        this.groupRepository = groupRepository;
+        this.activeUser = user;
+    }
+
     /**
      * Creates a new ClientContext.
      *
      * @param client the client instance to wrap
      */
     public ClientContext(Client client) {
-        this.client = client;
-        this.connectionEstablished = false;
-        this.lastErrorMessage = null;
+        this(client, new ConversationClientRepository(),
+             new ContactClientRepository(),
+             new GroupClientRepository(),
+             new UserClient());
     }
 
     /**
@@ -30,6 +62,33 @@ public class ClientContext {
      */
     public int getClientId() {
         return client.getClientId();
+    }
+
+    /**
+     * Get the conversation repository.
+     *
+     * @return the conversation repository
+     */
+    public ConversationClientRepository getConversationRepository() {
+        return conversationRepository;
+    }
+
+    /**
+     * Get the contact repository.
+     *
+     * @return the contact repository
+     */
+    public ContactClientRepository getContactRepository() {
+        return contactRepository;
+    }
+
+    /**
+     * Get the group repository.
+     *
+     * @return the group repository
+     */
+    public GroupClientRepository getGroupRepository() {
+        return groupRepository;
     }
 
     /**

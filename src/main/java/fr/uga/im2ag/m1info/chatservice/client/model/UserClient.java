@@ -15,6 +15,11 @@ public class UserClient {
         this.pseudo = pseudo;
     }
 
+    public UserClient() {
+        this.userId = -1;
+        this.pseudo = "unknown";
+    }
+
     public int getUserId() {
         return userId;
     }
