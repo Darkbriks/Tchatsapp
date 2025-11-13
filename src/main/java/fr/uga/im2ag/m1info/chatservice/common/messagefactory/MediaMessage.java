@@ -4,6 +4,7 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 
@@ -15,7 +16,7 @@ public class MediaMessage extends ProtocolMessage {
     private byte[] content;
     private String mediaName;
     private String replyToMessageId;
-    private long timestamp;
+    private Instant timestamp;
     private int size;
 
     /** Default constructor for MediaMessage.
@@ -23,7 +24,7 @@ public class MediaMessage extends ProtocolMessage {
      */
     public MediaMessage() {
         super(MessageType.NONE, -1, -1);
-        timestamp = 0;
+        timestamp = Instant.EPOCH;
         messageId = null;
         this.mediaName = "";
         this.replyToMessageId = null;
@@ -36,8 +37,8 @@ public class MediaMessage extends ProtocolMessage {
      */
     public void generateNewMessageId(MessageIdGenerator messageIdGenerator) {
         if (this.from == -1) { throw new IllegalStateException("Cannot generate message ID: 'from' field is not set."); }
-        timestamp = System.currentTimeMillis();
-        messageId = messageIdGenerator.generateId(from, timestamp);
+        timestamp = Instant.now();
+        messageId = messageIdGenerator.generateId(from, timestamp.toEpochMilli());
     }
 
     /** Get the message ID.
@@ -66,15 +67,15 @@ public class MediaMessage extends ProtocolMessage {
 
     /** Get the timestamp of the message.
      *
-     * @return the timestamp in milliseconds since epoch
+     * @return the timestamp as an Instant
      */
-    public long getTimestamp() {
+    public Instant getTimestamp() {
         return timestamp;
     }
-    
+
     /** Get the name of the media of the message.
      *
-     * @return the name of the media send in this packet 
+     * @return the name of the media send in this packet
      */
     public String getMediaName() {
         return mediaName;
@@ -87,10 +88,10 @@ public class MediaMessage extends ProtocolMessage {
     public void setContent(byte[] content) {
         this.content = content;
     }
-    
-    /** Set the size of the content. 
+
+    /** Set the size of the content.
      *
-     * @param size the size  
+     * @param size the size
      */
     public void setSizeContent(int size){
         this.size = size;
@@ -125,7 +126,7 @@ public class MediaMessage extends ProtocolMessage {
     public Packet toPacket() {
         if (messageId == null) { throw  new IllegalArgumentException("Message id is null"); }
         StringBuilder sb = new StringBuilder();
-        sb.append(messageId).append("|").append(timestamp).append("|");
+        sb.append(messageId).append("|").append(timestamp.toEpochMilli()).append("|");
         if (replyToMessageId != null) {
             sb.append(replyToMessageId);
         }
@@ -150,7 +151,7 @@ public class MediaMessage extends ProtocolMessage {
         String payload = new String(packet.getModifiablePayload().array());
         String[] parts = payload.split("\\|", 5);
         this.messageId = parts[0];
-        this.timestamp = Long.parseLong(parts[1]);
+        this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
         this.replyToMessageId = parts[2].isEmpty() ? null : parts[2];
         this.mediaName = parts[3];
         this.content = Base64.getDecoder().decode(parts[4]);
@@ -158,4 +159,3 @@ public class MediaMessage extends ProtocolMessage {
         return this;
     }
 }
-

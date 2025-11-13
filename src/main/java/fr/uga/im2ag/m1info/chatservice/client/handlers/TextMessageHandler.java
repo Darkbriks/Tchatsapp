@@ -8,8 +8,6 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 
-import java.time.Instant;
-
 public class TextMessageHandler extends ClientPacketHandler {
     @Override
     public void handle(ProtocolMessage message, ClientController context) {
@@ -17,21 +15,31 @@ public class TextMessageHandler extends ClientPacketHandler {
             throw new IllegalArgumentException("Invalid message type for TextMessageHandler");
         }
 
-        // TODO: Remove hardcoded conversation ID
-        ConversationClient conversation = context.getConversationRepository().findById("0");
-        if (conversation != null) {
-            Message msg = new Message(
-                    textMsg.getMessageId(),
-                    textMsg.getFrom(),
-                    textMsg.getTo(),
-                    textMsg.getContent(),
-                    Instant.ofEpochMilli(textMsg.getTimestamp()),
-                    textMsg.getReplyToMessageId()
-            );
-            conversation.addMessage(msg);
+        String conversationId;
+        int otherUserId;
 
-            publishEvent(new TextMessageReceivedEvent(this, "0", msg), context);
+        if (textMsg.getFrom() == context.getClientId()) {
+            otherUserId = textMsg.getTo();
+        } else {
+            otherUserId = textMsg.getFrom();
         }
+
+        ConversationClient conversation = context.getOrCreatePrivateConversation(otherUserId);
+        conversationId = conversation.getConversationId();
+
+        Message msg = new Message(
+                textMsg.getMessageId(),
+                textMsg.getFrom(),
+                textMsg.getTo(),
+                textMsg.getContent(),
+                textMsg.getTimestamp(),
+                textMsg.getReplyToMessageId()
+        );
+
+        conversation.addMessage(msg);
+        context.getConversationRepository().update(conversationId, conversation);
+
+        publishEvent(new TextMessageReceivedEvent(this, conversationId, msg), context);
     }
 
     @Override

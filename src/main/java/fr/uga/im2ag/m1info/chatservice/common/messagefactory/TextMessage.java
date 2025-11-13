@@ -4,7 +4,7 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
-import java.nio.ByteBuffer;
+import java.time.Instant;
 
 /**
  * Class representing a text message in the chat service protocol.
@@ -13,14 +13,14 @@ public class TextMessage extends ProtocolMessage {
     private String messageId;
     private String content;
     private String replyToMessageId;
-    private long timestamp;
+    private Instant timestamp;
 
     /** Default constructor for TextMessage.
      * This is used for message factory registration only.
      */
     public TextMessage() {
         super(MessageType.NONE, -1, -1);
-        timestamp = 0;
+        timestamp = Instant.EPOCH;
         messageId = null;
         this.content = "";
         this.replyToMessageId = null;
@@ -34,8 +34,8 @@ public class TextMessage extends ProtocolMessage {
      */
     public TextMessage generateNewMessageId(MessageIdGenerator messageIdGenerator) {
         if (this.from == -1) { throw new IllegalStateException("Cannot generate message ID: 'from' field is not set."); }
-        timestamp = System.currentTimeMillis();
-        messageId = messageIdGenerator.generateId(from, timestamp);
+        timestamp = Instant.now();
+        messageId = messageIdGenerator.generateId(from, timestamp.toEpochMilli());
         return this;
     }
 
@@ -65,9 +65,9 @@ public class TextMessage extends ProtocolMessage {
 
     /** Get the timestamp of the message.
      *
-     * @return the timestamp in milliseconds since epoch
+     * @return the timestamp as an Instant
      */
-    public long getTimestamp() {
+    public Instant getTimestamp() {
         return timestamp;
     }
 
@@ -95,7 +95,7 @@ public class TextMessage extends ProtocolMessage {
     public Packet toPacket() {
         if (messageId == null) { throw  new IllegalArgumentException("Message id is null"); }
         StringBuilder sb = new StringBuilder();
-        sb.append(messageId).append("|").append(timestamp).append("|");
+        sb.append(messageId).append("|").append(timestamp.toEpochMilli()).append("|");
         if (replyToMessageId != null) {
             sb.append(replyToMessageId);
         }
@@ -117,7 +117,7 @@ public class TextMessage extends ProtocolMessage {
         String payload = new String(packet.getModifiablePayload().array());
         String[] parts = payload.split("\\|", 4);
         this.messageId = parts[0];
-        this.timestamp = Long.parseLong(parts[1]);
+        this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
         this.replyToMessageId = parts[2].isEmpty() ? null : parts[2];
         this.content = parts[3];
         return this;

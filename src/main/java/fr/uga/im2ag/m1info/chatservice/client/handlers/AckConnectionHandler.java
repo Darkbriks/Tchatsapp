@@ -1,6 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.ConnectionEstablishedEvent;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
@@ -20,6 +21,10 @@ public class AckConnectionHandler extends ClientPacketHandler {
             context.updateClientId(clientId);
         }
 
+        if (pseudo != null) {
+            context.getActiveUser().setPseudo(pseudo);
+        }
+
         context.markConnectionEstablished();
 
         if (Boolean.TRUE.equals(isNewUser)) {
@@ -35,6 +40,13 @@ public class AckConnectionHandler extends ClientPacketHandler {
                 System.out.println("\tPseudo: " + pseudo);
             }
         }
+
+        publishEvent(new ConnectionEstablishedEvent(
+                this,
+                context.getClientId(),
+                pseudo != null ? pseudo : "Unknown",
+                Boolean.TRUE.equals(isNewUser)
+        ), context);
     }
 
     @Override

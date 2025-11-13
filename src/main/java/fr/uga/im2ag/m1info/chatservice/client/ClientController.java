@@ -11,12 +11,12 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
 import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Context providing access to client functionalities for packet handlers.
  * This class encapsulates the client and provides controlled access to its operations.
  */
-// TODO: Add access to repositories
 public class ClientController {
     private final Client client;
     private volatile boolean connectionEstablished;
@@ -51,9 +51,6 @@ public class ClientController {
         this.groupRepository = groupRepository;
         this.activeUser = user;
         this.eventBus = EventBus.getInstance();
-
-        // TODO: For testing purposes only, remove later
-        this.conversationRepository.add(new ConversationClient("0", new HashSet<>(), false));
     }
 
     /**
@@ -138,6 +135,15 @@ public class ClientController {
     }
 
     /**
+     * Get the active user.
+     *
+     * @return the active user
+     */
+    public UserClient getActiveUser() {
+        return activeUser;
+    }
+
+    /**
      * Check if the client is connected.
      *
      * @return true if connected, false otherwise
@@ -194,6 +200,73 @@ public class ClientController {
      */
     public void updateClientId(int clientId) {
         client.updateClientId(clientId);
+    }
+
+    /* ----------------------- Conversation Management ----------------------- */
+
+    /**
+     * Generate a conversation ID for a private conversation between two users.
+     *
+     * @param userId1 the first user ID
+     * @param userId2 the second user ID
+     * @return the conversation ID
+     */
+    public static String generatePrivateConversationId(int userId1, int userId2) {
+        int min = Math.min(userId1, userId2);
+        int max = Math.max(userId1, userId2);
+        return "private_" + min + "_" + max;
+    }
+
+    /**
+     * Generate a conversation ID for a group conversation.
+     *
+     * @param groupId the group ID
+     * @return the conversation ID
+     */
+    public static String generateGroupConversationId(int groupId) {
+        return "group_" + groupId;
+    }
+
+    /**
+     * Get or create a private conversation with another user.
+     * TODO: Discuss about automatic conversation creation vs explicit user action
+     *
+     * @param otherUserId the other user's ID
+     * @return the conversation
+     */
+    public ConversationClient getOrCreatePrivateConversation(int otherUserId) {
+        String conversationId = generatePrivateConversationId(getClientId(), otherUserId);
+        ConversationClient conversation = conversationRepository.findById(conversationId);
+
+        if (conversation == null) {
+            Set<Integer> participants = new HashSet<>();
+            participants.add(getClientId());
+            participants.add(otherUserId);
+            conversation = new ConversationClient(conversationId, participants, false);
+            conversationRepository.add(conversation);
+        }
+
+        return conversation;
+    }
+
+    /**
+     * Get or create a group conversation.
+     * TODO: Discuss about automatic conversation creation vs explicit user action
+     *
+     * @param groupId the group ID
+     * @param participantIds the participant IDs (including current user)
+     * @return the conversation
+     */
+    public ConversationClient getOrCreateGroupConversation(int groupId, Set<Integer> participantIds) {
+        String conversationId = generateGroupConversationId(groupId);
+        ConversationClient conversation = conversationRepository.findById(conversationId);
+
+        if (conversation == null) {
+            conversation = new ConversationClient(conversationId, participantIds, true);
+            conversationRepository.add(conversation);
+        }
+
+        return conversation;
     }
 
     /* ----------------------- Event Subscription ----------------------- */

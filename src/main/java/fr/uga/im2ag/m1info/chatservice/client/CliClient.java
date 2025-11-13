@@ -1,13 +1,18 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
-import fr.uga.im2ag.m1info.chatservice.client.event.types.TextMessageReceivedEvent;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.*;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.ShaIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 
 /**
@@ -18,6 +23,10 @@ public class CliClient {
     private static final int SERVER_ID = 0;
     private static final String DEFAULT_HOST = "localhost";
     private static final int DEFAULT_PORT = 1666;
+    private static final DateTimeFormatter TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter DATE_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
     private final ClientController clientController;
     private final Scanner scanner;
@@ -64,9 +73,137 @@ public class CliClient {
         client.setPacketProcessor(router);
     }
 
+    /**
+     * Register event listeners for all client events.
+     */
     private void registerEventListeners() {
-        clientController.subscribeToEvent(TextMessageReceivedEvent.class, this::textMessageEventCallback);
+        // Connection events
+        clientController.subscribeToEvent(
+                ConnectionEstablishedEvent.class,
+                this::onConnectionEstablished
+        );
+
+        // Message events
+        clientController.subscribeToEvent(
+                TextMessageReceivedEvent.class,
+                this::onTextMessageReceived
+        );
+
+        clientController.subscribeToEvent(
+                MediaMessageReceivedEvent.class,
+                this::onMediaMessageReceived
+        );
+
+        // Contact events
+        clientController.subscribeToEvent(
+                ContactAddedEvent.class,
+                this::onContactAdded
+        );
+
+        clientController.subscribeToEvent(
+                ContactRemovedEvent.class,
+                this::onContactRemoved
+        );
+
+        clientController.subscribeToEvent(
+                ContactUpdatedEvent.class,
+                this::onContactUpdated
+        );
+
+        // User events
+        clientController.subscribeToEvent(
+                UserPseudoUpdatedEvent.class,
+                this::onUserPseudoUpdated
+        );
+
+        // Error events
+        clientController.subscribeToEvent(
+                ErrorEvent.class,
+                this::onError
+        );
     }
+
+    /* ----------------------- Event Callbacks ----------------------- */
+
+    private void onConnectionEstablished(ConnectionEstablishedEvent event) {
+        System.out.println("\n=== Connection Established ===");
+        if (event.isNewUser()) {
+            System.out.println("✓ New account created!");
+        } else {
+            System.out.println("✓ Welcome back!");
+        }
+        System.out.println("Client ID: " + event.getClientId());
+        System.out.println("Pseudo: " + event.getPseudo());
+        System.out.println("==============================\n");
+    }
+
+    private void onTextMessageReceived(TextMessageReceivedEvent event) {
+        Message msg = event.getMessage();
+        String conversationId = event.getConversationId();
+
+        System.out.println("\n╔════════════════════════════════════════════════╗");
+        System.out.println("║         NEW TEXT MESSAGE RECEIVED              ║");
+        System.out.println("╠════════════════════════════════════════════════╣");
+        System.out.println("║ Conversation: " + conversationId);
+        System.out.println("║ From: User #" + msg.getFromUserId());
+        System.out.println("║ To: User #" + msg.getToUserId());
+        System.out.println("║ Time: " + TIME_FORMATTER.format(msg.getTimestamp()));
+        if (msg.getReplyToMessageId() != null) {
+            System.out.println("║ Reply to: " + msg.getReplyToMessageId().substring(0, 8) + "...");
+        }
+        System.out.println("╠════════════════════════════════════════════════╣");
+        System.out.println("║ " + msg.getContent());
+        System.out.println("╚════════════════════════════════════════════════╝\n");
+    }
+
+    private void onMediaMessageReceived(MediaMessageReceivedEvent event) {
+        Message msg = event.getMessage();
+        String conversationId = event.getConversationId();
+
+        System.out.println("\n╔════════════════════════════════════════════════╗");
+        System.out.println("║        NEW MEDIA MESSAGE RECEIVED              ║");
+        System.out.println("╠════════════════════════════════════════════════╣");
+        System.out.println("║ Conversation: " + conversationId);
+        System.out.println("║ From: User #" + msg.getFromUserId());
+        System.out.println("║ To: User #" + msg.getToUserId());
+        System.out.println("║ Time: " + TIME_FORMATTER.format(msg.getTimestamp()));
+        System.out.println("╠════════════════════════════════════════════════╣");
+        System.out.println("║ " + msg.getContent());
+        System.out.println("╚════════════════════════════════════════════════╝\n");
+    }
+
+    private void onContactAdded(ContactAddedEvent event) {
+        ContactClient contact = clientController.getContactRepository().findById(event.getContactId());
+        System.out.println("\n✓ Contact added: " +
+                (contact != null ? contact.getPseudo() : "User #" + event.getContactId()));
+    }
+
+    private void onContactRemoved(ContactRemovedEvent event) {
+        System.out.println("\n✓ Contact removed: User #" + event.getContactId());
+    }
+
+    private void onContactUpdated(ContactUpdatedEvent event) {
+        ContactClient contact = clientController.getContactRepository().findById(event.getContactId());
+        if (contact != null) {
+            System.out.println("\n✓ Contact updated: " + contact.getPseudo() + " (User #" + event.getContactId() + ")");
+        }
+    }
+
+    private void onUserPseudoUpdated(UserPseudoUpdatedEvent event) {
+        System.out.println("\n✓ Your pseudo has been updated to: " + event.getNewPseudo());
+    }
+
+    private void onError(ErrorEvent event) {
+        System.err.println("\n╔════════════════════════════════════════════════╗");
+        System.err.println("║                    ERROR                       ║");
+        System.err.println("╠════════════════════════════════════════════════╣");
+        System.err.println("║ Level: " + event.getErrorLevel());
+        System.err.println("║ Type: " + event.getErrorType());
+        System.err.println("║ Message: " + event.getErrorMessage());
+        System.err.println("╚════════════════════════════════════════════════╝\n");
+    }
+
+    /* ----------------------- Connection ----------------------- */
 
     /**
      * Connect to the server with credentials.
@@ -87,18 +224,28 @@ public class CliClient {
         }
     }
 
+    /* ----------------------- Menu ----------------------- */
+
     /**
      * Display the main menu.
      */
     private void displayMenu() {
-        System.out.println("\n=== Main Menu ===");
-        System.out.println("1. Send a message");
-        System.out.println("2. Add a contact");
-        System.out.println("3. Remove a contact");
-        System.out.println("4. Change your username");
-        System.out.println("0. Quit");
+        System.out.println("\n╔════════════════════════════════════════════════╗");
+        System.out.println("║              TCHATSAPP MAIN MENU               ║");
+        System.out.println("╠════════════════════════════════════════════════╣");
+        System.out.println("║ 1. Send a message                              ║");
+        System.out.println("║ 2. Add a contact                               ║");
+        System.out.println("║ 3. Remove a contact                            ║");
+        System.out.println("║ 4. Change your username                        ║");
+        System.out.println("║ 5. List contacts                               ║");
+        System.out.println("║ 6. List conversations                          ║");
+        System.out.println("║ 7. View conversation history                   ║");
+        System.out.println("║ 0. Quit                                        ║");
+        System.out.println("╚════════════════════════════════════════════════╝");
         System.out.print("Your choice: ");
     }
+
+    /* ----------------------- Actions ----------------------- */
 
     /**
      * Handle sending a message.
@@ -121,7 +268,11 @@ public class CliClient {
         if (!msg.isEmpty() && msg.charAt(0) == '/') {
             clientController.sendMedia(msg, to);
         } else {
-            TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, clientController.getClientId(), to);
+            TextMessage textMsg = (TextMessage) MessageFactory.create(
+                    MessageType.TEXT,
+                    clientController.getClientId(),
+                    to
+            );
             textMsg.generateNewMessageId(clientController.getMessageIdGenerator());
             textMsg.setContent(msg);
             clientController.sendPacket(textMsg.toPacket());
@@ -189,9 +340,154 @@ public class CliClient {
     }
 
     /**
+     * List all contacts.
+     */
+    private void handleListContacts() {
+        var contacts = clientController.getContactRepository().findAll();
+
+        if (contacts.isEmpty()) {
+            System.out.println("\nNo contacts yet.");
+            return;
+        }
+
+        System.out.println("\n╔════════════════════════════════════════════════╗");
+        System.out.println("║                 YOUR CONTACTS                  ║");
+        System.out.println("╠════════════════════════════════════════════════╣");
+
+        for (ContactClient contact : contacts) {
+            System.out.println("║ ID: " + contact.getContactId() +
+                    " | Pseudo: " + contact.getPseudo());
+            if (contact.getLastSeen() != null) {
+                System.out.println("║   Last seen: " +
+                        DATE_TIME_FORMATTER.format(contact.getLastSeen()));
+            }
+        }
+
+        System.out.println("╚════════════════════════════════════════════════╝");
+    }
+
+    /**
+     * List all conversations.
+     */
+    private void handleListConversations() {
+        var conversations = clientController.getConversationRepository().findAll();
+
+        if (conversations.isEmpty()) {
+            System.out.println("\nNo conversations yet.");
+            return;
+        }
+
+        System.out.println("\n╔════════════════════════════════════════════════╗");
+        System.out.println("║              YOUR CONVERSATIONS                ║");
+        System.out.println("╠════════════════════════════════════════════════╣");
+
+        for (ConversationClient conv : conversations) {
+            System.out.println("║ ID: " + conv.getConversationId());
+            System.out.println("║ Name: " + conv.getConversationName());
+            System.out.println("║ Type: " + (conv.isGroupConversation() ? "Group" : "Private"));
+            System.out.println("║ Participants: " + conv.getParticipantIds().size());
+
+            // Get message count
+            var messages = conv.getMessagesFrom(null, -1, true, true);
+            System.out.println("║ Messages: " + messages.size());
+
+            if (!messages.isEmpty()) {
+                Message lastMsg = messages.get(messages.size() - 1);
+                System.out.println("║ Last message: " +
+                        TIME_FORMATTER.format(lastMsg.getTimestamp()));
+            }
+            System.out.println("╠════════════════════════════════════════════════╣");
+        }
+
+        System.out.println("╚════════════════════════════════════════════════╝");
+    }
+
+    /**
+     * View conversation history.
+     */
+    private void handleViewConversationHistory() {
+        System.out.print("Enter conversation ID (or recipient user ID for private chat): ");
+        String input = scanner.nextLine().trim();
+
+        ConversationClient conversation;
+
+        // Try to parse as user ID first
+        try {
+            int userId = Integer.parseInt(input);
+            String conversationId = ClientController.generatePrivateConversationId(
+                    clientController.getClientId(), userId);
+            conversation = clientController.getConversationRepository().findById(conversationId);
+        } catch (NumberFormatException e) {
+            // Not a number, use as conversation ID directly
+            conversation = clientController.getConversationRepository().findById(input);
+        }
+
+        if (conversation == null) {
+            System.out.println("\nConversation not found.");
+            return;
+        }
+
+        System.out.print("Number of messages to display (or -1 for all): ");
+        int count;
+        try {
+            count = scanner.nextInt();
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.err.println("Invalid number.");
+            scanner.nextLine();
+            return;
+        }
+
+        var messages = conversation.getMessagesFrom(null, count, true, false);
+
+        if (messages.isEmpty()) {
+            System.out.println("\nNo messages in this conversation.");
+            return;
+        }
+
+        System.out.println("\n╔════════════════════════════════════════════════╗");
+        System.out.println("║         CONVERSATION: " + conversation.getConversationId());
+        System.out.println("╠════════════════════════════════════════════════╣");
+
+        for (Message msg : messages) {
+            String fromLabel = (msg.getFromUserId() == clientController.getClientId())
+                    ? "You"
+                    : "User #" + msg.getFromUserId();
+
+            System.out.println("║ [" + TIME_FORMATTER.format(msg.getTimestamp()) + "] " + fromLabel);
+
+            if (msg.getReplyToMessageId() != null) {
+                System.out.println("║   ↳ Reply to: " + msg.getReplyToMessageId().substring(0, 8) + "...");
+            }
+
+            System.out.println("║   " + msg.getContent());
+
+            if (!msg.getReactions().isEmpty()) {
+                System.out.print("║   Reactions: ");
+                msg.getReactions().forEach((emoji, users) ->
+                        System.out.print(emoji + "(" + users.size() + ") ")
+                );
+                System.out.println();
+            }
+
+            System.out.println("╠════════════════════════════════════════════════╣");
+        }
+
+        System.out.println("╚════════════════════════════════════════════════╝");
+    }
+
+    /* ----------------------- Main Loop ----------------------- */
+
+    /**
      * Run the main interaction loop.
      */
     public void run() {
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
         while (true) {
             displayMenu();
 
@@ -206,7 +502,7 @@ public class CliClient {
             }
 
             if (action == 0) {
-                System.out.println("Goodbye!");
+                System.out.println("\nGoodbye!");
                 break;
             }
 
@@ -215,6 +511,9 @@ public class CliClient {
                 case 2 -> handleAddContact();
                 case 3 -> handleRemoveContact();
                 case 4 -> handleUpdatePseudo();
+                case 5 -> handleListContacts();
+                case 6 -> handleListConversations();
+                case 7 -> handleViewConversationHistory();
                 default -> System.out.println("Invalid choice. Please try again.");
             }
         }
@@ -226,18 +525,6 @@ public class CliClient {
     public void cleanup() {
         clientController.disconnect();
         scanner.close();
-    }
-
-    private void textMessageEventCallback(TextMessageReceivedEvent event) {
-        System.out.println("\n[New message received in conversation " + event.getConversationId() + "]");
-        System.out.println("\tFrom: " + event.getMessage().getFromUserId());
-        System.out.println("\tTo: " + event.getMessage().getToUserId());
-        System.out.println("\tMessageId: " + event.getMessage().getMessageId());
-        System.out.println("\tTimestamp: " + event.getMessage().getTimestamp());
-        if (event.getMessage().getReplyToMessageId() != null) {
-            System.out.println("\tReply to: " + event.getMessage().getReplyToMessageId());
-        }
-        System.out.println("\tContent: " + event.getMessage().getContent());
     }
 
     /**
