@@ -5,6 +5,7 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestMessa
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
 import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
+import fr.uga.im2ag.m1info.chatservice.server.util.AckHelper;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,7 +13,6 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Handler for contact request messages.
  */
-// TODO: ACK/Error
 public class ContactRequestServerHandler extends ServerPacketHandler {
     // Track pending requests: key = requestId, value = (senderId, receiverId)
     private final Map<String, PendingRequest> pendingRequests = new ConcurrentHashMap<>();
@@ -60,23 +60,29 @@ public class ContactRequestServerHandler extends ServerPacketHandler {
         UserInfo sender = serverContext.getUserRepository().findById(senderId);
         if (sender == null) {
             System.err.printf("[Server] Contact request from non-existent user %d%n", senderId);
+            AckHelper.sendFailedAck(serverContext, crMsg, "Sender not found");
             return;
         }
 
         // Validate receiver exists
         if (serverContext.getUserRepository().findById(receiverId) == null) {
             System.err.printf("[Server] Contact request to non-existent user %d%n", receiverId);
+            AckHelper.sendFailedAck(serverContext, crMsg, "Recipient not found");
             return;
         }
 
         // Validate not already contacts
         if (sender.hasContact(receiverId)) {
             System.err.printf("[Server] Users %d and %d are already contacts%n", senderId, receiverId);
+            AckHelper.sendFailedAck(serverContext, crMsg, "Already contacts");
             return;
         }
 
         // Store the pending request for validation later
         pendingRequests.put(requestId, new PendingRequest(senderId, receiverId, System.currentTimeMillis()));
+
+        // Send ACK to sender
+        AckHelper.sendSentAck(serverContext, crMsg);
 
         // Forward to receiver
         serverContext.sendPacketToClient(crMsg.toPacket());
@@ -97,6 +103,7 @@ public class ContactRequestServerHandler extends ServerPacketHandler {
         PendingRequest pending = pendingRequests.get(requestId);
         if (pending == null) {
             System.err.printf("[Server] Response to unknown request %s from user %d%n", requestId, responderId);
+            AckHelper.sendFailedAck(serverContext, crMsg, "Unknown request");
             return;
         }
 
@@ -104,6 +111,7 @@ public class ContactRequestServerHandler extends ServerPacketHandler {
         if (pending.receiverId != responderId) {
             System.err.printf("[Server] User %d attempted to respond to request meant for user %d (SPOOFING ATTEMPT)%n",
                     responderId, pending.receiverId);
+            AckHelper.sendFailedAck(serverContext, crMsg, "Invalid responder");
             return;
         }
 
@@ -111,6 +119,7 @@ public class ContactRequestServerHandler extends ServerPacketHandler {
         if (pending.senderId != originalSenderId) {
             System.err.printf("[Server] Response targets wrong user %d instead of %d%n",
                     originalSenderId, pending.senderId);
+            AckHelper.sendFailedAck(serverContext, crMsg, "Invalid target");
             return;
         }
 
@@ -122,6 +131,7 @@ public class ContactRequestServerHandler extends ServerPacketHandler {
 
             if (responder == null || sender == null) {
                 System.err.printf("[Server] User not found during contact acceptance%n");
+                AckHelper.sendFailedAck(serverContext, crMsg, "User not found");
                 return;
             }
 
@@ -136,6 +146,10 @@ public class ContactRequestServerHandler extends ServerPacketHandler {
             System.out.printf("[Server] Contact request rejected by user %d%n", responderId);
         }
 
+        // Send ACK to responder
+        AckHelper.sendSentAck(serverContext, crMsg);
+
+        // Forward response to original sender
         serverContext.sendPacketToClient(crMsg.toPacket());
     }
 

@@ -7,6 +7,7 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
 import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
+import fr.uga.im2ag.m1info.chatservice.server.util.AckHelper;
 
 /**
  * Handler for user management messages such as user creation, connection, and contact management.
@@ -150,23 +151,21 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
         UserInfo user = serverContext.getUserRepository().findById(from);
         if (user == null) {
             System.out.printf("[Server] User %d not found while trying to remove contact %d%n", from, contactId);
+            AckHelper.sendFailedAck(serverContext, managementMessage, "User not found");
             return;
         }
 
         if (!user.getContacts().contains(contactId)) {
             System.out.printf("[Server] User %d tried to remove non-existing contact %d%n", from, contactId);
-            serverContext.sendErrorMessage(0, from, ErrorMessage.ErrorLevel.WARNING, "CONTACT_NOT_FOUND", "Cannot remove contact who is not in your contacts.");
+            AckHelper.sendFailedAck(serverContext, managementMessage, "Contact not found");
             return;
         }
 
         user.removeContact(contactId);
         serverContext.getUserRepository().update(user.getId(), user);
-        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.REMOVE_CONTACT, from, contactId))
-                .addParam("contactId", contactId)
-                .addParam("contactPseudo", serverContext.getUserRepository().findById(contactId).getUsername())
-                .addParam("ack", "true")
-                .toPacket()
-        );
+
+        AckHelper.sendSentAck(serverContext, managementMessage);
+
         System.out.printf("[Server] User %d removed contact %d%n", from, contactId);
     }
 
@@ -183,12 +182,13 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
         UserInfo user = serverContext.getUserRepository().findById(from);
         if (user == null) {
             System.out.printf("[Server] User %d not found while trying to update pseudo%n", from);
+            AckHelper.sendFailedAck(serverContext, managementMessage, "User not found");
             return;
         }
 
         if (newPseudo == null || newPseudo.isEmpty()) {
             System.out.printf("[Server] User %d provided invalid new pseudo%n", from);
-            serverContext.sendErrorMessage(0, from, ErrorMessage.ErrorLevel.ERROR, "INVALID_PSEUDO", "The new pseudo cannot be null or empty.");
+            AckHelper.sendFailedAck(serverContext, managementMessage, "Invalid pseudo");
             return;
         }
 
@@ -206,10 +206,6 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
             }
         }
 
-        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, from, from))
-                .addParam("newPseudo", newPseudo)
-                .addParam("ack", "true")
-                .toPacket()
-        );
+        AckHelper.sendSentAck(serverContext, managementMessage);
     }
 }

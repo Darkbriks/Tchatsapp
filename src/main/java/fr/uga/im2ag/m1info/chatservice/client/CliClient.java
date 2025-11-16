@@ -6,10 +6,7 @@ import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
-import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -20,7 +17,6 @@ import java.util.Scanner;
  * Provides a text-based menu to interact with the chat service.
  */
 public class CliClient {
-    private static final int SERVER_ID = 0;
     private static final String DEFAULT_HOST = "localhost";
     private static final int DEFAULT_PORT = 1666;
     private static final DateTimeFormatter TIME_FORMATTER =
@@ -65,6 +61,7 @@ public class CliClient {
     private void initializeHandlers(Client client) {
         ClientPaquetRouter router = new ClientPaquetRouter(clientController);
         router.addHandler(new AckConnectionHandler());
+        router.addHandler(new AckMessageHandler(client.getCommandManager()));
         router.addHandler(new TextMessageHandler());
         router.addHandler(new MediaMessageHandler());
         router.addHandler(new ErrorMessageHandler());
@@ -132,6 +129,22 @@ public class CliClient {
         clientController.subscribeToEvent(
                 ContactRequestResponseEvent.class,
                 this::onContactRequestResponse
+        );
+
+        // ACK System events
+        clientController.subscribeToEvent(
+                MessageStatusChangedEvent.class,
+                this::onMessageStatusChanged
+        );
+
+        clientController.subscribeToEvent(
+                ManagementOperationSucceededEvent.class,
+                this::onManagementOperationSucceeded
+        );
+
+        clientController.subscribeToEvent(
+                ManagementOperationFailedEvent.class,
+                this::onManagementOperationFailed
         );
     }
 
@@ -230,6 +243,32 @@ public class CliClient {
         }
     }
 
+    private void onMessageStatusChanged(MessageStatusChangedEvent event) {
+        String statusIcon = switch (event.getNewStatus()) {
+            case SENDING -> "⏳";
+            case SENT -> "📤";
+            case DELIVERED -> "📬";
+            case READ -> "📖";
+            case FAILED -> "❌";
+        };
+
+        String msgIdShort = event.getMessageId().substring(0, Math.min(8, event.getMessageId().length()));
+        System.out.printf("%s Message %s: %s%n", statusIcon, msgIdShort, event.getNewStatus());
+
+        if (event.getNewStatus() == MessageStatus.FAILED && event.getErrorReason() != null) {
+            System.err.println("   Reason: " + event.getErrorReason());
+        }
+    }
+
+    private void onManagementOperationSucceeded(ManagementOperationSucceededEvent event) {
+        System.out.println("\n✓ Management operation succeeded: " + event.getOperationType());
+    }
+
+    private void onManagementOperationFailed(ManagementOperationFailedEvent event) {
+        System.err.println("\n✗ Management operation failed: " + event.getOperationType());
+        System.err.println("   Reason: " + event.getReason());
+    }
+
     /* ----------------------- Connection ----------------------- */
 
     /**
@@ -297,13 +336,7 @@ public class CliClient {
         if (!msg.isEmpty() && msg.charAt(0) == '/') {
             clientController.sendMedia(msg, to);
         } else {
-            TextMessage textMsg = (TextMessage) MessageFactory.create(
-                    MessageType.TEXT,
-                    clientController.getClientId(),
-                    to
-            );
-            textMsg.setContent(msg);
-            clientController.sendPacket(textMsg.toPacket());
+            clientController.sendTextMessage(msg, to);
         }
     }
 
@@ -322,10 +355,7 @@ public class CliClient {
             return;
         }
 
-        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
-                MessageType.REMOVE_CONTACT, clientController.getClientId(), SERVER_ID);
-        mgmtMsg.addParam("contactId", Integer.toString(contactId));
-        clientController.sendPacket(mgmtMsg.toPacket());
+        clientController.removeContact(contactId);
     }
 
     /**
@@ -340,11 +370,7 @@ public class CliClient {
             return;
         }
 
-        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
-                MessageType.UPDATE_PSEUDO, clientController.getClientId(), SERVER_ID);
-        mgmtMsg.addParam("newPseudo", newPseudo);
-        clientController.sendPacket(mgmtMsg.toPacket());
-        clientController.getActiveUser().setPseudo(newPseudo);
+        clientController.updatePseudo(newPseudo);
     }
 
     /**

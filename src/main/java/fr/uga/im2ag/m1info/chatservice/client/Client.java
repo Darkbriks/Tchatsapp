@@ -11,6 +11,7 @@
 
 package fr.uga.im2ag.m1info.chatservice.client;
 
+import fr.uga.im2ag.m1info.chatservice.client.command.PendingCommandManager;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
 import fr.uga.im2ag.m1info.chatservice.common.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
@@ -34,6 +35,7 @@ public class Client {
     private Socket cnx;
     private PacketProcessor processor;
     private Thread receptionThread;
+    private final PendingCommandManager commandManager;
 
     /**
      * Creates a new Client with clientId 0 (for user creation).
@@ -49,6 +51,16 @@ public class Client {
      */
     public Client(int clientId) {
         this.clientId = clientId;
+        this.commandManager = new PendingCommandManager();
+    }
+
+    /**
+     * Get the pending command manager.
+     *
+     * @return the pending command manager
+     */
+    public PendingCommandManager getCommandManager() {
+        return commandManager;
     }
 
     /**
@@ -164,6 +176,7 @@ public class Client {
             if (receptionThread != null && receptionThread.isAlive()) {
                 receptionThread.interrupt();
             }
+            commandManager.shutdown();
         } catch (IOException e) {
             /* ignored */
         }
@@ -210,6 +223,17 @@ public class Client {
             fileStream.close();
         } catch (Exception e) {
             System.err.println("[Client] Failed to send media: " + e.getMessage());
+        }
+    }
+
+    public void sendAck(ProtocolMessage message, MessageStatus ackType) {
+        try {
+            AckMessage ackMsg = (AckMessage) MessageFactory.create(MessageType.MESSAGE_ACK, clientId, message.getFrom());
+            ackMsg.setAckType(ackType);
+            ackMsg.setAcknowledgedMessageId(message.getMessageId());
+            sendPacket(ackMsg.toPacket());
+        } catch (Exception e) {
+            System.err.println("[Client] Failed to send acknowledgment: " + e.getMessage());
         }
     }
 }

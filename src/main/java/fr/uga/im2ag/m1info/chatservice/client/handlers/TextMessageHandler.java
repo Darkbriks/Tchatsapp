@@ -4,6 +4,7 @@ import fr.uga.im2ag.m1info.chatservice.client.ClientController;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.TextMessageReceivedEvent;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
+import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
@@ -40,6 +41,9 @@ public class TextMessageHandler extends ClientPacketHandler {
         context.getConversationRepository().update(conversationId, conversation);
 
         publishEvent(new TextMessageReceivedEvent(this, conversationId, msg), context);
+
+        context.sendAck(textMsg, MessageStatus.DELIVERED);
+        context.sendAck(textMsg, MessageStatus.READ); // TODO: Remove this line when read receipts are implemented properly
     }
 
     @Override

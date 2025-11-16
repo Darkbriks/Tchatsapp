@@ -3,3 +3,4 @@ fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.MediaMessageProv
 fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.TextMessageProvider
 fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.ErrorMessageProvider
 fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.ContactRequestMessageProvider
+fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.AckMessageProvider

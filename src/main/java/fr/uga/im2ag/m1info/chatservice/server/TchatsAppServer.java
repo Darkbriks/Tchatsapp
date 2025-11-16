@@ -518,10 +518,8 @@ public class TchatsAppServer {
         TchatsAppServer s = new TchatsAppServer(port, workers);
 
         ServerPacketRouter router = new ServerPacketRouter(s.serverContext);
-        router.addHandler(new TextMessageHandler());
-        router.addHandler(new MediaMessageHandler());
+        router.addHandler(new RelayMessageHandler());
         router.addHandler(new UserManagementMessageHandler());
-        router.addHandler(new ErrorMessageHandler());
         router.addHandler(new ContactRequestServerHandler());
         s.setPacketProcessor(router);
 

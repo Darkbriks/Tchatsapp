@@ -1,5 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.client.model;
 
+import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
+
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,6 +17,7 @@ public class Message {
     private boolean isRead;
     private final Map<String, Set<Integer>> reactions;
     private Media attachedMedia;
+    private MessageStatus status;
 
     public Message(String messageId, int fromUserId, int toUserId, String content, Instant timestamp, String replyToMessageId) {
         this.messageId = messageId;
@@ -25,6 +28,7 @@ public class Message {
         this.replyToMessageId = replyToMessageId;
         this.isRead = false;
         this.reactions = new HashMap<>();
+        this.status = MessageStatus.SENDING;
     }
 
     public String getMessageId() {
@@ -83,5 +87,13 @@ public class Message {
                 reactions.remove(reaction);
             }
         }
+    }
+
+    public MessageStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(MessageStatus status) {
+        this.status = status;
     }
 }

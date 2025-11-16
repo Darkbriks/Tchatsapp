@@ -28,6 +28,7 @@ public enum MessageType {
     FILE_TRANSFER_START,
     FILE_TRANSFER_ACK,
     GROUP_KEY_DISTRIBUTION,
+    MESSAGE_ACK,
     NONE;
 
     /** Convert an integer to a MessageType enum.
@@ -87,7 +88,6 @@ public enum MessageType {
             case NOTIFICATION -> "NOTIFICATION";
             case EMPTY -> "EMPTY";
             case ERROR -> "ERROR";
-            case NONE -> "NONE";
             case KEY_EXCHANGE -> "KEY_EXCHANGE";
             case KEY_EXCHANGE_RESPONSE -> "KEY_EXCHANGE_RESPONSE";
             case ENCRYPTED_TEXT -> "ENCRYPTED_TEXT";
@@ -95,6 +95,8 @@ public enum MessageType {
             case FILE_TRANSFER_START -> "FILE_TRANSFER_START";
             case FILE_TRANSFER_ACK -> "FILE_TRANSFER_ACK";
             case GROUP_KEY_DISTRIBUTION -> "GROUP_KEY_DISTRIBUTION";
+            case MESSAGE_ACK -> "MESSAGE_ACK";
+            case NONE -> "NONE";
         };
     }
 }

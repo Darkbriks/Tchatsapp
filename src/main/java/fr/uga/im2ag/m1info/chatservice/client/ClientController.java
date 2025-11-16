@@ -1,16 +1,18 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
+import fr.uga.im2ag.m1info.chatservice.client.command.PendingCommandManager;
+import fr.uga.im2ag.m1info.chatservice.client.command.SendManagementMessageCommand;
+import fr.uga.im2ag.m1info.chatservice.client.command.SendTextMessageCommand;
 import fr.uga.im2ag.m1info.chatservice.client.event.system.*;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.ClientPacketHandler;
 import fr.uga.im2ag.m1info.chatservice.client.model.*;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.GroupClientRepository;
+import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -63,9 +65,9 @@ public class ClientController {
      */
     public ClientController(Client client) {
         this(client, new ConversationClientRepository(),
-             new ContactClientRepository(),
-             new GroupClientRepository(),
-             new UserClient());
+                new ContactClientRepository(),
+                new GroupClientRepository(),
+                new UserClient());
     }
 
     /* ----------------------- Client Operations ----------------------- */
@@ -135,6 +137,15 @@ public class ClientController {
      */
     public UserClient getActiveUser() {
         return activeUser;
+    }
+
+    /**
+     * Get the pending command manager.
+     *
+     * @return the pending command manager
+     */
+    public PendingCommandManager getCommandManager() {
+        return client.getCommandManager();
     }
 
     /**
@@ -415,5 +426,122 @@ public class ClientController {
      */
     public void sendMedia(String msg, int to) {
         client.sendMedia(msg, to);
+    }
+
+    /* ----------------------- ACK System Message Sending ----------------------- */
+
+    /**
+     * Send a text message to a recipient using the ACK system.
+     *
+     * @param content the message content
+     * @param toUserId the recipient ID
+     * @return the message ID, or null if failed
+     */
+    public String sendTextMessage(String content, int toUserId) {
+        TextMessage textMsg = (TextMessage) MessageFactory.create(
+                MessageType.TEXT,
+                getClientId(),
+                toUserId
+        );
+        textMsg.setContent(content);
+
+        Message msg = new Message(
+                textMsg.getMessageId(),
+                getClientId(),
+                toUserId,
+                content,
+                textMsg.getTimestamp(),
+                null
+        );
+
+        ConversationClient conversation = getOrCreatePrivateConversation(toUserId);
+        conversation.addMessage(msg);
+
+        SendTextMessageCommand command = new SendTextMessageCommand(
+                textMsg.getMessageId(),
+                msg,
+                conversationRepository
+        );
+
+        client.getCommandManager().addPendingCommand(command);
+        sendPacket(textMsg.toPacket());
+        return textMsg.getMessageId();
+    }
+
+    /**
+     * Send a management message using the ACK system.
+     *
+     * @param messageType the type of management message
+     * @param toUserId the recipient ID (usually 0 for server)
+     * @return the created ManagementMessage, or null if failed
+     */
+    public ManagementMessage sendManagementMessage(MessageType messageType, int toUserId) {
+        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
+                messageType,
+                getClientId(),
+                toUserId
+        );
+
+        SendManagementMessageCommand command = new SendManagementMessageCommand(
+                mgmtMsg.getMessageId(),
+                messageType
+        );
+
+        client.getCommandManager().addPendingCommand(command);
+
+        return mgmtMsg;
+    }
+
+    /**
+     * Update the user's pseudo using the ACK system.
+     *
+     * @param newPseudo the new pseudo
+     * @return true if the request was sent, false otherwise
+     */
+    public boolean updatePseudo(String newPseudo) {
+        if (newPseudo == null || newPseudo.isEmpty()) {
+            System.err.println("[Client] New pseudo cannot be null or empty");
+            return false;
+        }
+
+        ManagementMessage mgmtMsg = sendManagementMessage(MessageType.UPDATE_PSEUDO, 0);
+        if (mgmtMsg == null) {
+            return false;
+        }
+
+        mgmtMsg.addParam("newPseudo", newPseudo);
+        sendPacket(mgmtMsg.toPacket());
+
+        // TODO: Use command instead of optimistically
+        activeUser.setPseudo(newPseudo);
+
+        return true;
+    }
+
+    /**
+     * Remove a contact using the ACK system.
+     *
+     * @param contactId the contact ID to remove
+     * @return true if the request was sent, false otherwise
+     */
+    public boolean removeContact(int contactId) {
+        if (!contactRepository.isContact(contactId)) {
+            System.err.println("[Client] User " + contactId + " is not a contact");
+            return false;
+        }
+
+        ManagementMessage mgmtMsg = sendManagementMessage(MessageType.REMOVE_CONTACT, 0);
+        if (mgmtMsg == null) {
+            return false;
+        }
+
+        mgmtMsg.addParam("contactId", contactId);
+        sendPacket(mgmtMsg.toPacket());
+
+        return true;
+    }
+
+    public void sendAck(ProtocolMessage originalMessage, MessageStatus ackType) {
+        client.sendAck(originalMessage, ackType);
     }
 }
