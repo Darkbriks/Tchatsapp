@@ -94,7 +94,7 @@ public class MediaMessage extends ProtocolMessage {
     @Override
     public Packet toPacket() {
         if (messageId == null) { throw  new IllegalArgumentException("Message id is null"); }
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = getStringBuilder();
         sb.append(messageId).append("|").append(timestamp.toEpochMilli()).append("|");
         if (replyToMessageId != null) {
             sb.append(replyToMessageId);

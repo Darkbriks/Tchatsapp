@@ -5,6 +5,9 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.AckMessage;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Manager for tracking and handling pending commands that await acknowledgment.
@@ -12,12 +15,19 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class PendingCommandManager {
     private final Map<String, PendingCommand> pendingCommands;
+    private final ScheduledExecutorService scheduler;
+    private static final long DEFAULT_TIMEOUT_MS = 30_000;
 
     /**
      * Constructor for PendingCommandManager.
      */
     public PendingCommandManager() {
         this.pendingCommands = new ConcurrentHashMap<>();
+        this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "PendingCommandTimeout");
+            t.setDaemon(true);
+            return t;
+        });
     }
 
     /**
@@ -27,6 +37,13 @@ public class PendingCommandManager {
      */
     public void addPendingCommand(PendingCommand command) {
         pendingCommands.put(command.getCommandId(), command);
+
+        scheduler.schedule(() -> {
+            PendingCommand cmd = pendingCommands.remove(command.getCommandId());
+            if (cmd != null) {
+                cmd.onAckFailed("Timeout: no acknowledgment received");
+            }
+        }, DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -69,6 +86,7 @@ public class PendingCommandManager {
      * Shutdown the manager and clear all pending commands.
      */
     public void shutdown() {
+        scheduler.shutdownNow();
         pendingCommands.clear();
         // TODO: Save pending commands to persistent storage if needed
     }

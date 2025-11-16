@@ -38,7 +38,7 @@ public class MessageFactory {
         messageIdGenerator = new ShaIdGenerator(0);
     }
 
-    public void setMessageIdGenerator(MessageIdGenerator generator) {
+    public static void setMessageIdGenerator(MessageIdGenerator generator) {
         if (generator == null) {
             throw new IllegalArgumentException("MessageIdGenerator cannot be null");
         }

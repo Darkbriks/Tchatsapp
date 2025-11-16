@@ -10,6 +10,14 @@ import java.time.Instant;
  * Abstract class representing a protocol message in the chat service.
  */
 public abstract class ProtocolMessage {
+    private static final ThreadLocal<StringBuilder> STRING_BUILDER = ThreadLocal.withInitial(StringBuilder::new);
+
+    protected static StringBuilder getStringBuilder() {
+        StringBuilder sb = STRING_BUILDER.get();
+        sb.setLength(0);
+        return sb;
+    }
+
     protected MessageType messageType;
     protected int from;
     protected int to;

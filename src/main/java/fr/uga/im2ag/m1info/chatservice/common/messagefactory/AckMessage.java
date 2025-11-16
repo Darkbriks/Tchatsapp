@@ -90,7 +90,7 @@ public class AckMessage extends ProtocolMessage {
 
     @Override
     public Packet toPacket() {
-        StringBuilder payload = new StringBuilder();
+        StringBuilder payload = getStringBuilder();
         payload.append(acknowledgedMessageId).append('|');
         payload.append(ackType.toByte()).append('|');
         if (ackType == MessageStatus.FAILED && errorReason != null) {

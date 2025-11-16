@@ -1,45 +1,23 @@
 package fr.uga.im2ag.m1info.chatservice.client.repository;
 
 import java.util.Map;
-import java.util.Set;
 
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
-import fr.uga.im2ag.m1info.chatservice.common.repository.Repository;
+import fr.uga.im2ag.m1info.chatservice.common.repository.AbstractRepository;
 
-public class ConversationClientRepository implements Repository<String, ConversationClient>{
+public class ConversationClientRepository extends AbstractRepository<String, ConversationClient> {
 
-    private final Map<String, ConversationClient> conversations;
 
     public ConversationClientRepository(Map<String, ConversationClient> conversations) {
-        this.conversations = conversations;
+        super(conversations);
     }
 
     public ConversationClientRepository() {
-        this(new java.util.HashMap<>());
+        super();
     }
 
     @Override
-    public void add(ConversationClient entity) {
-        conversations.put(entity.getConversationId(), entity);
-    }
-
-    @Override
-    public void update(String id, ConversationClient entity) {
-        conversations.put(id, entity);
-    }
-
-    @Override
-    public void delete(String id) {
-        conversations.remove(id);
-    }
-
-    @Override
-    public ConversationClient findById(String id) {
-        return conversations.get(id);
-    }
-
-    @Override
-    public Set<ConversationClient> findAll() {
-        return Set.copyOf(conversations.values());
+    protected String getKey(ConversationClient entity) {
+        return entity.getConversationId();
     }
 }
