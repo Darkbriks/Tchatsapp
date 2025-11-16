@@ -18,6 +18,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             throw new IllegalArgumentException("Invalid message type for ManagementMessageHandler");
         }
 
+        System.out.println("Message recu de type " + userMsg.getMessageType().toString());
         switch (userMsg.getMessageType()) {
             case ADD_CONTACT -> addContact(userMsg, context);
             case REMOVE_CONTACT -> removeContact(userMsg, context);
@@ -85,7 +86,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         Integer groupId = message.getParamAsType(KeyInMessage.GROUP_ID, Integer.class);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
-            System.out.println("[Client] Your Group has been created : " + newGroupe);
+            System.out.println("[Client] Your Group has been created : " + newGroupe + " his ID is " + groupId);
             GroupClient group = new GroupClient(groupId, newGroupe, context.getClientId());
             context.getGroupRepository().add(group);
         }

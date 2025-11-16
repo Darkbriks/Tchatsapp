@@ -104,7 +104,9 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         }
 
         // Deleted menber is still in the group, when he will receive the message, need to leave the group by comparing his ID and the removed one
+
         for (int menberId : group.getMenbers()) {
+            System.out.println("On envoie au menbre " + menberId + " que le menbre " + oldMenberID + " s'est fait virer"); 
             if (serverContext.isClientConnected(menberId)) {
                 serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.REMOVE_GROUP_MEMBER, groupId, menberId))
                         .addParam(KeyInMessage.GROUP_ID, groupId)
