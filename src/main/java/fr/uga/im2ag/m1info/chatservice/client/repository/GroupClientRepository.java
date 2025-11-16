@@ -1,9 +1,9 @@
 package fr.uga.im2ag.m1info.chatservice.client.repository;
 
 import java.util.Map;
-import java.util.Set;
 
 import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
+<<<<<<< HEAD
 import fr.uga.im2ag.m1info.chatservice.client.utils.RepositoryWriter;
 import fr.uga.im2ag.m1info.chatservice.common.repository.Repository;
 
@@ -15,13 +15,22 @@ public class GroupClientRepository implements Repository<Integer, GroupClient>{
     public GroupClientRepository(Map<Integer, GroupClient> groups) {
         this.groups = groups;
         loadFromCache();
+=======
+import fr.uga.im2ag.m1info.chatservice.common.repository.AbstractRepository;
+
+public class GroupClientRepository extends AbstractRepository<Integer, GroupClient> {
+
+    public GroupClientRepository(Map<Integer, GroupClient> groups) {
+        super(groups);
+>>>>>>> 6eb8a37c98c57f76ac0100dec68a6172e323f059
     }
 
     public GroupClientRepository() {
-        this(new java.util.HashMap<>());
+        super();
     }
 
     @Override
+<<<<<<< HEAD
     public void add(GroupClient entity) {
         groups.put(entity.getGroupId(), entity);
         repositoryWriter.writeData(entity);
@@ -47,6 +56,10 @@ public class GroupClientRepository implements Repository<Integer, GroupClient>{
     @Override
     public Set<GroupClient> findAll() {
         return Set.copyOf(groups.values());
+=======
+    protected Integer getKey(GroupClient entity) {
+        return entity.getGroupId();
+>>>>>>> 6eb8a37c98c57f76ac0100dec68a6172e323f059
     }
 
     private void loadFromCache() {

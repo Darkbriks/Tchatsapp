@@ -8,17 +8,20 @@ import java.util.stream.Collectors;
 
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
+<<<<<<< HEAD
 import fr.uga.im2ag.m1info.chatservice.client.utils.RepositoryWriter;
 import fr.uga.im2ag.m1info.chatservice.common.repository.Repository;
+=======
+import fr.uga.im2ag.m1info.chatservice.common.repository.AbstractRepository;
+>>>>>>> 6eb8a37c98c57f76ac0100dec68a6172e323f059
 
-public class ContactClientRepository implements Repository<Integer, ContactClient>{
+public class ContactClientRepository extends AbstractRepository<Integer, ContactClient> {
 
     /**
      * Default expiration time for contact requests (7 days).
      */
     public static final Duration DEFAULT_REQUEST_EXPIRATION = Duration.ofDays(7);
 
-    private final Map<Integer, ContactClient> contacts;
     private final Map<String, ContactRequest> pendingRequests; // key: requestId
     private final Map<Integer, String> sentRequests; // key: receiverId, value: requestId
     private final Map<Integer, String> receivedRequests; // key: senderId, value: requestId
@@ -28,7 +31,7 @@ public class ContactClientRepository implements Repository<Integer, ContactClien
                                    Map<String, ContactRequest> pendingRequests,
                                    Map<Integer, String> sentRequests,
                                    Map<Integer, String> receivedRequests) {
-        this.contacts = contacts;
+        super(contacts);
         this.pendingRequests = pendingRequests;
         this.sentRequests = sentRequests;
         this.receivedRequests = receivedRequests;
@@ -42,8 +45,14 @@ public class ContactClientRepository implements Repository<Integer, ContactClien
                 new java.util.concurrent.ConcurrentHashMap<>());
     }
 
+    @Override
+    protected Integer getKey(ContactClient entity) {
+        return entity.getContactId();
+    }
+
     /* ----------------------- Contact Management ----------------------- */
 
+<<<<<<< HEAD
     @Override
     public void add(ContactClient entity) {
         contacts.put(entity.getContactId(), entity);
@@ -72,6 +81,8 @@ public class ContactClientRepository implements Repository<Integer, ContactClien
         return Set.copyOf(contacts.values());
     }
 
+=======
+>>>>>>> 6eb8a37c98c57f76ac0100dec68a6172e323f059
     /**
      * Check if a user is already a contact.
      *
@@ -79,7 +90,7 @@ public class ContactClientRepository implements Repository<Integer, ContactClien
      * @return true if the user is a contact
      */
     public boolean isContact(int contactId) {
-        return contacts.containsKey(contactId);
+        return storage.containsKey(contactId);
     }
 
     /* ----------------------- Contact Request Management ----------------------- */

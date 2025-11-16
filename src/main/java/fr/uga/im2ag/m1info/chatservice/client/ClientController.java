@@ -324,9 +324,8 @@ public class ClientController {
             return;
         }
 
-        ContactRequestMessage response = (ContactRequestMessage) MessageFactory.create(MessageType.CONTACT_REQUEST_RESPONSE, getClientId(), senderId);
+        ContactRequestResponseMessage response = (ContactRequestResponseMessage) MessageFactory.create(MessageType.CONTACT_REQUEST_RESPONSE, getClientId(), senderId);
         response.setRequestId(request.getRequestId());
-        response.setResponse(true);
         response.setAccepted(accept);
 
         request.setStatus(accept ? ContactRequest.Status.ACCEPTED : ContactRequest.Status.REJECTED);

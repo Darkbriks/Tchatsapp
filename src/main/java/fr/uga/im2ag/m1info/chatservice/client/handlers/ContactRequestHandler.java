@@ -8,24 +8,19 @@ import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 
 import java.time.Instant;
 
 public class ContactRequestHandler extends ClientPacketHandler {
     @Override
     public void handle(ProtocolMessage message, ClientController context) {
-        if (!(message instanceof ContactRequestMessage crMsg)) {
-            throw new IllegalArgumentException("Invalid message type for ContactRequestHandler");
-        }
-
-        if (crMsg.isResponse()) {
-            handleResponse(crMsg, context);
-        } else {
+        if (message instanceof ContactRequestMessage crMsg) {
             handleRequest(crMsg, context);
+        } else if (message instanceof ContactRequestResponseMessage crrMsg) {
+            handleResponse(crrMsg, context);
+        } else {
+            throw new IllegalArgumentException("Invalid message type for ContactRequestHandler");
         }
     }
 
@@ -81,7 +76,7 @@ public class ContactRequestHandler extends ClientPacketHandler {
     /**
      * Handle a response to a contact request.
      */
-    private void handleResponse(ContactRequestMessage crMsg, ClientController context) {
+    private void handleResponse(ContactRequestResponseMessage crMsg, ClientController context) {
         int responderId = crMsg.getFrom();
         String requestId = crMsg.getRequestId();
         boolean accepted = crMsg.isAccepted();

@@ -2,6 +2,7 @@ package fr.uga.im2ag.m1info.chatservice.server.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestResponseMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
 import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
@@ -13,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Handler for contact request messages.
  */
-public class ContactRequestServerHandler extends ServerPacketHandler {
+public class ContactRequestServerHandler extends ValidatingServerPacketHandler {
     // Track pending requests: key = requestId, value = (senderId, receiverId)
     private final Map<String, PendingRequest> pendingRequests = new ConcurrentHashMap<>();
 
@@ -31,14 +32,12 @@ public class ContactRequestServerHandler extends ServerPacketHandler {
 
     @Override
     public void handle(ProtocolMessage message, TchatsAppServer.ServerContext serverContext) {
-        if (!(message instanceof ContactRequestMessage crMsg)) {
-            throw new IllegalArgumentException("Invalid message type for ContactRequestServerHandler");
-        }
-
-        if (crMsg.isResponse()) {
-            handleResponse(crMsg, serverContext);
-        } else {
+        if (message instanceof ContactRequestMessage crMsg) {
             handleRequest(crMsg, serverContext);
+        } else if (message instanceof ContactRequestResponseMessage crrMsg) {
+            handleResponse(crrMsg, serverContext);
+        } else {
+            throw new IllegalArgumentException("Invalid message type for ContactRequestServerHandler");
         }
     }
 
@@ -52,31 +51,16 @@ public class ContactRequestServerHandler extends ServerPacketHandler {
      * Handle a contact request from sender to receiver.
      */
     private void handleRequest(ContactRequestMessage crMsg, TchatsAppServer.ServerContext serverContext) {
-        int senderId = crMsg.getFrom();
-        int receiverId = crMsg.getTo();
-        String requestId = crMsg.getRequestId();
-
-        // Validate sender exists
-        UserInfo sender = serverContext.getUserRepository().findById(senderId);
-        if (sender == null) {
-            System.err.printf("[Server] Contact request from non-existent user %d%n", senderId);
-            AckHelper.sendFailedAck(serverContext, crMsg, "Sender not found");
-            return;
-        }
-
-        // Validate receiver exists
-        if (serverContext.getUserRepository().findById(receiverId) == null) {
-            System.err.printf("[Server] Contact request to non-existent user %d%n", receiverId);
-            AckHelper.sendFailedAck(serverContext, crMsg, "Recipient not found");
-            return;
-        }
-
-        // Validate not already contacts
-        if (sender.hasContact(receiverId)) {
-            System.err.printf("[Server] Users %d and %d are already contacts%n", senderId, receiverId);
+        if (!validateSenderRegistered(crMsg, serverContext)) { return; }
+        if (!validateRecipientExists(crMsg, serverContext))  { return; }
+        if (validateContactRelationship(crMsg.getFrom(), crMsg.getTo(), serverContext)) {
             AckHelper.sendFailedAck(serverContext, crMsg, "Already contacts");
             return;
         }
+
+        int senderId = crMsg.getFrom();
+        int receiverId = crMsg.getTo();
+        String requestId = crMsg.getRequestId();
 
         // Store the pending request for validation later
         pendingRequests.put(requestId, new PendingRequest(senderId, receiverId, System.currentTimeMillis()));
@@ -93,7 +77,7 @@ public class ContactRequestServerHandler extends ServerPacketHandler {
     /**
      * Handle a response to a contact request.
      */
-    private void handleResponse(ContactRequestMessage crMsg, TchatsAppServer.ServerContext serverContext) {
+    private void handleResponse(ContactRequestResponseMessage crMsg, TchatsAppServer.ServerContext serverContext) {
         int responderId = crMsg.getFrom();
         int originalSenderId = crMsg.getTo();
         String requestId = crMsg.getRequestId();

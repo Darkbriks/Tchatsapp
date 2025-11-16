@@ -1,27 +1,37 @@
 package fr.uga.im2ag.m1info.chatservice.client.repository;
 
 import java.util.Map;
-import java.util.Set;
 
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
+<<<<<<< HEAD
 import fr.uga.im2ag.m1info.chatservice.client.utils.RepositoryWriter;
 import fr.uga.im2ag.m1info.chatservice.common.repository.Repository;
+=======
+import fr.uga.im2ag.m1info.chatservice.common.repository.AbstractRepository;
+>>>>>>> 6eb8a37c98c57f76ac0100dec68a6172e323f059
 
-public class ConversationClientRepository implements Repository<String, ConversationClient>{
+public class ConversationClientRepository extends AbstractRepository<String, ConversationClient> {
 
+<<<<<<< HEAD
     private final Map<String, ConversationClient> conversations;
     private final RepositoryWriter<ConversationClient> repositoryWriter = new RepositoryWriter<ConversationClient>("conversations");
 
     public ConversationClientRepository(Map<String, ConversationClient> conversations) {
         this.conversations = conversations;
         loadFromCache();
+=======
+
+    public ConversationClientRepository(Map<String, ConversationClient> conversations) {
+        super(conversations);
+>>>>>>> 6eb8a37c98c57f76ac0100dec68a6172e323f059
     }
 
     public ConversationClientRepository() {
-        this(new java.util.HashMap<>());
+        super();
     }
 
     @Override
+<<<<<<< HEAD
     public void add(ConversationClient entity) {
         conversations.put(entity.getConversationId(), entity);
         repositoryWriter.writeData(entity);
@@ -47,6 +57,10 @@ public class ConversationClientRepository implements Repository<String, Conversa
     @Override
     public Set<ConversationClient> findAll() {
         return Set.copyOf(conversations.values());
+=======
+    protected String getKey(ConversationClient entity) {
+        return entity.getConversationId();
+>>>>>>> 6eb8a37c98c57f76ac0100dec68a6172e323f059
     }
 
     private void loadFromCache() {
