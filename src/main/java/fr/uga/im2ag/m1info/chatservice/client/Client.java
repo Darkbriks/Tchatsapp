@@ -18,7 +18,6 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -174,13 +173,26 @@ public class Client {
     public void disconnect() {
         try {
             if (cnx != null) { cnx.close(); }
-            cnx = null;
+
             if (receptionThread != null && receptionThread.isAlive()) {
                 receptionThread.interrupt();
+                try {
+                    receptionThread.join(5000);
+                    if (receptionThread.isAlive()) {
+                        System.err.println("[Client] Reception thread did not terminate cleanly");
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    System.err.println("[Client] Interrupted while waiting for reception thread");
+                }
             }
+
             commandManager.shutdown();
         } catch (IOException e) {
-            /* ignored */
+            System.err.println("[Client] Error during disconnect: " + e.getMessage());
+        } finally {
+            cnx = null;
+            receptionThread = null;
         }
     }
 

@@ -521,6 +521,7 @@ public class TchatsAppServer {
         router.addHandler(new RelayMessageHandler());
         router.addHandler(new UserManagementMessageHandler());
         router.addHandler(new ContactRequestServerHandler());
+        router.addHandler(new AckMessageHandler());
         s.setPacketProcessor(router);
 
         s.start();

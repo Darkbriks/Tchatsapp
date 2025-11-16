@@ -46,6 +46,6 @@ public class RelayMessageHandler extends ServerPacketHandler {
 
     @Override
     public boolean canHandle(MessageType messageType) {
-        return messageType == MessageType.TEXT || messageType == MessageType.MEDIA || messageType == MessageType.MESSAGE_ACK;
+        return messageType == MessageType.TEXT || messageType == MessageType.MEDIA;
     }
 }
