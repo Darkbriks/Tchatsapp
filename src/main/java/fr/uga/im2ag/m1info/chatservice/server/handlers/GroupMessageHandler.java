@@ -7,6 +7,7 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
 import fr.uga.im2ag.m1info.chatservice.server.model.GroupInfo;
+import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer.ServerContext;
 
 public class GroupMessageHandler extends  ServerPacketHandler {
@@ -20,7 +21,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
             case CREATE_GROUP -> createGroup(serverContext, userMsg);
             case LEAVE_GROUP -> leaveGroup(serverContext, userMsg);
             case ADD_GROUP_MEMBER -> addGroupMenber(serverContext, userMsg);
-            case REMOVE_GROUP_MEMBER -> addGroupMenber(serverContext, userMsg);
+            case REMOVE_GROUP_MEMBER -> removeGroupMenber(serverContext, userMsg);
             case UPDATE_GROUP_NAME -> updateGroupName(serverContext, userMsg);
             default -> throw new IllegalArgumentException("Unsupported group management message type");
         }
@@ -51,12 +52,12 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
         group.setGroupName(newGroupName);
         serverContext.getGroupRepository().update(group.getId(), group);
-        System.out.printf("[Server] Group %d updated name to %s%n", adminGroup, newGroupName);
+        System.out.printf("[Server] Group %d updated name to %s%n", groupId, newGroupName);
 
-        for (int contactId : group.getMenbers()) {
-            if (serverContext.isClientConnected(contactId)) {
-                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_GROUP_NAME, groupId, contactId))
-                        .addParam("contactId", groupId)
+        for (int menberId : group.getMenbers()) {
+            if (serverContext.isClientConnected(menberId)) {
+                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_GROUP_NAME, groupId, menberId))
+                        .addParam("groupId", groupId)
                         .addParam("groupName", newGroupName)
                         .toPacket()
                 );
@@ -70,9 +71,101 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         );
     }
 
+    private static void removeGroupMenber(ServerContext serverContext, ManagementMessage groupManagementMessage) {
+        int adminGroup = groupManagementMessage.getFrom();
+        int groupId = groupManagementMessage.getTo();
 
-    private static void addGroupMenber(ServerContext serverContext, ManagementMessage userMsg) {
-        throw new UnsupportedOperationException("Unimplemented method 'addGroupMenber'");
+        int oldMenberID = groupManagementMessage.getParamAsType("newMenberID", Integer.class);
+
+        GroupInfo group = serverContext.getGroupRepository().findById(groupId);
+        UserInfo oldMenber = serverContext.getUserRepository().findById(oldMenberID);
+        if (group == null) {
+            System.out.printf("[Server] Group %d not found while trying to remove menber%n", groupId);
+            return;
+        }
+
+        if (group.getAdminId() != adminGroup){
+            System.out.printf("[Server] User %d is not the admin of group %d. Real admin is %d%n", adminGroup, groupId, group.getAdminId());
+            return;
+        }
+
+        if (oldMenber == null) {
+            System.out.printf("[Server] User %d provided invalid menberId to remove , [%d] not found\n", adminGroup, oldMenberID);
+            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_EXISTING", "Cannot remove non-existing user as menber.");
+            return;
+        }
+
+        if (! group.hasMenber(oldMenberID)) {
+            System.out.printf("[Server] User %d provided invalid menberId to remove , [%d] not in group\n", adminGroup, oldMenberID);
+            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_INSIDE", "Cannot remove user who is not a menber.");
+            return;
+        }
+
+        // Deleted menber is still in the group, when he will receive the message, need to leave the group by comparing his ID and the removed one
+        for (int menberId : group.getMenbers()) {
+            if (serverContext.isClientConnected(menberId)) {
+                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.REMOVE_GROUP_MEMBER, groupId, menberId))
+                        .addParam("groupId", groupId)
+                        .addParam("deleteMenber", oldMenberID)
+                        .toPacket()
+                );
+            }
+        }
+        
+        group.removeMenber(oldMenberID);
+        serverContext.getGroupRepository().update(group.getId(), group);
+        System.out.printf("[Server] Group %d remove menber %d%n", groupId, oldMenberID);
+
+        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.REMOVE_GROUP_MEMBER, groupId, adminGroup))
+                .addParam("deleteMenber", oldMenberID)
+                .addParam("ack", "true")
+                .toPacket()
+        );
+    }
+
+    private static void addGroupMenber(ServerContext serverContext, ManagementMessage groupManagementMessage) {
+        int adminGroup = groupManagementMessage.getFrom();
+        int groupId = groupManagementMessage.getTo();
+
+        int newMenberID = groupManagementMessage.getParamAsType("newMenberID", Integer.class);
+
+        GroupInfo group = serverContext.getGroupRepository().findById(groupId);
+        UserInfo newMenber = serverContext.getUserRepository().findById(newMenberID);
+        if (group == null) {
+            System.out.printf("[Server] Group %d not found while trying to add menber%n", groupId);
+            return;
+        }
+
+        if (group.getAdminId() != adminGroup){
+            System.out.printf("[Server] User %d is not the admin of group %d. Real admin is %d%n", adminGroup, groupId, group.getAdminId());
+            return;
+        }
+
+        if (newMenber == null) {
+            System.out.printf("[Server] User %d provided invalid menberId to add, [%d] not found\n", adminGroup, newMenberID);
+            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_EXISTING", "Cannot add non-existing user as menber.");
+            return;
+        }
+
+        group.addMenber(newMenberID);
+        serverContext.getGroupRepository().update(group.getId(), group);
+        System.out.printf("[Server] Group %d add menber %d%n", adminGroup, newMenberID);
+
+        for (int menberId : group.getMenbers()) {
+            if (serverContext.isClientConnected(menberId)) {
+                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, menberId))
+                        .addParam("groupId", groupId)
+                        .addParam("newMenber", newMenberID)
+                        .toPacket()
+                );
+            }
+        }
+
+        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, adminGroup))
+                .addParam("newMenber", newMenberID)
+                .addParam("ack", "true")
+                .toPacket()
+        );
     }
 
 
@@ -81,8 +174,18 @@ public class GroupMessageHandler extends  ServerPacketHandler {
     }
 
 
-    private static void createGroup(ServerContext serverContext, ManagementMessage userMsg) {
-        throw new UnsupportedOperationException("Unimplemented method 'createGroup'");
+    private static void createGroup(ServerContext serverContext, ManagementMessage groupManagementMessage) {
+        int adminGroup = groupManagementMessage.getFrom();
+        String newGroupName= groupManagementMessage.getParamAsType("newGroupName", String.class);
+        int groupID = serverContext.generateClientId();
+        GroupInfo group = new GroupInfo(groupID, adminGroup, newGroupName);
+        serverContext.getGroupRepository().add(group);
+        System.out.printf("[Server] Group %d now exist and admin is menber %d%n", groupID, adminGroup);
+        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.CREATE_GROUP, groupID, adminGroup))
+                .addParam("newGroup", groupID)
+                .addParam("ack", "true")
+                .toPacket()
+        );
     }
 
 
