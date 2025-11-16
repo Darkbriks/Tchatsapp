@@ -1,13 +1,14 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
-import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
+import fr.uga.im2ag.m1info.chatservice.client.ClientController;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.ErrorEvent;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 
 public class ErrorMessageHandler extends ClientPacketHandler {
     @Override
-    public void handle(ProtocolMessage message, ClientContext context) {
+    public void handle(ProtocolMessage message, ClientController context) {
         if (!(message instanceof ErrorMessage errorMsg)) {
             throw new IllegalArgumentException("Invalid message type for ErrorMessageHandler");
         }
@@ -15,11 +16,12 @@ public class ErrorMessageHandler extends ClientPacketHandler {
         // Store error in context for potential retrieval
         context.setLastError(errorMsg.getErrorMessage());
 
-        // TODO: Handle the error message appropriately (e.g., log it, notify the user, etc.)
-        System.err.println("[Server] Error received:");
-        System.err.println("\tLevel: " + errorMsg.getErrorLevel());
-        System.err.println("\tType: " + errorMsg.getErrorType());
-        System.err.println("\tMessage: " + errorMsg.getErrorMessage());
+        publishEvent(new ErrorEvent(
+                this,
+                errorMsg.getErrorLevel(),
+                errorMsg.getErrorType(),
+                errorMsg.getErrorMessage()
+        ), context);
 
         // If the error is critical and connection is not yet established, disconnect
         if (errorMsg.getErrorLevel() == ErrorMessage.ErrorLevel.CRITICAL && !context.isConnectionEstablished()) {

@@ -11,6 +11,7 @@
 
 package fr.uga.im2ag.m1info.chatservice.client;
 
+import fr.uga.im2ag.m1info.chatservice.client.command.PendingCommandManager;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
 import fr.uga.im2ag.m1info.chatservice.common.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
@@ -33,8 +34,8 @@ public class Client {
     private int clientId;
     private Socket cnx;
     private PacketProcessor processor;
-    private MessageIdGenerator messageIdGenerator;
     private Thread receptionThread;
+    private final PendingCommandManager commandManager;
 
     /**
      * Creates a new Client with clientId 0 (for user creation).
@@ -50,6 +51,16 @@ public class Client {
      */
     public Client(int clientId) {
         this.clientId = clientId;
+        this.commandManager = new PendingCommandManager();
+    }
+
+    /**
+     * Get the pending command manager.
+     *
+     * @return the pending command manager
+     */
+    public PendingCommandManager getCommandManager() {
+        return commandManager;
     }
 
     /**
@@ -129,24 +140,6 @@ public class Client {
     }
 
     /**
-     * Set the message ID generator.
-     *
-     * @param generator the MessageIdGenerator to use
-     */
-    public void setMessageIdGenerator(MessageIdGenerator generator) {
-        this.messageIdGenerator = generator;
-    }
-
-    /**
-     * Get the message ID generator.
-     *
-     * @return the message ID generator
-     */
-    public MessageIdGenerator getMessageIdGenerator() {
-        return messageIdGenerator;
-    }
-
-    /**
      * Set the packet processor to be called when packets are received by the client.
      *
      * @param p the PacketProcessor to use
@@ -183,6 +176,7 @@ public class Client {
             if (receptionThread != null && receptionThread.isAlive()) {
                 receptionThread.interrupt();
             }
+            commandManager.shutdown();
         } catch (IOException e) {
             /* ignored */
         }
@@ -221,7 +215,6 @@ public class Client {
             byte[] buffer = new byte[MAX_SIZE_CHUNK_FILE];
             while ((count = fileStream.read(buffer)) > 0) {
                 MediaMessage mediaMsg = (MediaMessage) MessageFactory.create(MessageType.MEDIA, clientId, to);
-                mediaMsg.generateNewMessageId(messageIdGenerator);
                 mediaMsg.setMediaName(fileName);
                 mediaMsg.setContent(buffer);
                 mediaMsg.setSizeContent(count);
@@ -230,6 +223,17 @@ public class Client {
             fileStream.close();
         } catch (Exception e) {
             System.err.println("[Client] Failed to send media: " + e.getMessage());
+        }
+    }
+
+    public void sendAck(ProtocolMessage message, MessageStatus ackType) {
+        try {
+            AckMessage ackMsg = (AckMessage) MessageFactory.create(MessageType.MESSAGE_ACK, clientId, message.getFrom());
+            ackMsg.setAckType(ackType);
+            ackMsg.setAcknowledgedMessageId(message.getMessageId());
+            sendPacket(ackMsg.toPacket());
+        } catch (Exception e) {
+            System.err.println("[Client] Failed to send acknowledgment: " + e.getMessage());
         }
     }
 }

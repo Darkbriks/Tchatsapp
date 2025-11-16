@@ -17,11 +17,7 @@ import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
-import fr.uga.im2ag.m1info.chatservice.server.handlers.MediaMessageHandler;
-import fr.uga.im2ag.m1info.chatservice.server.handlers.ErrorMessageHandler;
-import fr.uga.im2ag.m1info.chatservice.server.handlers.TextMessageHandler;
-import fr.uga.im2ag.m1info.chatservice.server.handlers.UserManagementMessageHandler;
+import fr.uga.im2ag.m1info.chatservice.server.handlers.*;
 import fr.uga.im2ag.m1info.chatservice.server.repository.UserRepository;
 
 import java.io.IOException;
@@ -522,10 +518,9 @@ public class TchatsAppServer {
         TchatsAppServer s = new TchatsAppServer(port, workers);
 
         ServerPacketRouter router = new ServerPacketRouter(s.serverContext);
-        router.addHandler(new TextMessageHandler());
-        router.addHandler(new MediaMessageHandler());
+        router.addHandler(new RelayMessageHandler());
         router.addHandler(new UserManagementMessageHandler());
-        router.addHandler(new ErrorMessageHandler());
+        router.addHandler(new ContactRequestServerHandler());
         s.setPacketProcessor(router);
 
         s.start();

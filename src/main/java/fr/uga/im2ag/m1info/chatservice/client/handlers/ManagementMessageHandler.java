@@ -1,20 +1,20 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
-import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
+import fr.uga.im2ag.m1info.chatservice.client.ClientController;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.*;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 
-// TODO: Interact with repositories and notify observers
 public class ManagementMessageHandler extends ClientPacketHandler {
     @Override
-    public void handle(ProtocolMessage message, ClientContext context) {
+    public void handle(ProtocolMessage message, ClientController context) {
         if (!(message instanceof ManagementMessage userMsg)) {
             throw new IllegalArgumentException("Invalid message type for ManagementMessageHandler");
         }
 
         switch (userMsg.getMessageType()) {
-            case ADD_CONTACT -> addContact(userMsg, context);
             case REMOVE_CONTACT -> removeContact(userMsg, context);
             case UPDATE_PSEUDO -> updatePseudo(userMsg, context);
             default -> throw new IllegalArgumentException("Unsupported management message type: " + userMsg.getMessageType());
@@ -23,43 +23,35 @@ public class ManagementMessageHandler extends ClientPacketHandler {
 
     @Override
     public boolean canHandle(MessageType messageType) {
-        return messageType == MessageType.ADD_CONTACT
-                || messageType == MessageType.REMOVE_CONTACT
+        return messageType == MessageType.REMOVE_CONTACT
                 || messageType == MessageType.UPDATE_PSEUDO;
     }
 
-    private void addContact(ManagementMessage message, ClientContext context) {
+    private void removeContact(ManagementMessage message, ClientController context) {
         String contactPseudo = message.getParamAsType("contactPseudo", String.class);
         Integer contactId = message.getParamAsType("contactId", Integer.class);
 
         if (contactPseudo != null && contactId != null) {
-            System.out.println("[Client] Contact added: " + contactPseudo + " (ID: " + contactId + ")");
-            // TODO: Add to ContactRepository
+            // TODO: Discuss about whether to delete the conversation or keep it
+            context.getContactRepository().delete(contactId);
+            publishEvent(new ContactRemovedEvent(this, contactId), context);
         }
     }
 
-    private void removeContact(ManagementMessage message, ClientContext context) {
-        String contactPseudo = message.getParamAsType("contactPseudo", String.class);
-        Integer contactId = message.getParamAsType("contactId", Integer.class);
-
-        if (contactPseudo != null && contactId != null) {
-            System.out.println("[Client] Contact removed: " + contactPseudo + " (ID: " + contactId + ")");
-            // TODO: Remove from ContactRepository
-        }
-    }
-
-    private void updatePseudo(ManagementMessage message, ClientContext context) {
+    private void updatePseudo(ManagementMessage message, ClientController context) {
         String newPseudo = message.getParamAsType("newPseudo", String.class);
         Integer contactId = message.getParamAsType("contactId", Integer.class);
 
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
-            // This is an acknowledgment of our own pseudo update
-            System.out.println("[Client] Your pseudo has been updated to: " + newPseudo);
-            // TODO: Update in UserRepository
+            context.getActiveUser().setPseudo(newPseudo);
+            publishEvent(new UserPseudoUpdatedEvent(this, newPseudo), context);
         } else if (contactId != null && newPseudo != null) {
-            // A contact has updated their pseudo
-            System.out.println("[Client] Contact " + contactId + " updated pseudo to: " + newPseudo);
-            // TODO: Update in ContactRepository
+            ContactClient contact = context.getContactRepository().findById(contactId);
+            if (contact != null) {
+                contact.updatePseudo(newPseudo);
+                context.getContactRepository().update(contactId, contact);
+                publishEvent(new ContactUpdatedEvent(this, contactId), context);
+            }
         }
     }
 }
