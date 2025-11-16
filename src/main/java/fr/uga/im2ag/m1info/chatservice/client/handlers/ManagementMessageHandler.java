@@ -1,6 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
@@ -34,7 +35,8 @@ public class ManagementMessageHandler extends ClientPacketHandler {
 
         if (contactPseudo != null && contactId != null) {
             System.out.println("[Client] Contact added: " + contactPseudo + " (ID: " + contactId + ")");
-            // TODO: Add to ContactRepository
+            ContactClient contact = new ContactClient(contactId, contactPseudo);
+            context.getContactRepository().add(contact);
         }
     }
 
@@ -44,7 +46,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
 
         if (contactPseudo != null && contactId != null) {
             System.out.println("[Client] Contact removed: " + contactPseudo + " (ID: " + contactId + ")");
-            // TODO: Remove from ContactRepository
+            context.getContactRepository().delete(contactId);
         }
     }
 
@@ -59,7 +61,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         } else if (contactId != null && newPseudo != null) {
             // A contact has updated their pseudo
             System.out.println("[Client] Contact " + contactId + " updated pseudo to: " + newPseudo);
-            // TODO: Update in ContactRepository
+            context.getContactRepository().update(contactId, new ContactClient(contactId, newPseudo));
         }
     }
 }

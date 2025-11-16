@@ -1,6 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.ShaIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
@@ -103,6 +104,11 @@ public class CliClient {
      */
     private void handleSendMessage() {
         System.out.print("Recipient ID: ");
+        System.out.println("You can send message tothe following users");  
+        for (ContactClient contact : context.getContactRepository().findAll()){
+            System.out.print(contact.getPseudo() + "=(" + contact.getContactId() + ") ");
+        }
+        System.out.println();
         int to;
         try {
             to = scanner.nextInt();
