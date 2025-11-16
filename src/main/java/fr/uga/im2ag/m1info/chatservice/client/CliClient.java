@@ -193,6 +193,24 @@ public class CliClient {
     }
 
     /**
+     * Handle creating a group 
+     */
+    private void handleCreateGroup() {
+        System.out.print("Group name: ");
+        String groupName = scanner.nextLine().trim();
+
+        if (groupName.isEmpty()) {
+            System.err.println("GroupName cannot be empty.");
+            return;
+        }
+
+        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
+                MessageType.CREATE_GROUP, context.getClientId(), SERVER_ID);
+        mgmtMsg.addParam("groupName", groupName);
+        context.sendPacket(mgmtMsg.toPacket());
+    }
+
+    /**
      * Run the main interaction loop.
      */
     public void run() {

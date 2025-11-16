@@ -23,6 +23,7 @@ import fr.uga.im2ag.m1info.chatservice.server.handlers.ErrorMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.TextMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.UserManagementMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.server.repository.UserRepository;
+import fr.uga.im2ag.m1info.chatservice.server.repository.GroupRepository;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -119,6 +120,7 @@ public class TchatsAppServer {
 
     public class ServerContext {
         private final UserRepository userRepository = new UserRepository();
+        private final GroupRepository groupRepository = new GroupRepository();
         private final ThreadLocal<ConnectionState> currentConnectionState = new ThreadLocal<>();
 
         /**
@@ -128,6 +130,15 @@ public class TchatsAppServer {
          */
         public UserRepository getUserRepository() {
             return userRepository;
+        }
+
+        /**
+         * Get the group repository.
+         *
+         * @return the group repository
+         */
+        public GroupRepository getGroupRepository() {
+            return groupRepository;
         }
 
         /**
