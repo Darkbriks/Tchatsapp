@@ -33,6 +33,8 @@ public class Client {
     private static final int MAX_SIZE_CHUNK_FILE = 8192;
     private int clientId;
     private Socket cnx;
+    private DataOutputStream dos;
+    private DataInputStream dis;
     private PacketProcessor processor;
     private Thread receptionThread;
     private final PendingCommandManager commandManager;
@@ -78,8 +80,8 @@ public class Client {
         }
 
         cnx = new Socket(host, port);
-        DataOutputStream dos = new DataOutputStream(cnx.getOutputStream());
-        DataInputStream dis = new DataInputStream(cnx.getInputStream());
+        dos = new DataOutputStream(cnx.getOutputStream());
+        dis = new DataInputStream(cnx.getInputStream());
 
         Packet connectionPacket;
         if (clientId == 0) {
@@ -189,10 +191,11 @@ public class Client {
      * @return true if the packet was sent successfully, false otherwise
      */
     public boolean sendPacket(Packet m) {
-        System.out.println("[Client] Sending: " + m);
+        System.out.println("[Client] Sending packet: " + m);
         try {
-            DataOutputStream dos = new DataOutputStream(cnx.getOutputStream());
-            m.writeTo(dos);
+            synchronized (dos) {
+                m.writeTo(dos);
+            }
             return true;
         } catch (IOException e) {
             System.err.println("[Client] Failed to send packet: " + e.getMessage());
@@ -208,10 +211,9 @@ public class Client {
      * @param to the recipient ID
      */
     public void sendMedia(String msg, int to) {
-        try {
-            String fileName = msg.substring(1);
-            InputStream fileStream = new FileInputStream(new File(fileName));
-            int count = 0;
+        String fileName = msg.substring(1);
+        try (InputStream fileStream = new FileInputStream(fileName)) {
+            int count;
             byte[] buffer = new byte[MAX_SIZE_CHUNK_FILE];
             while ((count = fileStream.read(buffer)) > 0) {
                 MediaMessage mediaMsg = (MediaMessage) MessageFactory.create(MessageType.MEDIA, clientId, to);
@@ -220,9 +222,8 @@ public class Client {
                 mediaMsg.setSizeContent(count);
                 sendPacket(mediaMsg.toPacket());
             }
-            fileStream.close();
-        } catch (Exception e) {
-            System.err.println("[Client] Failed to send media: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("[Client] Failed to send media file: " + e.getMessage());
         }
     }
 
