@@ -3,9 +3,9 @@ package fr.uga.im2ag.m1info.chatservice.server.repository;
 import fr.uga.im2ag.m1info.chatservice.common.repository.Repository;
 import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class UserRepository implements Repository<Integer, UserInfo> {
     private final Map<Integer, UserInfo> users;
@@ -15,7 +15,7 @@ public class UserRepository implements Repository<Integer, UserInfo> {
     }
 
     public UserRepository() {
-        this.users = new HashMap<Integer, UserInfo>();
+        this.users = new ConcurrentHashMap<>();
     }
 
     @Override
