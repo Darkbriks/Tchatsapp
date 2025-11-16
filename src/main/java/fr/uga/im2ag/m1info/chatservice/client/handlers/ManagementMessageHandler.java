@@ -6,6 +6,7 @@ import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 
@@ -80,8 +81,8 @@ public class ManagementMessageHandler extends ClientPacketHandler {
     }
 
     private void createGroup(ManagementMessage message, ClientContext context){
-        String newGroupe= message.getParamAsType("newGroupName", String.class);
-        Integer groupId = message.getParamAsType("newGroupID", Integer.class);
+        String newGroupe= message.getParamAsType(KeyInMessage.GROUP_NAME, String.class);
+        Integer groupId = message.getParamAsType(KeyInMessage.GROUP_ID, Integer.class);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
             System.out.println("[Client] Your Group has been created : " + newGroupe);
@@ -93,8 +94,8 @@ public class ManagementMessageHandler extends ClientPacketHandler {
     private void leaveGroup(ManagementMessage message, ClientContext context){
         // TODO if admin leave group what happen ? e destroy the group or a new admin 
         // need to be choose
-        int deleteMenber = message.getParamAsType("deleteMenber", Integer.class);
-        Integer groupId = message.getParamAsType("groupId", Integer.class);
+        int deleteMenber = message.getParamAsType(KeyInMessage.MENBER_REMOVE_ID, Integer.class);
+        Integer groupId = message.getParamAsType(KeyInMessage.GROUP_ID, Integer.class);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
             System.out.printf("[Client] You successfully leave group %d", groupId);
@@ -117,8 +118,8 @@ public class ManagementMessageHandler extends ClientPacketHandler {
     }
 
     private void addGroupMenber(ManagementMessage message, ClientContext context) {
-        int newMenber = message.getParamAsType("newMenberId", Integer.class);
-        Integer groupId = message.getParamAsType("groupId", Integer.class);
+        int newMenber = message.getParamAsType(KeyInMessage.MENBER_ADD_ID, Integer.class);
+        Integer groupId = message.getParamAsType(KeyInMessage.GROUP_ID, Integer.class);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
             System.out.printf("[Client] You successfully add menber %d to the group %d",newMenber, groupId);
@@ -133,13 +134,13 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             // just a group menber not the admin
             if ( newMenber == context.getClientId()){
                 System.out.printf("[Client] You have been add to the group %d !", groupId);
-                String groupName = message.getParamAsType("groupName", String.class);
-                int adminId = message.getParamAsType("adminId", Integer.class);
+                String groupName = message.getParamAsType(KeyInMessage.GROUP_NAME, String.class);
+                int adminId = message.getParamAsType(KeyInMessage.GROUP_ADMIN_ID, Integer.class);
                 GroupClient group = new GroupClient(groupId, groupName, adminId);
                 int i = 0;
                 while ( true){
                     try{
-                        int menber = message.getParamAsType("menber" + i, Integer.class);
+                        int menber = message.getParamAsType(KeyInMessage.GROUP_MENBER_ID + i, Integer.class);
                         group.addMember(menber);
                     } catch (Exception e){
                         break;
@@ -158,8 +159,8 @@ public class ManagementMessageHandler extends ClientPacketHandler {
 
     private void removeGroupMenber(ManagementMessage message, ClientContext context) {
         System.out.println("On enleve");
-        int deleteMenber = message.getParamAsType("deleteMenber", Integer.class);
-        Integer groupId = message.getParamAsType("groupId", Integer.class);
+        int deleteMenber = message.getParamAsType(KeyInMessage.MENBER_REMOVE_ID, Integer.class);
+        Integer groupId = message.getParamAsType(KeyInMessage.GROUP_ID, Integer.class);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
             System.out.printf("[Client] You successfully remove menber %d to the group %d",deleteMenber, groupId);
@@ -187,8 +188,8 @@ public class ManagementMessageHandler extends ClientPacketHandler {
     }
 
     public void updateGroupName(ManagementMessage message, ClientContext context){
-        String newGroupName = message.getParamAsType("groupName", String.class);
-        Integer groupId = message.getParamAsType("groupId", Integer.class);
+        String newGroupName = message.getParamAsType(KeyInMessage.GROUP_NAME, String.class);
+        Integer groupId = message.getParamAsType(KeyInMessage.GROUP_ID, Integer.class);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
             System.out.printf("[Client] You successfully rename group %d to %s\n",groupId, newGroupName);

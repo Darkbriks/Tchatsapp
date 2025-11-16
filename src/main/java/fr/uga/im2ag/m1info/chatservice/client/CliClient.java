@@ -3,6 +3,7 @@ package fr.uga.im2ag.m1info.chatservice.client;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
 import fr.uga.im2ag.m1info.chatservice.common.ShaIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
@@ -231,7 +232,7 @@ public class CliClient {
 
         ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
                 MessageType.CREATE_GROUP, context.getClientId(), SERVER_ID);
-        mgmtMsg.addParam("newGroupName", groupName);
+        mgmtMsg.addParam(KeyInMessage.GROUP_NAME, groupName);
         context.sendPacket(mgmtMsg.toPacket());
     }
 
@@ -249,7 +250,7 @@ public class CliClient {
 
         ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
                 MessageType.LEAVE_GROUP, context.getClientId(), groupId);
-        mgmtMsg.addParam("groupID", groupId);
+        mgmtMsg.addParam(KeyInMessage.GROUP_ID, groupId);
         context.sendPacket(mgmtMsg.toPacket());
     }
 
@@ -275,7 +276,7 @@ public class CliClient {
 
         ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
                 MessageType.ADD_GROUP_MEMBER, context.getClientId(), groupId);
-        mgmtMsg.addParam("newMenberID", newMenber);
+        mgmtMsg.addParam(KeyInMessage.MENBER_ADD_ID, newMenber);
         context.sendPacket(mgmtMsg.toPacket());
     }
 
@@ -301,7 +302,7 @@ public class CliClient {
 
         ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
                 MessageType.REMOVE_GROUP_MEMBER, context.getClientId(), groupId);
-        mgmtMsg.addParam("removedMenberID", deleteMenber);
+        mgmtMsg.addParam(KeyInMessage.MENBER_REMOVE_ID, deleteMenber);
         context.sendPacket(mgmtMsg.toPacket());
     }
 

@@ -1,6 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.server.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
@@ -31,7 +32,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         int adminGroup = groupManagementMessage.getFrom();
         int groupId = groupManagementMessage.getTo();
 
-        String newGroupName= groupManagementMessage.getParamAsType("newGroupName", String.class);
+        String newGroupName= groupManagementMessage.getParamAsType(KeyInMessage.GROUP_NAME, String.class);
 
         GroupInfo group = serverContext.getGroupRepository().findById(groupId);
         if (group == null) {
@@ -57,15 +58,16 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         for (int menberId : group.getMenbers()) {
             if (serverContext.isClientConnected(menberId)) {
                 serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_GROUP_NAME, groupId, menberId))
-                        .addParam("groupId", groupId)
-                        .addParam("groupName", newGroupName)
+                        .addParam(KeyInMessage.GROUP_ID, groupId)
+                        .addParam(KeyInMessage.GROUP_NAME, newGroupName)
                         .toPacket()
                 );
             }
         }
 
         serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_GROUP_NAME, groupId, adminGroup))
-                .addParam("groupName", newGroupName)
+                .addParam(KeyInMessage.GROUP_NAME, newGroupName)
+                .addParam(KeyInMessage.GROUP_ID, groupId)
                 .addParam("ack", "true")
                 .toPacket()
         );
@@ -75,7 +77,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         int adminGroup = groupManagementMessage.getFrom();
         int groupId = groupManagementMessage.getTo();
 
-        int oldMenberID = groupManagementMessage.getParamAsType("removedMenberID", Integer.class);
+        int oldMenberID = groupManagementMessage.getParamAsType(KeyInMessage.MENBER_REMOVE_ID, Integer.class);
 
         GroupInfo group = serverContext.getGroupRepository().findById(groupId);
         UserInfo oldMenber = serverContext.getUserRepository().findById(oldMenberID);
@@ -105,8 +107,8 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         for (int menberId : group.getMenbers()) {
             if (serverContext.isClientConnected(menberId)) {
                 serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.REMOVE_GROUP_MEMBER, groupId, menberId))
-                        .addParam("groupId", groupId)
-                        .addParam("deleteMenber", oldMenberID)
+                        .addParam(KeyInMessage.GROUP_ID, groupId)
+                        .addParam(KeyInMessage.MENBER_REMOVE_ID, oldMenberID)
                         .toPacket()
                 );
             }
@@ -117,8 +119,8 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         System.out.printf("[Server] Group %d remove menber %d%n", groupId, oldMenberID);
 
         serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.REMOVE_GROUP_MEMBER, groupId, adminGroup))
-                .addParam("deleteMenber", oldMenberID)
-                .addParam("groupId", groupId)
+                .addParam(KeyInMessage.MENBER_REMOVE_ID, oldMenberID)
+                .addParam(KeyInMessage.GROUP_ID, groupId)
                 .addParam("ack", "true")
                 .toPacket()
         );
@@ -128,7 +130,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         int adminGroup = groupManagementMessage.getFrom();
         int groupId = groupManagementMessage.getTo();
 
-        int newMenberID = groupManagementMessage.getParamAsType("newMenberID", Integer.class);
+        int newMenberID = groupManagementMessage.getParamAsType(KeyInMessage.MENBER_ADD_ID, Integer.class);
 
         GroupInfo group = serverContext.getGroupRepository().findById(groupId);
         UserInfo newMenber = serverContext.getUserRepository().findById(newMenberID);
@@ -152,8 +154,8 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         for (int menberId : group.getMenbers()) {
             if (serverContext.isClientConnected(menberId)) {
                 serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, menberId))
-                        .addParam("groupId", groupId)
-                        .addParam("newMenberId", newMenberID)
+                        .addParam(KeyInMessage.GROUP_ID, groupId)
+                        .addParam(KeyInMessage.MENBER_ADD_ID, newMenberID)
                         .toPacket()
                 );
             }
@@ -163,21 +165,21 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         serverContext.getGroupRepository().update(group.getId(), group);
         System.out.printf("[Server] Group %d add menber %d%n", adminGroup, newMenberID);
         ManagementMessage message  = (ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, newMenberID);
-        message.addParam("newMenberId", newMenberID)
-                .addParam("groupId", groupId)
-                .addParam("adminId", adminGroup)
-                .addParam("groupName", group.getGroupName());
+        message.addParam(KeyInMessage.MENBER_ADD_ID, newMenberID)
+                .addParam(KeyInMessage.GROUP_ID, groupId)
+                .addParam(KeyInMessage.GROUP_ADMIN_ID, adminGroup)
+                .addParam(KeyInMessage.GROUP_NAME, group.getGroupName());
         int i = 0;
         for ( int user : group.getMenbers()){
-            message.addParam("menber" + i, user);
+            message.addParam(KeyInMessage.GROUP_MENBER_ID + i, user);
             i++;
         }
                 //.addParam("groupMenbers", group.getMenbers())
         serverContext.sendPacketToClient(message.toPacket());
 
         serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, adminGroup))
-                .addParam("newMenberId", newMenberID)
-                .addParam("groupId", groupId)
+                .addParam(KeyInMessage.MENBER_ADD_ID, newMenberID)
+                .addParam(KeyInMessage.GROUP_ID, groupId)
                 .addParam("ack", "true")
                 .toPacket()
         );
@@ -210,8 +212,8 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         for (int menberId : group.getMenbers()) {
             if (serverContext.isClientConnected(menberId)) {
                 serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, menberId))
-                        .addParam("groupId", groupId)
-                        .addParam("deleteMenberId", groupMenber )
+                        .addParam(KeyInMessage.GROUP_ID, groupId)
+                        .addParam(KeyInMessage.MENBER_REMOVE_ID, groupMenber )
                         .toPacket()
                 );
             }
@@ -222,8 +224,8 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         System.out.printf("[Server] menber %d leave group %d %n", groupMenber, groupId);
 
         serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.LEAVE_GROUP, groupId, groupMenber))
-                .addParam("groupId", groupId)
-                .addParam("deleteMenberId", groupMenber )
+                .addParam(KeyInMessage.GROUP_ID, groupId)
+                .addParam(KeyInMessage.MENBER_REMOVE_ID, groupMenber )
                 .addParam("ack", "true")
                 .toPacket()
         );
@@ -232,14 +234,14 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
     private static void createGroup(ServerContext serverContext, ManagementMessage groupManagementMessage) {
         int adminGroup = groupManagementMessage.getFrom();
-        String newGroupName= groupManagementMessage.getParamAsType("newGroupName", String.class);
+        String newGroupName= groupManagementMessage.getParamAsType(KeyInMessage.GROUP_NAME, String.class);
         int groupID = serverContext.generateClientId();
         GroupInfo group = new GroupInfo(groupID, adminGroup, newGroupName);
         serverContext.getGroupRepository().add(group);
         System.out.printf("[Server] Group %d with name %s now exist and admin is menber %d%n", groupID, newGroupName, adminGroup);
         serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.CREATE_GROUP, groupID, adminGroup))
-                .addParam("newGroupID", groupID)
-                .addParam("newGroupName", newGroupName)
+                .addParam(KeyInMessage.GROUP_ID, groupID)
+                .addParam(KeyInMessage.GROUP_NAME, newGroupName)
                 .addParam("ack", "true")
                 .toPacket()
         );
