@@ -63,7 +63,7 @@ public class ContactRequestMessage extends ProtocolMessage {
 
     @Override
     public Packet toPacket() {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = getStringBuilder();
         sb.append(messageId).append("|");
         sb.append(timestamp.toEpochMilli()).append("|");
         sb.append(requestId != null ? requestId : messageId).append("|");

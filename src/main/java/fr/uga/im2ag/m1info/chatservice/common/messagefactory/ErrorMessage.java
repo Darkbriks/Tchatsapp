@@ -93,7 +93,7 @@ public class ErrorMessage extends ProtocolMessage {
 
     @Override
     public Packet toPacket() {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = getStringBuilder();
         sb.append(messageId).append("|").append(timestamp.toEpochMilli()).append("|");
         sb.append(errorLevel.toInt()).append('|').append(errorType).append('|').append(errorMessage);
         return new Packet.PacketBuilder(sb.length())

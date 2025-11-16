@@ -70,7 +70,7 @@ public class ManagementMessage extends ProtocolMessage {
 
     @Override
     public Packet toPacket() {
-        StringBuilder payload = new StringBuilder();
+        StringBuilder payload = getStringBuilder();
         payload.append(messageId).append("|");
         payload.append(timestamp.toEpochMilli()).append("|");
         payload.append(gson.toJson(params));
