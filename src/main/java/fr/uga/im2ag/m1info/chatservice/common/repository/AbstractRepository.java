@@ -1,6 +1,5 @@
 package fr.uga.im2ag.m1info.chatservice.common.repository;
 
-import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
 import fr.uga.im2ag.m1info.chatservice.client.utils.RepositoryWriter;
 
 import java.util.Map;
@@ -52,8 +51,9 @@ public abstract class AbstractRepository<K, V> implements Repository<K, V> {
     protected abstract K getKey(V entity);
 
     private void loadFromCache() {
-        for (V entity : writer.readData()) {
-            add(entity);
+        Set<V> cachedObjects = writer.readData();
+        for (V object : cachedObjects) {
+            storage.put(getKey(object), object);
         }
     }
 }
