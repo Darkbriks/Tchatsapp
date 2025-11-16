@@ -8,12 +8,7 @@ import java.util.stream.Collectors;
 
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
-<<<<<<< HEAD
-import fr.uga.im2ag.m1info.chatservice.client.utils.RepositoryWriter;
-import fr.uga.im2ag.m1info.chatservice.common.repository.Repository;
-=======
 import fr.uga.im2ag.m1info.chatservice.common.repository.AbstractRepository;
->>>>>>> 6eb8a37c98c57f76ac0100dec68a6172e323f059
 
 public class ContactClientRepository extends AbstractRepository<Integer, ContactClient> {
 
@@ -25,17 +20,15 @@ public class ContactClientRepository extends AbstractRepository<Integer, Contact
     private final Map<String, ContactRequest> pendingRequests; // key: requestId
     private final Map<Integer, String> sentRequests; // key: receiverId, value: requestId
     private final Map<Integer, String> receivedRequests; // key: senderId, value: requestId
-    private final RepositoryWriter<ContactClient> repositoryWriter = new RepositoryWriter<ContactClient>("contacts");
 
     public ContactClientRepository(Map<Integer, ContactClient> contacts,
                                    Map<String, ContactRequest> pendingRequests,
                                    Map<Integer, String> sentRequests,
                                    Map<Integer, String> receivedRequests) {
-        super(contacts);
+        super(contacts, "contactClientRepository");
         this.pendingRequests = pendingRequests;
         this.sentRequests = sentRequests;
         this.receivedRequests = receivedRequests;
-        loadFromCache();
     }
 
     public ContactClientRepository() {
@@ -52,37 +45,6 @@ public class ContactClientRepository extends AbstractRepository<Integer, Contact
 
     /* ----------------------- Contact Management ----------------------- */
 
-<<<<<<< HEAD
-    @Override
-    public void add(ContactClient entity) {
-        contacts.put(entity.getContactId(), entity);
-        repositoryWriter.writeData(entity);
-    }
-
-    @Override
-    public void update(Integer id, ContactClient entity) {
-        contacts.put(id, entity);
-        repositoryWriter.updateData(c -> c.getContactId() == id, entity);
-    }
-
-    @Override
-    public void delete(Integer id) {
-        contacts.remove(id);
-        repositoryWriter.removeData(c -> c.getContactId() == id);
-    }
-
-    @Override
-    public ContactClient findById(Integer id) {
-        return contacts.get(id);
-    }
-
-    @Override
-    public Set<ContactClient> findAll() {
-        return Set.copyOf(contacts.values());
-    }
-
-=======
->>>>>>> 6eb8a37c98c57f76ac0100dec68a6172e323f059
     /**
      * Check if a user is already a contact.
      *
@@ -250,12 +212,5 @@ public class ContactClientRepository extends AbstractRepository<Integer, Contact
         Instant now = Instant.now();
         Instant expiresAt = now.plus(DEFAULT_REQUEST_EXPIRATION);
         return new ContactRequest(requestId, senderId, receiverId, now, expiresAt);
-    }
-
-    private void loadFromCache() {
-        Set<ContactClient> cachedContacts = repositoryWriter.readData();
-        for (ContactClient contact : cachedContacts) {
-            contacts.put(contact.getContactId(), contact);
-        }
     }
 }

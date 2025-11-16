@@ -7,11 +7,11 @@ import java.util.Map;
 
 public class UserRepository extends AbstractRepository<Integer, UserInfo> {
     public UserRepository(Map<Integer, UserInfo> users) {
-        super(users);
+        super(users, "userRepository");
     }
 
     public UserRepository() {
-        super();
+        super("userRepository");
     }
 
     @Override

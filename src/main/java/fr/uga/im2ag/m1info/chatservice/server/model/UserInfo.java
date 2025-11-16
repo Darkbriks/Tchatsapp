@@ -1,5 +1,6 @@
 package fr.uga.im2ag.m1info.chatservice.server.model;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -7,7 +8,7 @@ import java.util.Set;
 /**
  * Class representing user information used by the chat server.
  */
-public class UserInfo {
+public class UserInfo implements Serializable {
     private final int id;
     private String username;
     private final Set<Integer> contacts;

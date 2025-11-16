@@ -1,33 +1,42 @@
 package fr.uga.im2ag.m1info.chatservice.common.repository;
 
+import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
+import fr.uga.im2ag.m1info.chatservice.client.utils.RepositoryWriter;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class AbstractRepository<K, V> implements Repository<K, V> {
     protected final Map<K, V> storage;
+    private final RepositoryWriter<V> writer;
 
-    protected AbstractRepository(Map<K, V> storage) {
+    protected AbstractRepository(Map<K, V> storage, String filePath) {
         this.storage = storage;
+        this.writer = new RepositoryWriter<>(filePath);
+        loadFromCache();
     }
 
-    protected AbstractRepository() {
-        this(new ConcurrentHashMap<>());
+    protected AbstractRepository(String filePath) {
+        this(new ConcurrentHashMap<>(), filePath);
     }
 
     @Override
     public void add(V entity) {
         storage.put(getKey(entity), entity);
+        writer.writeData(entity);
     }
 
     @Override
     public void update(K id, V entity) {
         storage.put(id, entity);
+        writer.updateData(e -> getKey(e).equals(id), entity);
     }
 
     @Override
     public void delete(K id) {
         storage.remove(id);
+        writer.removeData(e -> getKey(e).equals(id));
     }
 
     @Override
@@ -41,4 +50,10 @@ public abstract class AbstractRepository<K, V> implements Repository<K, V> {
     }
 
     protected abstract K getKey(V entity);
+
+    private void loadFromCache() {
+        for (V entity : writer.readData()) {
+            add(entity);
+        }
+    }
 }
