@@ -23,7 +23,6 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
         switch (userMsg.getMessageType()) {
             case CREATE_USER -> createUser(serverContext, userMsg);
             case CONNECT_USER -> connectUser(serverContext, userMsg);
-            case ADD_CONTACT -> addContact(serverContext, userMsg);
             case REMOVE_CONTACT -> removeContact(serverContext, userMsg);
             case UPDATE_PSEUDO -> updatePseudo(serverContext, userMsg);
             default -> throw new IllegalArgumentException("Unsupported management message type");
@@ -34,7 +33,6 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
     public boolean canHandle(MessageType messageType) {
         return messageType == MessageType.CREATE_USER
                 || messageType == MessageType.CONNECT_USER
-                || messageType == MessageType.ADD_CONTACT
                 || messageType == MessageType.REMOVE_CONTACT
                 || messageType == MessageType.UPDATE_PSEUDO;
     }
@@ -135,45 +133,6 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
         serverContext.sendPacketToClient(response.toPacket());
 
         System.out.printf("[Server] Client %d connected successfully%n", clientId);
-    }
-
-    /**
-     * Handles adding a contact for a user.
-     * TODO: Discuss if both users should add each other as contacts, or if one-sided is enough
-     * For now and for simplicity, both users must add each other manually
-     *
-     * @param serverContext    the server context
-     * @param managementMessage the management message containing the add contact request
-     */
-    private static void addContact(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
-        int from = managementMessage.getFrom();
-        int contactId = managementMessage.getParamAsType("contactId", Integer.class);
-
-        UserInfo user = serverContext.getUserRepository().findById(from);
-        if (user == null) {
-            System.out.printf("[Server] User %d not found while trying to add contact %d%n", from, contactId);
-            return;
-        }
-
-        if (serverContext.getUserRepository().findById(contactId) == null) {
-            System.out.printf("[Server] User %d tried to add non-existing contact %d%n", from, contactId);
-            serverContext.sendErrorMessage(0, from, ErrorMessage.ErrorLevel.WARNING, "CONTACT_NOT_EXISTING", "Cannot add non-existing user as contact.");
-            return;
-        }
-
-        user.addContact(contactId);
-        serverContext.getUserRepository().update(user.getId(), user);
-        System.out.printf("[Server] User %d added contact %d%n", from, contactId);
-
-        UserInfo contactUser = serverContext.getUserRepository().findById(contactId);
-        if (contactUser != null && serverContext.isClientConnected(contactId)) {
-            serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_CONTACT, from, contactId))
-                    .addParam("contactId", from)
-                    .addParam("contactPseudo", user.getUsername())
-                    .addParam("ack", "true")
-                    .toPacket()
-            );
-        }
     }
 
     /**

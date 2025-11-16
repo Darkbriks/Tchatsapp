@@ -2,14 +2,18 @@ package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.client.event.system.*;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.ClientPacketHandler;
-import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
-import fr.uga.im2ag.m1info.chatservice.client.model.UserClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.*;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.GroupClientRepository;
 import fr.uga.im2ag.m1info.chatservice.common.MessageIdGenerator;
+import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -31,7 +35,7 @@ public class ClientController {
     /* ----------------------- Constructor ----------------------- */
 
     /**
-     * Creates a new ClientContext with specified repositories.
+     * Creates a new ClientController with specified repositories.
      *
      * @param client the client instance to wrap
      * @param conversationRepository the conversation repository
@@ -54,7 +58,7 @@ public class ClientController {
     }
 
     /**
-     * Creates a new ClientContext.
+     * Creates a new ClientController.
      *
      * @param client the client instance to wrap
      */
@@ -229,7 +233,6 @@ public class ClientController {
 
     /**
      * Get or create a private conversation with another user.
-     * TODO: Discuss about automatic conversation creation vs explicit user action
      *
      * @param otherUserId the other user's ID
      * @return the conversation
@@ -251,7 +254,6 @@ public class ClientController {
 
     /**
      * Get or create a group conversation.
-     * TODO: Discuss about automatic conversation creation vs explicit user action
      *
      * @param groupId the group ID
      * @param participantIds the participant IDs (including current user)
@@ -267,6 +269,84 @@ public class ClientController {
         }
 
         return conversation;
+    }
+
+    /* ----------------------- Contact Request Management ----------------------- */
+
+    /**
+     * Send a contact request to another user.
+     *
+     * @param targetUserId the user to send the request to
+     * @return the request ID, or null if failed
+     */
+    public String sendContactRequest(int targetUserId) {
+        if (contactRepository.isContact(targetUserId)) {
+            System.err.println("[Client] User " + targetUserId + " is already a contact");
+            return null;
+        }
+
+        if (contactRepository.hasSentRequestTo(targetUserId)) {
+            System.err.println("[Client] Contact request to user " + targetUserId + " already sent");
+            return null;
+        }
+
+        ContactRequestMessage crMsg = (ContactRequestMessage) MessageFactory.create(
+                MessageType.CONTACT_REQUEST, getClientId(), targetUserId
+        );
+        crMsg.generateNewRequestId(getMessageIdGenerator());
+
+        Instant expiresAt = Instant.now().plus(ContactClientRepository.DEFAULT_REQUEST_EXPIRATION);
+        crMsg.setExpirationTimestamp(expiresAt.toEpochMilli());
+
+        ContactRequest request = ContactClientRepository.createRequest(
+                crMsg.getRequestId(), getClientId(), targetUserId
+        );
+        contactRepository.addSentRequest(request);
+
+        sendPacket(crMsg.toPacket());
+        return crMsg.getRequestId();
+    }
+
+    /**
+     * Respond to a contact request.
+     *
+     * @param senderId the ID of the user who sent the request
+     * @param accept true to accept, false to reject
+     */
+    public void respondToContactRequest(int senderId, boolean accept) {
+        ContactRequest request = contactRepository.getReceivedRequestFrom(senderId);
+        if (request == null) {
+            System.err.println("[Client] No pending request from user " + senderId);
+            return;
+        }
+
+        if (request.isExpired()) {
+            System.err.println("[Client] Request from user " + senderId + " has expired");
+            contactRepository.removeRequest(request.getRequestId());
+            return;
+        }
+
+        ContactRequestMessage response = (ContactRequestMessage) MessageFactory.create(
+                MessageType.CONTACT_REQUEST_RESPONSE, getClientId(), senderId
+        );
+        response.setRequestId(request.getRequestId());
+        response.setResponse(true);
+        response.setAccepted(accept);
+
+        request.setStatus(accept ? ContactRequest.Status.ACCEPTED : ContactRequest.Status.REJECTED);
+        contactRepository.removeRequest(request.getRequestId());
+
+        if (accept) {
+            ContactClient newContact = new ContactClient(senderId, "User #" + senderId);
+            contactRepository.add(newContact);
+            getOrCreatePrivateConversation(senderId);
+
+            ManagementMessage updateMsg = (ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, getClientId(), 0);
+            updateMsg.addParam("newPseudo", getActiveUser().getPseudo());
+            sendPacket(updateMsg.toPacket());
+        }
+
+        sendPacket(response.toPacket());
     }
 
     /* ----------------------- Event Subscription ----------------------- */

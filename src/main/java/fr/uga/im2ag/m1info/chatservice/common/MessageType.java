@@ -9,7 +9,8 @@ public enum MessageType {
     ACK_CONNECTION,
     CREATE_GROUP,
     UPDATE_PSEUDO,
-    ADD_CONTACT,
+    CONTACT_REQUEST,
+    CONTACT_REQUEST_RESPONSE,
     REMOVE_CONTACT,
     ADD_GROUP_MEMBER,
     REMOVE_GROUP_MEMBER,
@@ -74,7 +75,8 @@ public enum MessageType {
             case ACK_CONNECTION -> "ACK_CONNECTION";
             case CREATE_GROUP -> "CREATE_GROUP";
             case UPDATE_PSEUDO -> "UPDATE_PSEUDO";
-            case ADD_CONTACT -> "ADD_CONTACT";
+            case CONTACT_REQUEST -> "CONTACT_REQUEST";
+            case CONTACT_REQUEST_RESPONSE -> "CONTACT_REQUEST_RESPONSE";
             case REMOVE_CONTACT -> "REMOVE_CONTACT";
             case ADD_GROUP_MEMBER -> "ADD_GROUP_MEMBER";
             case REMOVE_GROUP_MEMBER -> "REMOVE_GROUP_MEMBER";

@@ -3,6 +3,7 @@ package fr.uga.im2ag.m1info.chatservice.client;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.*;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
@@ -70,6 +71,7 @@ public class CliClient {
         router.addHandler(new MediaMessageHandler());
         router.addHandler(new ErrorMessageHandler());
         router.addHandler(new ManagementMessageHandler());
+        router.addHandler(new ContactRequestHandler());
         client.setPacketProcessor(router);
     }
 
@@ -120,6 +122,18 @@ public class CliClient {
         clientController.subscribeToEvent(
                 ErrorEvent.class,
                 this::onError
+        );
+
+        // Contact request events
+        clientController.subscribeToEvent(
+                ContactRequestReceivedEvent.class,
+                this::onContactRequestReceived
+        );
+
+        // Contact request response events
+        clientController.subscribeToEvent(
+                ContactRequestResponseEvent.class,
+                this::onContactRequestResponse
         );
     }
 
@@ -203,6 +217,21 @@ public class CliClient {
         System.err.println("╚════════════════════════════════════════════════╝\n");
     }
 
+    private void onContactRequestReceived(ContactRequestReceivedEvent event) {
+        System.out.println("\nContact request received from user #" + event.getSenderId());
+        System.out.println("Use menu option to accept/reject");
+    }
+
+    private void onContactRequestResponse(ContactRequestResponseEvent event) {
+        if (event.wasSentByUs()) {
+            if (event.isAccepted()) {
+                System.out.println("\nContact request accepted by user #" + event.getOtherUserId());
+            } else {
+                System.out.println("\nContact request rejected by user #" + event.getOtherUserId());
+            }
+        }
+    }
+
     /* ----------------------- Connection ----------------------- */
 
     /**
@@ -234,12 +263,14 @@ public class CliClient {
         System.out.println("║              TCHATSAPP MAIN MENU               ║");
         System.out.println("╠════════════════════════════════════════════════╣");
         System.out.println("║ 1. Send a message                              ║");
-        System.out.println("║ 2. Add a contact                               ║");
-        System.out.println("║ 3. Remove a contact                            ║");
-        System.out.println("║ 4. Change your username                        ║");
-        System.out.println("║ 5. List contacts                               ║");
-        System.out.println("║ 6. List conversations                          ║");
-        System.out.println("║ 7. View conversation history                   ║");
+        System.out.println("║ 2. Send contact request                        ║");
+        System.out.println("║ 3. View pending contact requests               ║");
+        System.out.println("║ 4. Accept/Reject contact request               ║");
+        System.out.println("║ 5. Remove a contact                            ║");
+        System.out.println("║ 6. Change your username                        ║");
+        System.out.println("║ 7. List contacts                               ║");
+        System.out.println("║ 8. List conversations                          ║");
+        System.out.println("║ 9. View conversation history                   ║");
         System.out.println("║ 0. Quit                                        ║");
         System.out.println("╚════════════════════════════════════════════════╝");
         System.out.print("Your choice: ");
@@ -280,27 +311,6 @@ public class CliClient {
     }
 
     /**
-     * Handle adding a contact.
-     */
-    private void handleAddContact() {
-        System.out.print("Contact ID to add: ");
-        int contactId;
-        try {
-            contactId = scanner.nextInt();
-            scanner.nextLine();
-        } catch (Exception e) {
-            System.err.println("Invalid ID.");
-            scanner.nextLine();
-            return;
-        }
-
-        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
-                MessageType.ADD_CONTACT, clientController.getClientId(), SERVER_ID);
-        mgmtMsg.addParam("contactId", Integer.toString(contactId));
-        clientController.sendPacket(mgmtMsg.toPacket());
-    }
-
-    /**
      * Handle removing a contact.
      */
     private void handleRemoveContact() {
@@ -337,6 +347,7 @@ public class CliClient {
                 MessageType.UPDATE_PSEUDO, clientController.getClientId(), SERVER_ID);
         mgmtMsg.addParam("newPseudo", newPseudo);
         clientController.sendPacket(mgmtMsg.toPacket());
+        clientController.getActiveUser().setPseudo(newPseudo);
     }
 
     /**
@@ -476,6 +487,65 @@ public class CliClient {
         System.out.println("╚════════════════════════════════════════════════╝");
     }
 
+    private void handleSendContactRequest() {
+        System.out.print("User ID to add as contact: ");
+        int targetId;
+        try {
+            targetId = scanner.nextInt();
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.err.println("Invalid ID.");
+            scanner.nextLine();
+            return;
+        }
+
+        String requestId = clientController.sendContactRequest(targetId);
+        if (requestId != null) {
+            System.out.println("Contact request sent. Waiting for response...");
+        }
+    }
+
+    private void handleViewContactRequests() {
+        var requests = clientController.getContactRepository().getPendingReceivedRequests();
+
+        if (requests.isEmpty()) {
+            System.out.println("\nNo pending contact requests.");
+            return;
+        }
+
+        System.out.println("\n╔════════════════════════════════════════════════╗");
+        System.out.println("║          PENDING CONTACT REQUESTS              ║");
+        System.out.println("╠════════════════════════════════════════════════╣");
+
+        for (ContactRequest req : requests) {
+            System.out.println("║ From: User #" + req.getSenderId());
+            System.out.println("║ Received: " + DATE_TIME_FORMATTER.format(req.getTimestamp()));
+            System.out.println("║ Expires: " + DATE_TIME_FORMATTER.format(req.getExpiresAt()));
+            System.out.println("╠════════════════════════════════════════════════╣");
+        }
+
+        System.out.println("╚════════════════════════════════════════════════╝");
+    }
+
+    private void handleRespondToContactRequest() {
+        System.out.print("Sender ID: ");
+        int senderId;
+        try {
+            senderId = scanner.nextInt();
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.err.println("Invalid ID.");
+            scanner.nextLine();
+            return;
+        }
+
+        System.out.print("Accept? (y/n): ");
+        String response = scanner.nextLine().trim().toLowerCase();
+        boolean accept = response.equals("y") || response.equals("yes");
+
+        clientController.respondToContactRequest(senderId, accept);
+    }
+
     /* ----------------------- Main Loop ----------------------- */
 
     /**
@@ -508,12 +578,14 @@ public class CliClient {
 
             switch (action) {
                 case 1 -> handleSendMessage();
-                case 2 -> handleAddContact();
-                case 3 -> handleRemoveContact();
-                case 4 -> handleUpdatePseudo();
-                case 5 -> handleListContacts();
-                case 6 -> handleListConversations();
-                case 7 -> handleViewConversationHistory();
+                case 2 -> handleSendContactRequest();
+                case 3 -> handleViewContactRequests();
+                case 4 -> handleRespondToContactRequest();
+                case 5 -> handleRemoveContact();
+                case 6 -> handleUpdatePseudo();
+                case 7 -> handleListContacts();
+                case 8 -> handleListConversations();
+                case 9 -> handleViewConversationHistory();
                 default -> System.out.println("Invalid choice. Please try again.");
             }
         }

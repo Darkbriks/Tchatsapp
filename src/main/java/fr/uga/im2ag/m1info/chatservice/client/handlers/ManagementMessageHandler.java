@@ -15,7 +15,6 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         }
 
         switch (userMsg.getMessageType()) {
-            case ADD_CONTACT -> addContact(userMsg, context);
             case REMOVE_CONTACT -> removeContact(userMsg, context);
             case UPDATE_PSEUDO -> updatePseudo(userMsg, context);
             default -> throw new IllegalArgumentException("Unsupported management message type: " + userMsg.getMessageType());
@@ -24,21 +23,8 @@ public class ManagementMessageHandler extends ClientPacketHandler {
 
     @Override
     public boolean canHandle(MessageType messageType) {
-        return messageType == MessageType.ADD_CONTACT
-                || messageType == MessageType.REMOVE_CONTACT
+        return messageType == MessageType.REMOVE_CONTACT
                 || messageType == MessageType.UPDATE_PSEUDO;
-    }
-
-    private void addContact(ManagementMessage message, ClientController context) {
-        String contactPseudo = message.getParamAsType("contactPseudo", String.class);
-        Integer contactId = message.getParamAsType("contactId", Integer.class);
-
-        if (contactPseudo != null && contactId != null) {
-            ContactClient contact = new ContactClient(contactId, contactPseudo);
-            context.getContactRepository().add(contact);
-            context.getOrCreatePrivateConversation(contactId);
-            publishEvent(new ContactAddedEvent(this, contactId), context);
-        }
     }
 
     private void removeContact(ManagementMessage message, ClientController context) {
