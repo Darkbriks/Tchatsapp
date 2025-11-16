@@ -1,6 +1,5 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
-import fr.uga.im2ag.m1info.chatservice.common.MessageIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
@@ -11,7 +10,6 @@ import java.time.Instant;
  */
 public class ContactRequestMessage extends ProtocolMessage {
     private String requestId;
-    private Instant timestamp;
     private boolean isResponse; // false for request, true for response
     private boolean accepted; // only used when isResponse = true
     private long expirationTimestamp; // only used when isResponse = false
@@ -21,25 +19,10 @@ public class ContactRequestMessage extends ProtocolMessage {
      */
     public ContactRequestMessage() {
         super(MessageType.CONTACT_REQUEST, -1, -1);
-        this.timestamp = Instant.EPOCH;
         this.requestId = null;
         this.isResponse = false;
         this.accepted = false;
         this.expirationTimestamp = 0;
-    }
-
-    /**
-     * Generate a new request ID using the provided MessageIdGenerator.
-     *
-     * @param messageIdGenerator the generator to use
-     * @throws IllegalStateException if 'from' is not set
-     */
-    public void generateNewRequestId(MessageIdGenerator messageIdGenerator) {
-        if (this.from == -1) {
-            throw new IllegalStateException("Cannot generate request ID: 'from' field is not set.");
-        }
-        timestamp = Instant.now();
-        requestId = messageIdGenerator.generateId(from, timestamp.toEpochMilli());
     }
 
     /**
@@ -48,16 +31,7 @@ public class ContactRequestMessage extends ProtocolMessage {
      * @return the request ID
      */
     public String getRequestId() {
-        return requestId;
-    }
-
-    /**
-     * Get the timestamp.
-     *
-     * @return the timestamp
-     */
-    public Instant getTimestamp() {
-        return timestamp;
+        return requestId != null ? requestId : messageId;
     }
 
     /**
@@ -138,13 +112,10 @@ public class ContactRequestMessage extends ProtocolMessage {
 
     @Override
     public Packet toPacket() {
-        if (requestId == null) {
-            throw new IllegalArgumentException("Request ID is null");
-        }
-
         StringBuilder sb = new StringBuilder();
-        sb.append(requestId).append("|");
+        sb.append(messageId).append("|");
         sb.append(timestamp.toEpochMilli()).append("|");
+        sb.append(requestId != null ? requestId : messageId).append("|");
         sb.append(isResponse ? "1" : "0").append("|");
 
         if (isResponse) {
@@ -169,16 +140,17 @@ public class ContactRequestMessage extends ProtocolMessage {
         this.to = packet.to();
 
         String payload = new String(packet.getModifiablePayload().array());
-        String[] parts = payload.split("\\|", 4);
+        String[] parts = payload.split("\\|", 5);
 
-        this.requestId = parts[0];
+        this.messageId = parts[0];
         this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
-        this.isResponse = "1".equals(parts[2]);
+        this.requestId = parts[2];
+        this.isResponse = "1".equals(parts[3]);
 
         if (isResponse) {
-            this.accepted = "1".equals(parts[3]);
+            this.accepted = "1".equals(parts[4]);
         } else {
-            this.expirationTimestamp = Long.parseLong(parts[3]);
+            this.expirationTimestamp = Long.parseLong(parts[4]);
         }
 
         return this;

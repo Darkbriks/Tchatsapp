@@ -12,11 +12,9 @@ import java.util.Base64;
  * Class representing a media message in the chat service protocol.
  */
 public class MediaMessage extends ProtocolMessage {
-    private String messageId;
     private byte[] content;
     private String mediaName;
     private String replyToMessageId;
-    private Instant timestamp;
     private int size;
 
     /** Default constructor for MediaMessage.
@@ -24,29 +22,8 @@ public class MediaMessage extends ProtocolMessage {
      */
     public MediaMessage() {
         super(MessageType.NONE, -1, -1);
-        timestamp = Instant.EPOCH;
-        messageId = null;
         this.mediaName = "";
         this.replyToMessageId = null;
-    }
-
-    /** Generate a new unique message ID using the provided MessageIdGenerator.
-     *
-     * @param messageIdGenerator the MessageIdGenerator to use for generating the ID
-     * @throws IllegalStateException if the 'from' field is not set
-     */
-    public void generateNewMessageId(MessageIdGenerator messageIdGenerator) {
-        if (this.from == -1) { throw new IllegalStateException("Cannot generate message ID: 'from' field is not set."); }
-        timestamp = Instant.now();
-        messageId = messageIdGenerator.generateId(from, timestamp.toEpochMilli());
-    }
-
-    /** Get the message ID.
-     *
-     * @return the message ID
-     */
-    public String getMessageId() {
-        return messageId;
     }
 
     /** Get the media of the message.
@@ -63,14 +40,6 @@ public class MediaMessage extends ProtocolMessage {
      */
     public String getReplyToMessageId() {
         return replyToMessageId;
-    }
-
-    /** Get the timestamp of the message.
-     *
-     * @return the timestamp as an Instant
-     */
-    public Instant getTimestamp() {
-        return timestamp;
     }
 
     /** Get the name of the media of the message.

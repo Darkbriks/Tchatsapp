@@ -3,6 +3,7 @@ package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
+import java.time.Instant;
 import java.util.Map;
 
 /**
@@ -83,6 +84,7 @@ public class ManagementMessage extends ProtocolMessage {
     @Override
     public Packet toPacket() {
         StringBuilder payload = new StringBuilder();
+        payload.append(messageId).append("|").append(timestamp.toEpochMilli()).append("|");
         for (Map.Entry<String, Object> entry : params.entrySet()) {
             payload.append(entry.getKey()).append("=").append(entry.getValue().toString()).append(";");
         }
@@ -101,12 +103,17 @@ public class ManagementMessage extends ProtocolMessage {
         this.from = packet.from();
         this.to = packet.to();
         params.clear();
-        String payloadStr = new String(packet.getModifiablePayload().array());
-        String[] entries = payloadStr.split(";");
-        for (String entry : entries) {
-            String[] keyValue = entry.split("=");
-            if (keyValue.length == 2) {
-                params.put(keyValue[0], keyValue[1]);
+        String payload = new String(packet.getModifiablePayload().array());
+        String[] parts = payload.split("\\|", 3);
+        this.messageId = parts[0];
+        this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
+        if (parts.length > 2) {
+            String[] entries = parts[2].split(";");
+            for (String entry : entries) {
+                String[] keyValue = entry.split("=");
+                if (keyValue.length == 2) {
+                    params.put(keyValue[0], keyValue[1]);
+                }
             }
         }
         return this;

@@ -6,7 +6,6 @@ import fr.uga.im2ag.m1info.chatservice.client.model.*;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.GroupClientRepository;
-import fr.uga.im2ag.m1info.chatservice.common.MessageIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestMessage;
@@ -100,15 +99,6 @@ public class ClientController {
      */
     public int getClientId() {
         return client.getClientId();
-    }
-
-    /**
-     * Get the message ID generator.
-     *
-     * @return the message ID generator
-     */
-    public MessageIdGenerator getMessageIdGenerator() {
-        return client.getMessageIdGenerator();
     }
 
     /**
@@ -290,10 +280,7 @@ public class ClientController {
             return null;
         }
 
-        ContactRequestMessage crMsg = (ContactRequestMessage) MessageFactory.create(
-                MessageType.CONTACT_REQUEST, getClientId(), targetUserId
-        );
-        crMsg.generateNewRequestId(getMessageIdGenerator());
+        ContactRequestMessage crMsg = (ContactRequestMessage) MessageFactory.create(MessageType.CONTACT_REQUEST, getClientId(), targetUserId);
 
         Instant expiresAt = Instant.now().plus(ContactClientRepository.DEFAULT_REQUEST_EXPIRATION);
         crMsg.setExpirationTimestamp(expiresAt.toEpochMilli());
@@ -326,9 +313,7 @@ public class ClientController {
             return;
         }
 
-        ContactRequestMessage response = (ContactRequestMessage) MessageFactory.create(
-                MessageType.CONTACT_REQUEST_RESPONSE, getClientId(), senderId
-        );
+        ContactRequestMessage response = (ContactRequestMessage) MessageFactory.create(MessageType.CONTACT_REQUEST_RESPONSE, getClientId(), senderId);
         response.setRequestId(request.getRequestId());
         response.setResponse(true);
         response.setAccepted(accept);

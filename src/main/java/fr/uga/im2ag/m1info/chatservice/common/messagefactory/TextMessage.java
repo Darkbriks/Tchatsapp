@@ -1,6 +1,5 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
-import fr.uga.im2ag.m1info.chatservice.common.MessageIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
@@ -10,10 +9,8 @@ import java.time.Instant;
  * Class representing a text message in the chat service protocol.
  */
 public class TextMessage extends ProtocolMessage {
-    private String messageId;
     private String content;
     private String replyToMessageId;
-    private Instant timestamp;
 
     /** Default constructor for TextMessage.
      * This is used for message factory registration only.
@@ -24,27 +21,6 @@ public class TextMessage extends ProtocolMessage {
         messageId = null;
         this.content = "";
         this.replyToMessageId = null;
-    }
-
-    /** Generate a new unique message ID using the provided MessageIdGenerator.
-     *
-     * @param messageIdGenerator the MessageIdGenerator to use for generating the ID
-     * @return the TextMessage instance for method chaining
-     * @throws IllegalStateException if the 'from' field is not set
-     */
-    public TextMessage generateNewMessageId(MessageIdGenerator messageIdGenerator) {
-        if (this.from == -1) { throw new IllegalStateException("Cannot generate message ID: 'from' field is not set."); }
-        timestamp = Instant.now();
-        messageId = messageIdGenerator.generateId(from, timestamp.toEpochMilli());
-        return this;
-    }
-
-    /** Get the message ID.
-     *
-     * @return the message ID
-     */
-    public String getMessageId() {
-        return messageId;
     }
 
     /** Get the text content of the message.
@@ -61,14 +37,6 @@ public class TextMessage extends ProtocolMessage {
      */
     public String getReplyToMessageId() {
         return replyToMessageId;
-    }
-
-    /** Get the timestamp of the message.
-     *
-     * @return the timestamp as an Instant
-     */
-    public Instant getTimestamp() {
-        return timestamp;
     }
 
     /** Set the text content of the message.

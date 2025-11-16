@@ -33,7 +33,6 @@ public class Client {
     private int clientId;
     private Socket cnx;
     private PacketProcessor processor;
-    private MessageIdGenerator messageIdGenerator;
     private Thread receptionThread;
 
     /**
@@ -129,24 +128,6 @@ public class Client {
     }
 
     /**
-     * Set the message ID generator.
-     *
-     * @param generator the MessageIdGenerator to use
-     */
-    public void setMessageIdGenerator(MessageIdGenerator generator) {
-        this.messageIdGenerator = generator;
-    }
-
-    /**
-     * Get the message ID generator.
-     *
-     * @return the message ID generator
-     */
-    public MessageIdGenerator getMessageIdGenerator() {
-        return messageIdGenerator;
-    }
-
-    /**
      * Set the packet processor to be called when packets are received by the client.
      *
      * @param p the PacketProcessor to use
@@ -221,7 +202,6 @@ public class Client {
             byte[] buffer = new byte[MAX_SIZE_CHUNK_FILE];
             while ((count = fileStream.read(buffer)) > 0) {
                 MediaMessage mediaMsg = (MediaMessage) MessageFactory.create(MessageType.MEDIA, clientId, to);
-                mediaMsg.generateNewMessageId(messageIdGenerator);
                 mediaMsg.setMediaName(fileName);
                 mediaMsg.setContent(buffer);
                 mediaMsg.setSizeContent(count);

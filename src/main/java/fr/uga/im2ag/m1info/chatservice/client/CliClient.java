@@ -7,7 +7,6 @@ import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.ShaIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
@@ -37,7 +36,6 @@ public class CliClient {
      */
     CliClient(int clientId, Scanner scanner) {
         Client client = new Client(clientId);
-        client.setMessageIdGenerator(new ShaIdGenerator());
         this.clientController = new ClientController(client);
         this.scanner = scanner;
         initializeHandlers(client);
@@ -304,7 +302,6 @@ public class CliClient {
                     clientController.getClientId(),
                     to
             );
-            textMsg.generateNewMessageId(clientController.getMessageIdGenerator());
             textMsg.setContent(msg);
             clientController.sendPacket(textMsg.toPacket());
         }
