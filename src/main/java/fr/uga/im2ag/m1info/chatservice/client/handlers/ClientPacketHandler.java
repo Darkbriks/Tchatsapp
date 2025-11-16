@@ -7,7 +7,7 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 
 /**
  * Abstract base class for handling client-side packets.
- * Handlers receive a ClientContext to interact with client functionality.
+ * Handlers receive a ClientController to interact with client functionality.
  */
 public abstract class ClientPacketHandler {
 

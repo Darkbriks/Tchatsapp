@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * A ClientPaquetRouter that routes incoming protocol messages to the appropriate ClientPacketHandler.
- * This router maintains a ClientContext that is passed to all handlers.
+ * This router maintains a ClientController that is passed to all handlers.
  */
 public class ClientPaquetRouter implements PacketProcessor {
     private final List<ClientPacketHandler> handlers;
