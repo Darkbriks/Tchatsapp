@@ -2,6 +2,7 @@ package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
@@ -18,9 +19,15 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             case ADD_CONTACT -> addContact(userMsg, context);
             case REMOVE_CONTACT -> removeContact(userMsg, context);
             case UPDATE_PSEUDO -> updatePseudo(userMsg, context);
+            case CREATE_GROUP -> createGroup(userMsg, context);
+            case LEAVE_GROUP -> leaveGroup(userMsg, context);
+            case ADD_GROUP_MEMBER -> addGroupMenber(userMsg, context);
+            case REMOVE_GROUP_MEMBER -> removeGroupMenber(userMsg, context);
+            case UPDATE_GROUP_NAME -> updateGroupName(userMsg, context);
             default -> throw new IllegalArgumentException("Unsupported management message type: " + userMsg.getMessageType());
         }
     }
+
 
     @Override
     public boolean canHandle(MessageType messageType) {
@@ -62,6 +69,102 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             // A contact has updated their pseudo
             System.out.println("[Client] Contact " + contactId + " updated pseudo to: " + newPseudo);
             context.getContactRepository().update(contactId, new ContactClient(contactId, newPseudo));
+        }
+    }
+
+    private void createGroup(ManagementMessage message, ClientContext context){
+        String newGroupe= message.getParamAsType("newGroupeName", String.class);
+        Integer groupId = message.getParamAsType("newGroupID", Integer.class);
+        if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
+            // This is an acknowledgment of our own pseudo update
+            System.out.println("[Client] Your Group has been created : " + newGroupe);
+            GroupClient group = new GroupClient(groupId, newGroupe, context.getClientId());
+            context.getGroupRepository().add(group);
+        }
+    }
+
+    private void leaveGroup(ManagementMessage message, ClientContext context){
+        throw new UnsupportedOperationException("Unimplemented method 'leaveGroup'");
+    }
+
+    private void addGroupMenber(ManagementMessage message, ClientContext context) {
+        int newMenber = message.getParamAsType("newMenberId", Integer.class);
+        Integer groupId = message.getParamAsType("groupId", Integer.class);
+        if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
+            // This is an acknowledgment of our own pseudo update
+            System.out.printf("[Client] You successfully add menber %d to the group %d",newMenber, groupId);
+            // TODO admin is just a menber like other so he also receives the normal message
+            // GroupClient group = context.getGroupRepository().findById(groupId);
+            // group.addMember(newMenber);
+            // context.getGroupRepository().update(groupId, group);
+        } else if ( Boolean.FALSE.equals(message.getParamAsType("ack", Boolean.class))){
+            System.out.printf("[Client] You try to add menber %d to the group %d but it FAIL",newMenber, groupId);
+
+        } else {
+            // just a group menber not the admin
+            if ( newMenber == context.getClientId()){
+                System.out.printf("[Client] You have been add to the group %d !", groupId);
+                // TODO  a new menber need to access every data like other menbers !!!
+                // GroupClient group;
+                // context.getGroupRepository().add(group);
+            } else {
+                GroupClient group = context.getGroupRepository().findById(groupId);
+                group.addMember(newMenber);
+                context.getGroupRepository().update(groupId, group);
+                System.out.printf("[Client] User %d have been add to the group %d !", newMenber, groupId);
+            }
+
+        }
+    }
+
+    private void removeGroupMenber(ManagementMessage message, ClientContext context) {
+        int deleteMenber = message.getParamAsType("deleteMenber", Integer.class);
+        Integer groupId = message.getParamAsType("groupId", Integer.class);
+        if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
+            // This is an acknowledgment of our own pseudo update
+            System.out.printf("[Client] You successfully remove menber %d to the group %d",deleteMenber, groupId);
+            // TODO admin is just a menber like other so he also receives the normal message
+            // GroupClient group = context.getGroupRepository().findById(groupId);
+            // group.addMember(newMenber);
+            // context.getGroupRepository().update(groupId, group);
+        } else if ( Boolean.FALSE.equals(message.getParamAsType("ack", Boolean.class))){
+            System.out.printf("[Client] You try to remove menber %d to the group %d but it FAIL",deleteMenber, groupId);
+
+        } else {
+            // just a group menber not the admin
+            if ( deleteMenber == context.getClientId()){
+                System.out.printf("[Client] You have been remove of the group %d !", groupId);
+                // TODO  a new menber need to access every data like other menbers !!!
+                context.getGroupRepository().delete(groupId);
+                System.out.printf("[Client] You have been removed from the group %d !", groupId);
+            } else {
+                GroupClient group = context.getGroupRepository().findById(groupId);
+                group.removeMember(deleteMenber);
+                context.getGroupRepository().update(groupId, group);
+                System.out.printf("[Client] User %d have been removed to the group %d !", deleteMenber, groupId);
+            }
+
+        }
+    }
+    public void updateGroupName(ManagementMessage message, ClientContext context){
+        String newGroupName = message.getParamAsType("groupName", String.class);
+        Integer groupId = message.getParamAsType("groupId", Integer.class);
+        if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
+            // This is an acknowledgment of our own pseudo update
+            System.out.printf("[Client] You successfully rename group %d to %s\n",groupId, newGroupName);
+            // TODO admin is just a menber like other so he also receives the normal message
+            // GroupClient group = context.getGroupRepository().findById(groupId);
+            // group.addMember(newMenber);
+            // context.getGroupRepository().update(groupId, group);
+        } else if ( Boolean.FALSE.equals(message.getParamAsType("ack", Boolean.class))){
+            System.out.printf("[Client] You try to rename group %d to %s but it FAIL",groupId, newGroupName);
+
+        } else {
+                GroupClient group = context.getGroupRepository().findById(groupId);
+                group.setName(newGroupName);
+                context.getGroupRepository().update(groupId, group);
+                System.out.printf("[Client] Group %d have been renamed to %s !", groupId, newGroupName);
+
         }
     }
 }

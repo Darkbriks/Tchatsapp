@@ -151,11 +151,12 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         serverContext.getGroupRepository().update(group.getId(), group);
         System.out.printf("[Server] Group %d add menber %d%n", adminGroup, newMenberID);
 
+        // TODO  a new menber need to access every data like other menbers !!!
         for (int menberId : group.getMenbers()) {
             if (serverContext.isClientConnected(menberId)) {
                 serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, menberId))
                         .addParam("groupId", groupId)
-                        .addParam("newMenber", newMenberID)
+                        .addParam("newMenberId", newMenberID)
                         .toPacket()
                 );
             }
@@ -182,7 +183,8 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         serverContext.getGroupRepository().add(group);
         System.out.printf("[Server] Group %d now exist and admin is menber %d%n", groupID, adminGroup);
         serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.CREATE_GROUP, groupID, adminGroup))
-                .addParam("newGroup", groupID)
+                .addParam("newGroupID", groupID)
+                .addParam("newGroupName", newGroupName)
                 .addParam("ack", "true")
                 .toPacket()
         );
