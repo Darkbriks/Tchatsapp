@@ -1,5 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
+import java.util.Set;
+
 import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
@@ -33,7 +35,12 @@ public class ManagementMessageHandler extends ClientPacketHandler {
     public boolean canHandle(MessageType messageType) {
         return messageType == MessageType.ADD_CONTACT
                 || messageType == MessageType.REMOVE_CONTACT
-                || messageType == MessageType.UPDATE_PSEUDO;
+                || messageType == MessageType.UPDATE_PSEUDO
+                || messageType == MessageType.CREATE_GROUP
+                || messageType == MessageType.LEAVE_GROUP
+                || messageType == MessageType.ADD_GROUP_MEMBER
+                || messageType == MessageType.REMOVE_GROUP_MEMBER
+                || messageType == MessageType.UPDATE_GROUP_NAME;
     }
 
     private void addContact(ManagementMessage message, ClientContext context) {
@@ -73,7 +80,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
     }
 
     private void createGroup(ManagementMessage message, ClientContext context){
-        String newGroupe= message.getParamAsType("newGroupeName", String.class);
+        String newGroupe= message.getParamAsType("newGroupName", String.class);
         Integer groupId = message.getParamAsType("newGroupID", Integer.class);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
@@ -84,7 +91,29 @@ public class ManagementMessageHandler extends ClientPacketHandler {
     }
 
     private void leaveGroup(ManagementMessage message, ClientContext context){
-        throw new UnsupportedOperationException("Unimplemented method 'leaveGroup'");
+        // TODO if admin leave group what happen ? e destroy the group or a new admin 
+        // need to be choose
+        int deleteMenber = message.getParamAsType("deleteMenber", Integer.class);
+        Integer groupId = message.getParamAsType("groupId", Integer.class);
+        if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
+            // This is an acknowledgment of our own pseudo update
+            System.out.printf("[Client] You successfully leave group %d", groupId);
+
+        } else if ( Boolean.FALSE.equals(message.getParamAsType("ack", Boolean.class))){
+            System.out.printf("[Client] You try to leave group %d but it FAIL",deleteMenber, groupId);
+
+        } else {
+            // just a group menber not the admin
+            if ( deleteMenber == context.getClientId()){
+                System.out.printf("[Client] You leave the group %d !", groupId);
+                context.getGroupRepository().delete(groupId);
+            } else {
+                GroupClient group = context.getGroupRepository().findById(groupId);
+                group.removeMember(deleteMenber);
+                context.getGroupRepository().update(groupId, group);
+                System.out.printf("[Client] User %d leave the group %d !", deleteMenber, groupId);
+            }
+        }
     }
 
     private void addGroupMenber(ManagementMessage message, ClientContext context) {
@@ -104,9 +133,19 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             // just a group menber not the admin
             if ( newMenber == context.getClientId()){
                 System.out.printf("[Client] You have been add to the group %d !", groupId);
-                // TODO  a new menber need to access every data like other menbers !!!
-                // GroupClient group;
-                // context.getGroupRepository().add(group);
+                String groupName = message.getParamAsType("groupName", String.class);
+                int adminId = message.getParamAsType("adminId", Integer.class);
+                GroupClient group = new GroupClient(groupId, groupName, adminId);
+                int i = 0;
+                while ( true){
+                    try{
+                        int menber = message.getParamAsType("menber" + i, Integer.class);
+                        group.addMember(menber);
+                    } catch (Exception e){
+                        break;
+                    }
+                }
+                context.getGroupRepository().add(group);
             } else {
                 GroupClient group = context.getGroupRepository().findById(groupId);
                 group.addMember(newMenber);
@@ -118,6 +157,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
     }
 
     private void removeGroupMenber(ManagementMessage message, ClientContext context) {
+        System.out.println("On enleve");
         int deleteMenber = message.getParamAsType("deleteMenber", Integer.class);
         Integer groupId = message.getParamAsType("groupId", Integer.class);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
@@ -136,7 +176,6 @@ public class ManagementMessageHandler extends ClientPacketHandler {
                 System.out.printf("[Client] You have been remove of the group %d !", groupId);
                 // TODO  a new menber need to access every data like other menbers !!!
                 context.getGroupRepository().delete(groupId);
-                System.out.printf("[Client] You have been removed from the group %d !", groupId);
             } else {
                 GroupClient group = context.getGroupRepository().findById(groupId);
                 group.removeMember(deleteMenber);
@@ -146,6 +185,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
 
         }
     }
+
     public void updateGroupName(ManagementMessage message, ClientContext context){
         String newGroupName = message.getParamAsType("groupName", String.class);
         Integer groupId = message.getParamAsType("groupId", Integer.class);

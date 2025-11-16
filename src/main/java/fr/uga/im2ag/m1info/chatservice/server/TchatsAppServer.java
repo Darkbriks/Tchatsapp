@@ -22,6 +22,7 @@ import fr.uga.im2ag.m1info.chatservice.server.handlers.MediaMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.ErrorMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.TextMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.UserManagementMessageHandler;
+import fr.uga.im2ag.m1info.chatservice.server.handlers.GroupMessageHandler;
 import fr.uga.im2ag.m1info.chatservice.server.repository.UserRepository;
 import fr.uga.im2ag.m1info.chatservice.server.repository.GroupRepository;
 
@@ -486,6 +487,7 @@ public class TchatsAppServer {
                 packetProcessor.process(message);
             } catch (RuntimeException e) {
                 LOG.warning("Packet processing failed for " + message.getMessageType() + ": " + e.getMessage());
+                e.printStackTrace();
             }
         } else {
             // default forward behaviour : transforme en Packet et envoie
@@ -537,6 +539,7 @@ public class TchatsAppServer {
         router.addHandler(new MediaMessageHandler());
         router.addHandler(new UserManagementMessageHandler());
         router.addHandler(new ErrorMessageHandler());
+        router.addHandler(new GroupMessageHandler());
         s.setPacketProcessor(router);
 
         s.start();

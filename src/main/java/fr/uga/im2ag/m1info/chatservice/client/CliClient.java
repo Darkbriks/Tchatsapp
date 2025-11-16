@@ -95,7 +95,21 @@ public class CliClient {
         System.out.println("2. Add a contact");
         System.out.println("3. Remove a contact");
         System.out.println("4. Change your username");
+        System.out.println("5. Group gestion");
         System.out.println("0. Quit");
+        System.out.print("Your choice: ");
+    }
+
+    /** 
+     * Display the group menu.
+     */
+    private void displayGroupMenu() {
+        System.out.println("\n=== Group Menu ===");
+        System.out.println("1. Create a group");
+        System.out.println("2. Leave a group");
+        System.out.println("3. Add menber ( Admin only)");
+        System.out.println("4. Remove menber ( Admin only)");
+        System.out.println("0. Back to main menu");
         System.out.print("Your choice: ");
     }
 
@@ -104,18 +118,15 @@ public class CliClient {
      */
     private void handleSendMessage() {
         System.out.print("Recipient ID: ");
-        System.out.println("You can send message tothe following users");  
-        for (ContactClient contact : context.getContactRepository().findAll()){
-            System.out.print(contact.getPseudo() + "=(" + contact.getContactId() + ") ");
-        }
-        System.out.println();
+        // System.out.println("You can send message tothe following users");  
+        // for (ContactClient contact : context.getContactRepository().findAll()){
+        //     System.out.print(contact.getPseudo() + "=(" + contact.getContactId() + ") ");
+        // }
+        // System.out.println();
         int to;
         try {
-            to = scanner.nextInt();
-            scanner.nextLine();
+            to = readIntegerFromUser("Invalid ID.");
         } catch (Exception e) {
-            System.err.println("Invalid ID.");
-            scanner.nextLine();
             return;
         }
 
@@ -133,17 +144,34 @@ public class CliClient {
     }
 
     /**
+     * Read an integer from user
+     *
+     * @param errorMessage Error message to display if invalid input 
+     * @return The integer user provide 
+     * @throws throw e; 
+     */
+    private int readIntegerFromUser(String errorMessage){
+        int result;
+        try {
+            result = scanner.nextInt();
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.err.println("Invalid ID.");
+            scanner.nextLine();
+            throw e;
+        }
+        return result;
+    }
+
+    /**
      * Handle adding a contact.
      */
     private void handleAddContact() {
         System.out.print("Contact ID to add: ");
         int contactId;
         try {
-            contactId = scanner.nextInt();
-            scanner.nextLine();
+            contactId = readIntegerFromUser("Invalid ID.");
         } catch (Exception e) {
-            System.err.println("Invalid ID.");
-            scanner.nextLine();
             return;
         }
 
@@ -160,11 +188,8 @@ public class CliClient {
         System.out.print("Contact ID to remove: ");
         int contactId;
         try {
-            contactId = scanner.nextInt();
-            scanner.nextLine();
+            contactId = readIntegerFromUser("Invalid ID.");
         } catch (Exception e) {
-            System.err.println("Invalid ID.");
-            scanner.nextLine();
             return;
         }
 
@@ -206,8 +231,109 @@ public class CliClient {
 
         ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
                 MessageType.CREATE_GROUP, context.getClientId(), SERVER_ID);
-        mgmtMsg.addParam("groupName", groupName);
+        mgmtMsg.addParam("newGroupName", groupName);
         context.sendPacket(mgmtMsg.toPacket());
+    }
+
+    /**
+     * Handle Leaving a group 
+     */
+    private void handleLeaveGroup() {
+        System.out.print("Group id: ");
+        int groupId;
+        try {
+            groupId= readIntegerFromUser("Invalid group ID.");
+        } catch (Exception e) {
+            return;
+        }
+
+        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
+                MessageType.LEAVE_GROUP, context.getClientId(), groupId);
+        mgmtMsg.addParam("groupID", groupId);
+        context.sendPacket(mgmtMsg.toPacket());
+    }
+
+    /**
+     * Handle add menber to a group 
+     */
+    private void handleAddMenberGroup() {
+        System.out.print("Group id: ");
+        int groupId;
+        try {
+            groupId= readIntegerFromUser("Invalid group ID.");
+        } catch (Exception e) {
+            return;
+        }
+        System.out.print("Menber id: ");
+        int newMenber;
+        try {
+            newMenber = readIntegerFromUser("Invalid menber ID.");
+        } catch (Exception e) {
+            return;
+        }
+
+
+        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
+                MessageType.ADD_GROUP_MEMBER, context.getClientId(), groupId);
+        mgmtMsg.addParam("newMenberID", newMenber);
+        context.sendPacket(mgmtMsg.toPacket());
+    }
+
+    /**
+     * Handle remove menber to a group 
+     */
+    private void handleRemoveMenberGroup() {
+        System.out.print("Group id: ");
+        int groupId;
+        try {
+            groupId= readIntegerFromUser("Invalid group ID.");
+        } catch (Exception e) {
+            return;
+        }
+        System.out.print("Menber id: ");
+        int deleteMenber;
+        try {
+            deleteMenber = readIntegerFromUser("Invalid menber ID.");
+        } catch (Exception e) {
+            return;
+        }
+
+
+        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
+                MessageType.REMOVE_GROUP_MEMBER, context.getClientId(), groupId);
+        mgmtMsg.addParam("removedMenberID", deleteMenber);
+        context.sendPacket(mgmtMsg.toPacket());
+    }
+
+    /*
+     * Get choice from user about group and dispatch event
+     */
+    private void groupGestion(){
+        displayGroupMenu();
+        int action;
+        try {
+            action = readIntegerFromUser("Invalid action");
+        } catch (Exception e) {
+            groupGestion();
+            return;
+        }
+
+        if (action == 0) {
+            return;
+        }
+
+        switch (action) {
+            case 1 -> handleCreateGroup();
+            case 2 -> handleLeaveGroup();
+            case 3 -> handleAddMenberGroup();
+            case 4 -> handleRemoveMenberGroup();
+            default -> { 
+                System.out.println("Invalid choice. Please try again.");
+                groupGestion();
+            }
+
+        }
+
     }
 
     /**
@@ -219,11 +345,8 @@ public class CliClient {
 
             int action;
             try {
-                action = scanner.nextInt();
-                scanner.nextLine();
+                action = readIntegerFromUser("Invalid input");
             } catch (Exception e) {
-                System.err.println("Invalid input.");
-                scanner.nextLine();
                 continue;
             }
 
@@ -237,6 +360,7 @@ public class CliClient {
                 case 2 -> handleAddContact();
                 case 3 -> handleRemoveContact();
                 case 4 -> handleUpdatePseudo();
+                case 5 -> groupGestion();
                 default -> System.out.println("Invalid choice. Please try again.");
             }
         }

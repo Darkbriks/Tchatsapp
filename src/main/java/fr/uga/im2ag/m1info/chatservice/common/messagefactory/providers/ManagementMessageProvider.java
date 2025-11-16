@@ -15,6 +15,10 @@ public class ManagementMessageProvider implements MessageProvider {
                 MessageType.ACK_CONNECTION,  // Added ACK_CONNECTION support
                 MessageType.ADD_CONTACT,
                 MessageType.REMOVE_CONTACT,
+                MessageType.CREATE_GROUP,
+                MessageType.LEAVE_GROUP,
+                MessageType.ADD_GROUP_MEMBER,
+                MessageType.REMOVE_GROUP_MEMBER,
                 MessageType.UPDATE_PSEUDO
         );
     }
