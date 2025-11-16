@@ -2,6 +2,7 @@ package fr.uga.im2ag.m1info.chatservice.server.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestResponseMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
 import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
@@ -31,14 +32,12 @@ public class ContactRequestServerHandler extends ServerPacketHandler {
 
     @Override
     public void handle(ProtocolMessage message, TchatsAppServer.ServerContext serverContext) {
-        if (!(message instanceof ContactRequestMessage crMsg)) {
-            throw new IllegalArgumentException("Invalid message type for ContactRequestServerHandler");
-        }
-
-        if (crMsg.isResponse()) {
-            handleResponse(crMsg, serverContext);
-        } else {
+        if (message instanceof ContactRequestMessage crMsg) {
             handleRequest(crMsg, serverContext);
+        } else if (message instanceof ContactRequestResponseMessage crrMsg) {
+            handleResponse(crrMsg, serverContext);
+        } else {
+            throw new IllegalArgumentException("Invalid message type for ContactRequestServerHandler");
         }
     }
 
@@ -93,7 +92,7 @@ public class ContactRequestServerHandler extends ServerPacketHandler {
     /**
      * Handle a response to a contact request.
      */
-    private void handleResponse(ContactRequestMessage crMsg, TchatsAppServer.ServerContext serverContext) {
+    private void handleResponse(ContactRequestResponseMessage crMsg, TchatsAppServer.ServerContext serverContext) {
         int responderId = crMsg.getFrom();
         int originalSenderId = crMsg.getTo();
         String requestId = crMsg.getRequestId();

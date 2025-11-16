@@ -6,19 +6,19 @@ import fr.uga.im2ag.m1info.chatservice.common.Packet;
 import java.time.Instant;
 
 /**
- * Message representing a contact request.
+ * Message representing a contact response.
  */
-public class ContactRequestMessage extends ProtocolMessage {
+public class ContactRequestResponseMessage extends ProtocolMessage {
     private String requestId;
-    private long expirationTimestamp; // only used when isResponse = false
+    private boolean accepted;
 
     /**
      * Default constructor.
      */
-    public ContactRequestMessage() {
+    public ContactRequestResponseMessage() {
         super(MessageType.CONTACT_REQUEST, -1, -1);
         this.requestId = null;
-        this.expirationTimestamp = 0;
+        this.accepted = false;
     }
 
     /**
@@ -31,12 +31,12 @@ public class ContactRequestMessage extends ProtocolMessage {
     }
 
     /**
-     * Get the expiration timestamp (only valid for requests).
+     * Check if the request was accepted.
      *
-     * @return expiration timestamp in epoch millis
+     * @return true if accepted
      */
-    public long getExpirationTimestamp() {
-        return expirationTimestamp;
+    public boolean isAccepted() {
+        return accepted;
     }
 
     /**
@@ -45,19 +45,19 @@ public class ContactRequestMessage extends ProtocolMessage {
      * @param requestId the request ID
      * @return this message for chaining
      */
-    public ContactRequestMessage setRequestId(String requestId) {
+    public ContactRequestResponseMessage setRequestId(String requestId) {
         this.requestId = requestId;
         return this;
     }
 
     /**
-     * Set the expiration timestamp.
+     * Set whether the request was accepted.
      *
-     * @param expirationTimestamp expiration time in epoch millis
+     * @param accepted true if accepted
      * @return this message for chaining
      */
-    public ContactRequestMessage setExpirationTimestamp(long expirationTimestamp) {
-        this.expirationTimestamp = expirationTimestamp;
+    public ContactRequestResponseMessage setAccepted(boolean accepted) {
+        this.accepted = accepted;
         return this;
     }
 
@@ -67,7 +67,7 @@ public class ContactRequestMessage extends ProtocolMessage {
         sb.append(messageId).append("|");
         sb.append(timestamp.toEpochMilli()).append("|");
         sb.append(requestId != null ? requestId : messageId).append("|");
-        sb.append(expirationTimestamp);
+        sb.append(accepted ? "1" : "0");
 
         byte[] payload = sb.toString().getBytes();
         return new Packet.PacketBuilder(payload.length)
@@ -79,7 +79,7 @@ public class ContactRequestMessage extends ProtocolMessage {
     }
 
     @Override
-    public ContactRequestMessage fromPacket(Packet packet) {
+    public ContactRequestResponseMessage fromPacket(Packet packet) {
         this.messageType = packet.messageType();
         this.from = packet.from();
         this.to = packet.to();
@@ -90,7 +90,7 @@ public class ContactRequestMessage extends ProtocolMessage {
         this.messageId = parts[0];
         this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
         this.requestId = parts[2];
-        this.expirationTimestamp = Long.parseLong(parts[3]);
+        this.accepted = "1".equals(parts[3]);
 
         return this;
     }
