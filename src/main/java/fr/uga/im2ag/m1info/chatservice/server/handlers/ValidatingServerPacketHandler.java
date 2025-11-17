@@ -34,12 +34,8 @@ public abstract class ValidatingServerPacketHandler extends ServerPacketHandler 
         return true;
     }
 
-    protected boolean validateContactRelationship(int from, int to, TchatsAppServer.ServerContext ctx) {
+    protected boolean checkContactRelationship(int from, int to, TchatsAppServer.ServerContext ctx) {
         UserInfo sender = ctx.getUserRepository().findById(from);
-        if (!sender.hasContact(to)) {
-            LOG.warning(() -> String.format("User %d attempted to send to non-contact %d", from, to));
-            return false;
-        }
-        return true;
+        return sender.hasContact(to);
     }
 }

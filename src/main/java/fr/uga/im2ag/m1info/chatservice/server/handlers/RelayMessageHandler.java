@@ -14,7 +14,7 @@ public class RelayMessageHandler extends ValidatingServerPacketHandler {
     public void handle(ProtocolMessage message, TchatsAppServer.ServerContext serverContext) {
         if (!validateSenderRegistered(message, serverContext)) return;
         if (!validateRecipientExists(message, serverContext)) return;
-        if (!validateContactRelationship(message.getFrom(), message.getTo(), serverContext)) {
+        if (!checkContactRelationship(message.getFrom(), message.getTo(), serverContext)) {
             AckHelper.sendFailedAck(serverContext, message, "Not authorized");
             return;
         }

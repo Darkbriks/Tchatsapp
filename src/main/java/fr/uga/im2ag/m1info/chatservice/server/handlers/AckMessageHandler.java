@@ -11,7 +11,7 @@ public class AckMessageHandler extends ValidatingServerPacketHandler {
         if (message.getTo() != 0) {
             if (!validateSenderRegistered(message, serverContext)) return;
             if (!validateRecipientExists(message, serverContext)) return;
-            if (!validateContactRelationship(message.getFrom(), message.getTo(), serverContext)) {
+            if (!checkContactRelationship(message.getFrom(), message.getTo(), serverContext)) {
                 AckHelper.sendFailedAck(serverContext, message, "Not authorized");
                 return;
             }

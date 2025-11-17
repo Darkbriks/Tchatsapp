@@ -53,7 +53,7 @@ public class ContactRequestServerHandler extends ValidatingServerPacketHandler {
     private void handleRequest(ContactRequestMessage crMsg, TchatsAppServer.ServerContext serverContext) {
         if (!validateSenderRegistered(crMsg, serverContext)) { return; }
         if (!validateRecipientExists(crMsg, serverContext))  { return; }
-        if (validateContactRelationship(crMsg.getFrom(), crMsg.getTo(), serverContext)) {
+        if (checkContactRelationship(crMsg.getFrom(), crMsg.getTo(), serverContext)) {
             AckHelper.sendFailedAck(serverContext, crMsg, "Already contacts");
             return;
         }

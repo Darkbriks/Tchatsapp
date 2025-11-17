@@ -537,6 +537,9 @@ public class ClientController {
         mgmtMsg.addParam("contactId", contactId);
         sendPacket(mgmtMsg.toPacket());
 
+        // TODO: Use command instead of optimistically
+        contactRepository.delete(contactId);
+
         return true;
     }
 

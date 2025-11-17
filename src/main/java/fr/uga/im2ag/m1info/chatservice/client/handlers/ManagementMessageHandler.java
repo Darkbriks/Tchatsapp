@@ -28,14 +28,11 @@ public class ManagementMessageHandler extends ClientPacketHandler {
     }
 
     private void removeContact(ManagementMessage message, ClientController context) {
-        String contactPseudo = message.getParamAsType("contactPseudo", String.class);
-        Integer contactId = message.getParamAsType("contactId", Integer.class);
+        int contactId = message.getParamAsType("contactId", Double.class).intValue();
 
-        if (contactPseudo != null && contactId != null) {
-            // TODO: Discuss about whether to delete the conversation or keep it
-            context.getContactRepository().delete(contactId);
-            publishEvent(new ContactRemovedEvent(this, contactId), context);
-        }
+        // TODO: Discuss about whether to delete the conversation or keep it
+        context.getContactRepository().delete(contactId);
+        publishEvent(new ContactRemovedEvent(this, contactId), context);
     }
 
     private void updatePseudo(ManagementMessage message, ClientController context) {
