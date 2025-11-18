@@ -1,0 +1,340 @@
+@startuml TchatsApp_Repository_Model_System
+
+skinparam linetype ortho
+skinparam packageStyle rectangle
+
+title Système de Repositories et Modèles - Détaillé
+
+' ============================================
+' REPOSITORY PATTERN
+' ============================================
+package "Repository Pattern" {
+    
+    interface Repository<ID, T> {
+        + add(entity: T): void
+        + update(id: ID, entity: T): void
+        + delete(id: ID): void
+        + findById(id: ID): T
+        + findAll(): Set<T>
+    }
+    
+    note top of Repository
+        **Pattern: Repository**
+        
+        Abstraction de la couche de persistance.
+        Fournit une interface uniforme pour
+        accéder et manipuler les entités.
+    end note
+    
+    abstract class AbstractRepository<ID, T> {
+        # storage: Map<ID, T>
+        --
+        + AbstractRepository(storage: Map<ID, T>)
+        + AbstractRepository()
+        + add(entity: T): void
+        + update(id: ID, entity: T): void
+        + delete(id: ID): void
+        + findById(id: ID): T
+        + findAll(): Set<T>
+        # {abstract} getKey(entity: T): ID
+    }
+    
+    note bottom of AbstractRepository
+        Implémentation de base utilisant
+        une Map pour le stockage en mémoire.
+        Thread-safe avec ConcurrentHashMap.
+    end note
+    
+    Repository <|.. AbstractRepository
+}
+
+' ============================================
+' CLIENT REPOSITORIES
+' ============================================
+package "Client Repositories" #F0E8F8 {
+    
+    class ContactClientRepository extends AbstractRepository {
+        - pendingRequests: Map<String, ContactRequest>
+        - sentRequests: Map<Integer, String>
+        - receivedRequests: Map<Integer, String>
+        - {static} DEFAULT_REQUEST_EXPIRATION: Duration = 7 days
+        --
+        + ContactClientRepository()
+        + isContact(contactId: int): boolean
+        + addSentRequest(request: ContactRequest): void
+        + addReceivedRequest(request: ContactRequest): void
+        + getRequest(requestId: String): ContactRequest
+        + hasSentRequestTo(receiverId: int): boolean
+        + hasReceivedRequestFrom(senderId: int): boolean
+        + getSentRequestTo(receiverId: int): ContactRequest
+        + getReceivedRequestFrom(senderId: int): ContactRequest
+        + getPendingReceivedRequests(): Set<ContactRequest>
+        + getPendingSentRequests(): Set<ContactRequest>
+        + removeRequest(requestId: String): void
+        + cleanupExpiredRequests(): int
+        + {static} createRequest(requestId: String, senderId: int, receiverId: int): ContactRequest
+        # getKey(entity: ContactClient): Integer
+    }
+    
+    note bottom of ContactClientRepository
+        **Responsabilités:**
+        - Gérer les contacts
+        - Gérer les demandes de contact (envoyées/reçues)
+        - Nettoyage automatique des demandes expirées
+        
+        **Structure:**
+        - storage: Map<contactId, ContactClient>
+        - pendingRequests: Map<requestId, ContactRequest>
+        - sentRequests: Map<receiverId, requestId>
+        - receivedRequests: Map<senderId, requestId>
+    end note
+    
+    class ConversationClientRepository extends AbstractRepository {
+        --
+        + ConversationClientRepository()
+        + getOrCreate(id: String, isGroup: boolean): ConversationClient
+        # getKey(entity: ConversationClient): String
+    }
+    
+    note bottom of ConversationClientRepository
+        **Responsabilités:**
+        - Gérer les conversations (privées et groupes)
+        - Créer automatiquement si inexistante
+        
+        **ID Format:**
+        - Privé: "private_{min}_{max}"
+        - Groupe: "group_{groupId}"
+    end note
+    
+    class GroupClientRepository extends AbstractRepository {
+        --
+        + GroupClientRepository()
+        # getKey(entity: GroupClient): Integer
+    }
+    
+    note bottom of GroupClientRepository
+        **Responsabilités:**
+        - Gérer les groupes côté client
+        - Stocker infos: membres, admin, titre
+        
+        Note: Implémentation basique pour l'instant,
+        sera étendue pour la gestion des groupes
+    end note
+}
+
+' ============================================
+' SERVER REPOSITORIES
+' ============================================
+package "Server Repositories" #F8E8E8 {
+    
+    class UserRepository extends AbstractRepository {
+        --
+        + UserRepository()
+        + isUserRegistered(userId: int): boolean
+        + getUserContacts(userId: int): Set<Integer>
+        + addContactToUser(userId: int, contactId: int): void
+        + removeContactFromUser(userId: int, contactId: int): void
+        # getKey(entity: UserInfo): Integer
+    }
+    
+    note bottom of UserRepository
+        **Responsabilités:**
+        - Gérer les utilisateurs côté serveur
+        - Gérer les contacts de chaque utilisateur
+        - Vérifier l'existence des utilisateurs
+        
+        Note: Le serveur ne stocke que les ID,
+        pas les pseudos (qui sont côté client).
+    end note
+}
+
+' ============================================
+' CLIENT MODELS
+' ============================================
+package "Client Models" #F0E8F8 {
+    
+    class UserClient {
+        - userId: int
+        - pseudo: String
+        --
+        + UserClient()
+        + UserClient(userId: int, pseudo: String)
+        + getUserId(): int
+        + setUserId(userId: int): void
+        + getPseudo(): String
+        + setPseudo(pseudo: String): void
+    }
+    
+    note right of UserClient
+        Représente l'utilisateur actif
+        de l'application client
+    end note
+    
+    class ContactClient {
+        - contactId: int
+        - pseudo: String
+        - lastSeen: Instant
+        --
+        + ContactClient(contactId: int, pseudo: String)
+        + getContactId(): int
+        + getPseudo(): String
+        + setPseudo(pseudo: String): void
+        + getLastSeen(): Instant
+        + updateLastSeen(): void
+    }
+    
+    class ContactRequest {
+        - requestId: String
+        - senderId: int
+        - receiverId: int
+        - createdAt: Instant
+        - expiresAt: Instant
+        - status: Status
+        --
+        + ContactRequest(requestId: String, senderId: int, receiverId: int, createdAt: Instant, expiresAt: Instant)
+        + getRequestId(): String
+        + getSenderId(): int
+        + getReceiverId(): int
+        + getStatus(): Status
+        + setStatus(status: Status): void
+        + isExpired(): boolean
+        + isActive(): boolean
+    }
+    
+    enum Status {
+        PENDING
+        ACCEPTED
+        REJECTED
+        EXPIRED
+    }
+    
+    ContactRequest +-- Status
+    
+    class ConversationClient {
+        - conversationId: String
+        - isGroup: boolean
+        - messages: Map<String, Message>
+        - messageOrder: List<String>
+        --
+        + ConversationClient(conversationId: String, isGroup: boolean)
+        + getConversationId(): String
+        + isGroup(): boolean
+        + addMessage(message: Message): void
+        + getMessage(messageId: String): Message
+        + getMessages(): List<Message>
+        + getLastMessage(): Message
+        + getUnreadCount(): int
+        + markAllAsRead(): void
+    }
+    
+    note bottom of ConversationClient
+        **Responsabilités:**
+        - Stocker les messages d'une conversation
+        - Maintenir l'ordre chronologique
+        - Gérer le statut de lecture
+    end note
+    
+    class Message {
+        - messageId: String
+        - fromUserId: int
+        - toUserId: int
+        - content: String
+        - timestamp: long
+        - replyToMessageId: String
+        - status: MessageStatus
+        --
+        + Message(messageId: String, fromUserId: int, toUserId: int, content: String, timestamp: long, replyToMessageId: String)
+        + getMessageId(): String
+        + getContent(): String
+        + getTimestamp(): long
+        + getStatus(): MessageStatus
+        + setStatus(status: MessageStatus): void
+        + isRead(): boolean
+    }
+    
+    class GroupClient {
+        - groupId: int
+        - title: String
+        - adminId: int
+        - members: Set<Integer>
+        --
+        + GroupClient(groupId: int, title: String, adminId: int)
+        + getGroupId(): int
+        + getTitle(): String
+        + setTitle(title: String): void
+        + getAdminId(): int
+        + getMembers(): Set<Integer>
+        + addMember(memberId: int): void
+        + removeMember(memberId: int): void
+        + isMember(userId: int): boolean
+        + isAdmin(userId: int): boolean
+    }
+    
+    note bottom of GroupClient
+        Note: Implémentation basique pour l'instant.
+        Sera étendue pour la gestion complète des groupes.
+    end note
+    
+    ConversationClient *-- "many" Message
+    Message --> MessageStatus
+}
+
+' ============================================
+' SERVER MODELS
+' ============================================
+package "Server Models" #F8E8E8 {
+    
+    class UserInfo {
+        - userId: int
+        - contacts: Set<Integer>
+        --
+        + UserInfo(userId: int)
+        + getUserId(): int
+        + getContacts(): Set<Integer>
+        + addContact(contactId: int): void
+        + removeContact(contactId: int): void
+        + hasContact(contactId: int): boolean
+    }
+    
+    note bottom of UserInfo
+        **Côté serveur:**
+        Stocke seulement les IDs.
+        Les pseudos sont gérés côté client.
+    end note
+}
+
+' ============================================
+' RELATIONS
+' ============================================
+ContactClientRepository ..> ContactClient : manages
+ContactClientRepository ..> ContactRequest : manages
+ConversationClientRepository ..> ConversationClient : manages
+GroupClientRepository ..> GroupClient : manages
+UserRepository ..> UserInfo : manages
+
+' ============================================
+' ID GENERATION
+' ============================================
+package "ID Generation" {
+    
+    interface IdGenerator {
+        + generateId(): int
+    }
+    
+    class SequentialIdGenerator implements IdGenerator {
+        - currentId: AtomicInteger
+        --
+        + SequentialIdGenerator()
+        + SequentialIdGenerator(startId: int)
+        + generateId(): int
+    }
+    
+    note right of SequentialIdGenerator
+        Générateur d'IDs séquentiels
+        thread-safe.
+        Utilisé côté serveur pour
+        les nouveaux utilisateurs.
+    end note
+}
+
+@enduml
