@@ -83,7 +83,6 @@ public class ManagementMessageHandler extends ClientPacketHandler {
     private void leaveGroup(ManagementMessage message, ClientController context){
         // TODO if admin leave group what happen ? e destroy the group or a new admin 
         // need to be choose
-        System.out.println("cuou!!");
         int deleteMenber = getIntInParam(message, KeyInMessage.MENBER_REMOVE_ID);
         int groupId = getIntInParam(message, KeyInMessage.GROUP_ID);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
@@ -132,7 +131,6 @@ public class ManagementMessageHandler extends ClientPacketHandler {
                 while ( true){
                     try{
                         int menber = getIntInParam(message, KeyInMessage.GROUP_MENBER_ID + i);
-                        System.out.println(menber);
                         group.addMember(menber);
                         i++;
                     } catch (Exception e){
@@ -151,7 +149,6 @@ public class ManagementMessageHandler extends ClientPacketHandler {
     }
 
     private void removeGroupMenber(ManagementMessage message, ClientController context) {
-        System.out.println("On enleve");
         int deleteMenber = getIntInParam(message, KeyInMessage.MENBER_REMOVE_ID);
         int groupId = getIntInParam(message, KeyInMessage.GROUP_ID);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {

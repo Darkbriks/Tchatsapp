@@ -2,8 +2,6 @@ package fr.uga.im2ag.m1info.chatservice.client.command;
 
 import fr.uga.im2ag.m1info.chatservice.client.event.system.EventBus;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.GroupCreateEvent;
-import fr.uga.im2ag.m1info.chatservice.client.event.types.UserPseudoUpdatedEvent;
-import fr.uga.im2ag.m1info.chatservice.client.model.UserClient;
 import fr.uga.im2ag.m1info.chatservice.client.repository.GroupClientRepository;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
