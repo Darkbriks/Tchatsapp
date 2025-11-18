@@ -1,19 +1,24 @@
 package fr.uga.im2ag.m1info.chatservice.client.utils;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
 
 public class RepositoryWriter<T> {
     private final String filePath;
-    private final File dossier = new File("cache");
 
     public RepositoryWriter(String filePath) {
-        if (!dossier.exists()) {
-            dossier.mkdir();
+        Path dossier = null;
+        try {
+            dossier = Files.createTempDirectory("tchatsapp");
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        this.filePath = dossier.getAbsolutePath() + File.separator + filePath + ".dat";
+        this.filePath = dossier.toAbsolutePath().toString() + File.separator + filePath + ".dat";
+        System.out.println(this.filePath);
     }
 
     public void writeData(Set<T> dataSet) {

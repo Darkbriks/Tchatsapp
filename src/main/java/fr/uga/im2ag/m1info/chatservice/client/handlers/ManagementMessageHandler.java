@@ -116,12 +116,8 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         int groupId = getIntInParam(message, KeyInMessage.GROUP_ID);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
-            System.out.printf("[Client] You successfully add menber %d to the group %d\n",newMenber, groupId);
-            publishEvent(new ChangeMenberInGroupEvent(this, groupId, newMenber), context);
             // TODO admin is just a menber like other so he also receives the normal message
-            // GroupClient group = context.getGroupRepository().findById(groupId);
-            // group.addMember(newMenber);
-            // context.getGroupRepository().update(groupId, group);
+            publishEvent(new ChangeMenberInGroupEvent(this, groupId, newMenber), context);
         } else if ( Boolean.FALSE.equals(message.getParamAsType("ack", Boolean.class))){
             System.out.printf("[Client] You try to add menber %d to the group %d but it FAIL\n",newMenber, groupId);
 
@@ -136,7 +132,9 @@ public class ManagementMessageHandler extends ClientPacketHandler {
                 while ( true){
                     try{
                         int menber = getIntInParam(message, KeyInMessage.GROUP_MENBER_ID + i);
+                        System.out.println(menber);
                         group.addMember(menber);
+                        i++;
                     } catch (Exception e){
                         break;
                     }

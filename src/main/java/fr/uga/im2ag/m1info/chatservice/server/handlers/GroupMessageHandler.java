@@ -133,17 +133,26 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         UserInfo newMenber = serverContext.getUserRepository().findById(newMenberID);
         if (group == null) {
             System.out.printf("[Server] Group %d not found while trying to add menber%n", groupId);
+            AckHelper.sendFailedAck(serverContext, groupManagementMessage, "Group not found");
             return;
         }
 
         if (group.getAdminId() != adminGroup){
             System.out.printf("[Server] User %d is not the admin of group %d. Real admin is %d%n", adminGroup, groupId, group.getAdminId());
+            AckHelper.sendFailedAck(serverContext, groupManagementMessage, "You are not the admin");
             return;
         }
 
         if (newMenber == null) {
             System.out.printf("[Server] User %d provided invalid menberId to add, [%d] not found\n", adminGroup, newMenberID);
+            AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User to add don't exists");
             serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_EXISTING", "Cannot add non-existing user as menber.");
+            return;
+        }
+        if (newMenberID == adminGroup) {
+            System.out.printf("[Server] User %d provided invalid menberId to add, [%d] add himself\n", adminGroup, newMenberID);
+            AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User add himself");
+            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_EXISTING", "Cannot add already inside user as menber.");
             return;
         }
 

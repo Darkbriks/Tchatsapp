@@ -584,6 +584,11 @@ public class ClientController {
         mgmtMsg.addParam(KeyInMessage.GROUP_ID, groupID);
 
         sendPacket(mgmtMsg.toPacket());
+        client.getCommandManager().addPendingCommand(new LeaveGroupCommand(
+                mgmtMsg.getMessageId(),
+                groupID,
+                groupRepository
+        ));
 
         return true;
     }
@@ -606,6 +611,13 @@ public class ClientController {
         mgmtMsg.addParam(KeyInMessage.MENBER_ADD_ID, newMenber);
 
         sendPacket(mgmtMsg.toPacket());
+
+        client.getCommandManager().addPendingCommand(new AddMenberGroupCommand(
+                mgmtMsg.getMessageId(),
+                groupID,
+                groupRepository,
+                newMenber
+        ));
         return true;
     }
 
@@ -627,6 +639,12 @@ public class ClientController {
         mgmtMsg.addParam(KeyInMessage.MENBER_REMOVE_ID, deleteMenber);
 
         sendPacket(mgmtMsg.toPacket());
+        client.getCommandManager().addPendingCommand(new RemoveMenberGroupCommand(
+                mgmtMsg.getMessageId(),
+                groupID,
+                groupRepository,
+                deleteMenber
+        ));
         return true;
     }
 
