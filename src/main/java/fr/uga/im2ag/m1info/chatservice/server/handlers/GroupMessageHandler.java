@@ -77,7 +77,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         int adminGroup = groupManagementMessage.getFrom();
         int groupId = groupManagementMessage.getTo();
 
-        int oldMenberID = groupManagementMessage.getParamAsType(KeyInMessage.MENBER_REMOVE_ID, Integer.class);
+        int oldMenberID =  (int) Float.parseFloat(groupManagementMessage.getParamAsType(KeyInMessage.MENBER_REMOVE_ID, String.class));
 
         GroupInfo group = serverContext.getGroupRepository().findById(groupId);
         UserInfo oldMenber = serverContext.getUserRepository().findById(oldMenberID);
@@ -131,8 +131,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
     private static void addGroupMenber(ServerContext serverContext, ManagementMessage groupManagementMessage) {
         int adminGroup = groupManagementMessage.getFrom();
         int groupId = groupManagementMessage.getTo();
-
-        int newMenberID = groupManagementMessage.getParamAsType(KeyInMessage.MENBER_ADD_ID, Integer.class);
+        int newMenberID = (int) Float.parseFloat(groupManagementMessage.getParamAsType(KeyInMessage.MENBER_ADD_ID, String.class));
 
         GroupInfo group = serverContext.getGroupRepository().findById(groupId);
         UserInfo newMenber = serverContext.getUserRepository().findById(newMenberID);
@@ -213,7 +212,8 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
         for (int menberId : group.getMenbers()) {
             if (serverContext.isClientConnected(menberId)) {
-                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, menberId))
+                System.out.printf("[Server] menber %d leave group %d Send this info to %d\n", groupMenber, groupId, menberId);
+                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.LEAVE_GROUP, groupId, menberId))
                         .addParam(KeyInMessage.GROUP_ID, groupId)
                         .addParam(KeyInMessage.MENBER_REMOVE_ID, groupMenber )
                         .toPacket()
@@ -223,7 +223,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
         group.removeMenber(groupMenber);
         serverContext.getGroupRepository().update(group.getId(), group);
-        System.out.printf("[Server] menber %d leave group %d %n", groupMenber, groupId);
+        System.out.printf("[Server] menber %d leave group %d \n", groupMenber, groupId);
 
         serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.LEAVE_GROUP, groupId, groupMenber))
                 .addParam(KeyInMessage.GROUP_ID, groupId)
@@ -239,6 +239,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         String newGroupName= groupManagementMessage.getParamAsType(KeyInMessage.GROUP_NAME, String.class);
         int groupID = serverContext.generateClientId();
         GroupInfo group = new GroupInfo(groupID, adminGroup, newGroupName);
+        group.addMenber(adminGroup);
         serverContext.getGroupRepository().add(group);
         System.out.printf("[Server] Group %d with name %s now exist and admin is menber %d%n", groupID, newGroupName, adminGroup);
         serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.CREATE_GROUP, groupID, adminGroup))

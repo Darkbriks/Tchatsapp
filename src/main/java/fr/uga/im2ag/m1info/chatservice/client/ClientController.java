@@ -6,6 +6,7 @@ import fr.uga.im2ag.m1info.chatservice.client.model.*;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.GroupClientRepository;
+import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
@@ -539,7 +540,93 @@ public class ClientController {
         return true;
     }
 
+    /**
+     * Creat a new group and user is the admin 
+     *
+     * @param name the desired name of the group 
+     * @return true if the request was sent, false otherwise
+     */
+    public boolean createGroup(String name) {
+        if (name == null || name.isEmpty()) {
+            System.err.println("[Client] Group name cannot be null or empty");
+            return false;
+        }
+
+        ManagementMessage mgmtMsg = sendManagementMessage(MessageType.CREATE_GROUP, 0);
+        if (mgmtMsg == null) {
+            return false;
+        }
+
+        mgmtMsg.addParam(KeyInMessage.GROUP_NAME, name);
+        sendPacket(mgmtMsg.toPacket());
+
+        return true;
+    }
+
+    /**
+     * Leave a group 
+     *
+     * @param groupID the id of the group to leave 
+     * @return true if the request was sent, false otherwise
+     */
+    public boolean leaveGroup(int groupID) {
+
+        ManagementMessage mgmtMsg = sendManagementMessage(MessageType.LEAVE_GROUP, groupID);
+        if (mgmtMsg == null) {
+            return false;
+        }
+
+        mgmtMsg.addParam(KeyInMessage.GROUP_ID, groupID);
+
+        sendPacket(mgmtMsg.toPacket());
+
+        return true;
+    }
+
+    /**
+     * Add member to a group, Need to be the admin of the group for this work
+     *
+     * @param groupID the id of the group 
+     * @param newMenber the menber to add to the group
+     * @return true if the request was sent, false otherwise
+     */
+    public boolean addMemberToGroup(int groupID, int newMenber) {
+        /* We send the message and the server handle we are not the admin */
+
+        ManagementMessage mgmtMsg = sendManagementMessage(MessageType.ADD_GROUP_MEMBER, groupID);
+        if (mgmtMsg == null) {
+            return false;
+        }
+
+        mgmtMsg.addParam(KeyInMessage.MENBER_ADD_ID, newMenber);
+
+        sendPacket(mgmtMsg.toPacket());
+        return true;
+    }
+
+    /**
+     * Remove a member from a group, Need to be the admin of the group for this work
+     *
+     * @param groupID the id of the group 
+     * @param deleteMenber the menber to add to the group
+     * @return true if the request was sent, false otherwise
+     */
+    public boolean removeMemberToGroup(int groupID, int deleteMenber) {
+        /* We send the message and the server handle we are not the admin */
+
+        ManagementMessage mgmtMsg = sendManagementMessage(MessageType.REMOVE_GROUP_MEMBER, groupID);
+        if (mgmtMsg == null) {
+            return false;
+        }
+
+        mgmtMsg.addParam(KeyInMessage.MENBER_REMOVE_ID, deleteMenber);
+
+        sendPacket(mgmtMsg.toPacket());
+        return true;
+    }
+
     public void sendAck(ProtocolMessage originalMessage, MessageStatus ackType) {
         client.sendAck(originalMessage, ackType);
     }
+
 }

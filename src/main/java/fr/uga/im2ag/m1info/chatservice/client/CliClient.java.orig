@@ -3,19 +3,21 @@ package fr.uga.im2ag.m1info.chatservice.client;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.*;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
+<<<<<<< HEAD
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
 import fr.uga.im2ag.m1info.chatservice.common.ShaIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+=======
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
+>>>>>>> master
 
 import java.time.ZoneId;
-import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 
@@ -24,7 +26,6 @@ import java.util.Scanner;
  * Provides a text-based menu to interact with the chat service.
  */
 public class CliClient {
-    private static final int SERVER_ID = 0;
     private static final String DEFAULT_HOST = "localhost";
     private static final int DEFAULT_PORT = 1666;
     private static final DateTimeFormatter TIME_FORMATTER =
@@ -300,26 +301,34 @@ public class CliClient {
 
     /* ----------------------- Menu ----------------------- */
 
-    /** 
-     * Display the group menu.
-     */
-    private void displayGroupMenu() {
-        System.out.println("\n╔════════════════════════════════════════════════╗");
-        System.out.println("║              TCHATSAPP MAIN MENU               ║");
-        System.out.println("╠════════════════════════════════════════════════╣");
-        System.out.println("║ 1. Create a group                              ║");
-        System.out.println("║ 2. Leavea a group                              ║");
-        System.out.println("║ 3. Add menber ( admin only )                   ║");
-        System.out.println("║ 4. Remove menber ('admin only )                ║");
-        System.out.println("║ 0. Back to Main menu                           ║");
-        System.out.println("╚════════════════════════════════════════════════╝");
-        System.out.print("Your choice: ");
-    }
-
     /**
      * Display the main menu.
      */
     private void displayMenu() {
+<<<<<<< HEAD
+        System.out.println("\n=== Main Menu ===");
+        System.out.println("1. Send a message");
+        System.out.println("2. Add a contact");
+        System.out.println("3. Remove a contact");
+        System.out.println("4. Change your username");
+        System.out.println("5. Group gestion");
+        System.out.println("0. Quit");
+        System.out.print("Your choice: ");
+    }
+
+    /** 
+     * Display the group menu.
+     */
+    private void displayGroupMenu() {
+        System.out.println("\n=== Group Menu ===");
+        System.out.println("1. Create a group");
+        System.out.println("2. Leave a group");
+        System.out.println("3. Add menber ( Admin only)");
+        System.out.println("4. Remove menber ( Admin only)");
+        System.out.println("0. Back to main menu");
+        System.out.print("Your choice: ");
+    }
+=======
         System.out.println("\n╔════════════════════════════════════════════════╗");
         System.out.println("║              TCHATSAPP MAIN MENU               ║");
         System.out.println("╠════════════════════════════════════════════════╣");
@@ -332,19 +341,24 @@ public class CliClient {
         System.out.println("║ 7. List contacts                               ║");
         System.out.println("║ 8. List conversations                          ║");
         System.out.println("║ 9. View conversation history                   ║");
-        System.out.println("║10. Group gestion                               ║");
         System.out.println("║ 0. Quit                                        ║");
         System.out.println("╚════════════════════════════════════════════════╝");
         System.out.print("Your choice: ");
     }
 
     /* ----------------------- Actions ----------------------- */
+>>>>>>> master
 
     /**
      * Handle sending a message.
      */
     private void handleSendMessage() {
         System.out.print("Recipient ID: ");
+        // System.out.println("You can send message tothe following users");  
+        // for (ContactClient contact : context.getContactRepository().findAll()){
+        //     System.out.print(contact.getPseudo() + "=(" + contact.getContactId() + ") ");
+        // }
+        // System.out.println();
         int to;
         try {
             to = readIntegerFromUser("Invalid ID.");
@@ -363,6 +377,7 @@ public class CliClient {
     }
 
     /**
+<<<<<<< HEAD
      * Read an integer from user
      *
      * @param errorMessage Error message to display if invalid input 
@@ -382,7 +397,27 @@ public class CliClient {
         return result;
     }
 
-    /*
+    /**
+     * Handle adding a contact.
+     */
+    private void handleAddContact() {
+        System.out.print("Contact ID to add: ");
+        int contactId;
+        try {
+            contactId = readIntegerFromUser("Invalid ID.");
+        } catch (Exception e) {
+            return;
+        }
+
+        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
+                MessageType.ADD_CONTACT, context.getClientId(), SERVER_ID);
+        mgmtMsg.addParam("contactId", Integer.toString(contactId));
+        context.sendPacket(mgmtMsg.toPacket());
+    }
+
+    /**
+=======
+>>>>>>> master
      * Handle removing a contact.
      */
     private void handleRemoveContact() {
@@ -413,6 +448,7 @@ public class CliClient {
     }
 
     /**
+<<<<<<< HEAD
      * Handle creating a group 
      */
     private void handleCreateGroup() {
@@ -424,7 +460,10 @@ public class CliClient {
             return;
         }
 
-        clientController.createGroup(groupName);
+        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
+                MessageType.CREATE_GROUP, context.getClientId(), SERVER_ID);
+        mgmtMsg.addParam(KeyInMessage.GROUP_NAME, groupName);
+        context.sendPacket(mgmtMsg.toPacket());
     }
 
     /**
@@ -439,7 +478,10 @@ public class CliClient {
             return;
         }
 
-        clientController.leaveGroup(groupId);
+        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
+                MessageType.LEAVE_GROUP, context.getClientId(), groupId);
+        mgmtMsg.addParam(KeyInMessage.GROUP_ID, groupId);
+        context.sendPacket(mgmtMsg.toPacket());
     }
 
     /**
@@ -448,16 +490,24 @@ public class CliClient {
     private void handleAddMenberGroup() {
         System.out.print("Group id: ");
         int groupId;
-        int newMenber;
         try {
             groupId= readIntegerFromUser("Invalid group ID.");
-            System.out.print("Menber id: ");
+        } catch (Exception e) {
+            return;
+        }
+        System.out.print("Menber id: ");
+        int newMenber;
+        try {
             newMenber = readIntegerFromUser("Invalid menber ID.");
         } catch (Exception e) {
             return;
         }
-        clientController.addMemberToGroup(groupId, newMenber);
 
+
+        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
+                MessageType.ADD_GROUP_MEMBER, context.getClientId(), groupId);
+        mgmtMsg.addParam(KeyInMessage.MENBER_ADD_ID, newMenber);
+        context.sendPacket(mgmtMsg.toPacket());
     }
 
     /**
@@ -466,16 +516,24 @@ public class CliClient {
     private void handleRemoveMenberGroup() {
         System.out.print("Group id: ");
         int groupId;
-        int deleteMenber;
         try {
             groupId= readIntegerFromUser("Invalid group ID.");
+        } catch (Exception e) {
+            return;
+        }
         System.out.print("Menber id: ");
+        int deleteMenber;
+        try {
             deleteMenber = readIntegerFromUser("Invalid menber ID.");
         } catch (Exception e) {
             return;
         }
 
-        clientController.removeMemberToGroup(groupId, deleteMenber);
+
+        ManagementMessage mgmtMsg = (ManagementMessage) MessageFactory.create(
+                MessageType.REMOVE_GROUP_MEMBER, context.getClientId(), groupId);
+        mgmtMsg.addParam(KeyInMessage.MENBER_REMOVE_ID, deleteMenber);
+        context.sendPacket(mgmtMsg.toPacket());
     }
 
     /*
@@ -509,7 +567,7 @@ public class CliClient {
 
     }
 
-    /**
+=======
      * List all contacts.
      */
     private void handleListContacts() {
@@ -711,6 +769,7 @@ public class CliClient {
 
     /* ----------------------- Main Loop ----------------------- */
 
+>>>>>>> master
     /**
      * Run the main interaction loop.
      */
@@ -738,6 +797,12 @@ public class CliClient {
 
             switch (action) {
                 case 1 -> handleSendMessage();
+<<<<<<< HEAD
+                case 2 -> handleAddContact();
+                case 3 -> handleRemoveContact();
+                case 4 -> handleUpdatePseudo();
+                case 5 -> groupGestion();
+=======
                 case 2 -> handleSendContactRequest();
                 case 3 -> handleViewContactRequests();
                 case 4 -> handleRespondToContactRequest();
@@ -746,7 +811,7 @@ public class CliClient {
                 case 7 -> handleListContacts();
                 case 8 -> handleListConversations();
                 case 9 -> handleViewConversationHistory();
-                case 10 -> groupGestion();
+>>>>>>> master
                 default -> System.out.println("Invalid choice. Please try again.");
             }
         }
