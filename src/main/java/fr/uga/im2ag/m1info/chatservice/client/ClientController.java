@@ -559,6 +559,11 @@ public class ClientController {
 
         mgmtMsg.addParam(KeyInMessage.GROUP_NAME, name);
         sendPacket(mgmtMsg.toPacket());
+        client.getCommandManager().addPendingCommand(new CreateGroupCommand(
+                mgmtMsg.getMessageId(),
+                name,
+                groupRepository 
+        ));
 
         return true;
     }

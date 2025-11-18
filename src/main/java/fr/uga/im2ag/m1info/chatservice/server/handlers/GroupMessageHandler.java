@@ -10,6 +10,7 @@ import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
 import fr.uga.im2ag.m1info.chatservice.server.model.GroupInfo;
 import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer.ServerContext;
+import fr.uga.im2ag.m1info.chatservice.server.util.AckHelper;
 
 public class GroupMessageHandler extends  ServerPacketHandler {
     @Override
@@ -120,12 +121,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         serverContext.getGroupRepository().update(group.getId(), group);
         System.out.printf("[Server] Group %d remove menber %d%n", groupId, oldMenberID);
 
-        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.REMOVE_GROUP_MEMBER, groupId, adminGroup))
-                .addParam(KeyInMessage.MENBER_REMOVE_ID, oldMenberID)
-                .addParam(KeyInMessage.GROUP_ID, groupId)
-                .addParam("ack", "true")
-                .toPacket()
-        );
+        AckHelper.sendSentAck(serverContext, groupManagementMessage);
     }
 
     private static void addGroupMenber(ServerContext serverContext, ManagementMessage groupManagementMessage) {
@@ -178,12 +174,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
                 //.addParam("groupMenbers", group.getMenbers())
         serverContext.sendPacketToClient(message.toPacket());
 
-        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, adminGroup))
-                .addParam(KeyInMessage.MENBER_ADD_ID, newMenberID)
-                .addParam(KeyInMessage.GROUP_ID, groupId)
-                .addParam("ack", "true")
-                .toPacket()
-        );
+        AckHelper.sendSentAck(serverContext, groupManagementMessage);
     }
 
 
@@ -225,12 +216,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         serverContext.getGroupRepository().update(group.getId(), group);
         System.out.printf("[Server] menber %d leave group %d \n", groupMenber, groupId);
 
-        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.LEAVE_GROUP, groupId, groupMenber))
-                .addParam(KeyInMessage.GROUP_ID, groupId)
-                .addParam(KeyInMessage.MENBER_REMOVE_ID, groupMenber )
-                .addParam("ack", "true")
-                .toPacket()
-        );
+        AckHelper.sendSentAck(serverContext, groupManagementMessage);
     }
 
 
@@ -248,6 +234,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
                 .addParam("ack", "true")
                 .toPacket()
         );
+        AckHelper.sendSentAck(serverContext, groupManagementMessage);
     }
 
 

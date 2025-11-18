@@ -76,6 +76,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             System.out.println("[Client] Your Group has been created : " + newGroupe + " his ID is " + groupId);
             GroupClient group = new GroupClient(groupId, newGroupe, context.getClientId());
             context.getGroupRepository().add(group);
+            publishEvent(new GroupCreateEvent(this, groupId), context);
         }
     }
 
@@ -116,6 +117,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
             System.out.printf("[Client] You successfully add menber %d to the group %d\n",newMenber, groupId);
+            publishEvent(new ChangeMenberInGroupEvent(this, groupId, newMenber), context);
             // TODO admin is just a menber like other so he also receives the normal message
             // GroupClient group = context.getGroupRepository().findById(groupId);
             // group.addMember(newMenber);
@@ -156,6 +158,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         int groupId = getIntInParam(message, KeyInMessage.GROUP_ID);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
+            publishEvent(new ChangeMenberInGroupEvent(this, groupId, deleteMenber), context);
             System.out.printf("[Client] You successfully remove menber %d to the group %d\n",deleteMenber, groupId);
             // TODO admin is just a menber like other so he also receives the normal message
             // GroupClient group = context.getGroupRepository().findById(groupId);
