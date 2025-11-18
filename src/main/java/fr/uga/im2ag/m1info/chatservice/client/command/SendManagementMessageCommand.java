@@ -10,8 +10,8 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageType;
  * Command for tracking a pending management message.
  */
 public class SendManagementMessageCommand implements PendingCommand {
-    private final String messageId;
-    private final MessageType operationType;
+    protected final String messageId;
+    protected final MessageType operationType;
 
     /**
      * Constructor for SendManagementMessageCommand.
@@ -30,7 +30,7 @@ public class SendManagementMessageCommand implements PendingCommand {
     }
 
     @Override
-    public void onAckReceived(MessageStatus ackType) {
+    public boolean onAckReceived(MessageStatus ackType) {
         if (ackType == MessageStatus.SENT || ackType == MessageStatus.DELIVERED) {
             EventBus.getInstance().publish(new ManagementOperationSucceededEvent(
                     this,
@@ -41,9 +41,8 @@ public class SendManagementMessageCommand implements PendingCommand {
             System.out.printf("[Client] Management operation %s succeeded (message: %s)%n",
                     operationType,
                     messageId.substring(0, Math.min(8, messageId.length())));
-        } else if (ackType == MessageStatus.FAILED) {
-            onAckFailed("Operation failed");
         }
+        return true;
     }
 
     @Override

@@ -60,6 +60,12 @@ public class ContactRequestServerHandler extends ValidatingServerPacketHandler {
 
         int senderId = crMsg.getFrom();
         int receiverId = crMsg.getTo();
+
+        if (senderId == receiverId) {
+            AckHelper.sendFailedAck(serverContext, crMsg, "Cannot add yourself as contact");
+            return;
+        }
+
         String requestId = crMsg.getRequestId();
 
         // Store the pending request for validation later

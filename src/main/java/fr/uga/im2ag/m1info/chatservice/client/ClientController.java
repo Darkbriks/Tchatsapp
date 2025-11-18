@@ -1,10 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
-import fr.uga.im2ag.m1info.chatservice.client.command.PendingCommandManager;
-import fr.uga.im2ag.m1info.chatservice.client.command.SendManagementMessageCommand;
-import fr.uga.im2ag.m1info.chatservice.client.command.SendTextMessageCommand;
+import fr.uga.im2ag.m1info.chatservice.client.command.*;
 import fr.uga.im2ag.m1info.chatservice.client.event.system.*;
-import fr.uga.im2ag.m1info.chatservice.client.handlers.ClientPacketHandler;
 import fr.uga.im2ag.m1info.chatservice.client.model.*;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
@@ -391,17 +388,10 @@ public class ClientController {
 
     /**
      * Publish an event to the event bus.
-     * Can only be called by ClientPacketHandler instances.
-     * The token is used to simulate C++-style friend access control.
      *
      * @param event the event to publish
-     * @param token the publish event
      */
-    public void publishEvent(Event event, ClientPacketHandler.PublishEventToken token) {
-        if (!token.isValidFor(this)) {
-            throw new IllegalArgumentException("Invalid PublishEventToken for this ClientController");
-        }
-
+    public void publishEvent(Event event) {
         eventBus.publish(event);
     }
 
@@ -511,8 +501,11 @@ public class ClientController {
         mgmtMsg.addParam("newPseudo", newPseudo);
         sendPacket(mgmtMsg.toPacket());
 
-        // TODO: Use command instead of optimistically
-        activeUser.setPseudo(newPseudo);
+        client.getCommandManager().addPendingCommand(new UpdatePseudoCommand(
+                mgmtMsg.getMessageId(),
+                newPseudo,
+                activeUser
+        ));
 
         return true;
     }
@@ -537,8 +530,11 @@ public class ClientController {
         mgmtMsg.addParam("contactId", contactId);
         sendPacket(mgmtMsg.toPacket());
 
-        // TODO: Use command instead of optimistically
-        contactRepository.delete(contactId);
+        client.getCommandManager().addPendingCommand(new RemoveContactCommand(
+                mgmtMsg.getMessageId(),
+                contactId,
+                contactRepository
+        ));
 
         return true;
     }

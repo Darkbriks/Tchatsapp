@@ -35,7 +35,7 @@ public class SendTextMessageCommand implements PendingCommand {
     }
 
     @Override
-    public void onAckReceived(MessageStatus ackType) {
+    public boolean onAckReceived(MessageStatus ackType) {
         MessageStatus newStatus = switch (ackType) {
             case SENDING -> MessageStatus.SENDING;
             case SENT -> MessageStatus.SENT;
@@ -45,7 +45,7 @@ public class SendTextMessageCommand implements PendingCommand {
         };
 
         if (newStatus == currentStatus) {
-            return;
+            return false;
         }
 
         currentStatus = newStatus;
@@ -59,6 +59,7 @@ public class SendTextMessageCommand implements PendingCommand {
         ));
 
         System.out.printf("[Client] Message %s status changed to %s%n", messageId.substring(0, Math.min(8, messageId.length())), newStatus);
+        return false;
     }
 
     @Override

@@ -10,23 +10,6 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
  * Handlers receive a ClientController to interact with client functionality.
  */
 public abstract class ClientPacketHandler {
-
-    /**
-     * Class used to simulate C++ friend classes for event publishing.
-     * TODO: Make some test to ensure that only ClientPacketHandler can call ClientController::publishEvent.
-     */
-    public static final class PublishEventToken {
-        private PublishEventToken() {
-            // Private constructor to prevent external instantiation
-        }
-
-        public boolean isValidFor(ClientController controller) {
-            return true;
-        }
-    }
-
-    private final PublishEventToken publishEventToken = new PublishEventToken();
-
     /**
      * Handles the given protocol message.
      *
@@ -50,6 +33,6 @@ public abstract class ClientPacketHandler {
      * @param context the client context used to publish the event
      */
     protected void publishEvent(Event event, ClientController context) {
-        context.publishEvent(event, publishEventToken);
+        context.publishEvent(event);
     }
 }

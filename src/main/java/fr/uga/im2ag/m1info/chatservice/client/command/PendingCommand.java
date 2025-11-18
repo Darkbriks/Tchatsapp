@@ -18,8 +18,9 @@ public interface PendingCommand {
      * Called when an acknowledgment is received for this command.
      *
      * @param ackType the type of acknowledgment received
+     * @return true if the command can be considered complete, and removed from pending list, false otherwise
      */
-    void onAckReceived(MessageStatus ackType);
+    boolean onAckReceived(MessageStatus ackType);
 
     /**
      * Called when the command fails.

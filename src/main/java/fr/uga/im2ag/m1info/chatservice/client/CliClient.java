@@ -494,6 +494,10 @@ public class CliClient {
                 System.out.println("║   ↳ Reply to: " + msg.getReplyToMessageId().substring(0, 8) + "...");
             }
 
+            if (msg.getFromUserId() == clientController.getClientId()) {
+                System.out.println("║   Status: " + msg.getStatus());
+            }
+
             System.out.println("║   " + msg.getContent());
 
             if (!msg.getReactions().isEmpty()) {
