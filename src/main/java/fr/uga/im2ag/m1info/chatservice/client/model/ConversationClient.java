@@ -1,9 +1,10 @@
 package fr.uga.im2ag.m1info.chatservice.client.model;
 
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.*;
 
-public class ConversationClient {
+public class ConversationClient implements Serializable{
     private final String conversationId;
     private String conversationName;
     private final Map<String, Message> messages;

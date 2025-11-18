@@ -2,7 +2,8 @@ package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
 import java.util.Set;
 
-import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
+import fr.uga.im2ag.m1info.chatservice.client.ClientController;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.*;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
@@ -10,17 +11,14 @@ import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 
-// TODO: Interact with repositories and notify observers
 public class ManagementMessageHandler extends ClientPacketHandler {
     @Override
-    public void handle(ProtocolMessage message, ClientContext context) {
+    public void handle(ProtocolMessage message, ClientController context) {
         if (!(message instanceof ManagementMessage userMsg)) {
             throw new IllegalArgumentException("Invalid message type for ManagementMessageHandler");
         }
 
-        System.out.println("Message recu de type " + userMsg.getMessageType().toString());
         switch (userMsg.getMessageType()) {
-            case ADD_CONTACT -> addContact(userMsg, context);
             case REMOVE_CONTACT -> removeContact(userMsg, context);
             case UPDATE_PSEUDO -> updatePseudo(userMsg, context);
             case CREATE_GROUP -> createGroup(userMsg, context);
@@ -35,8 +33,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
 
     @Override
     public boolean canHandle(MessageType messageType) {
-        return messageType == MessageType.ADD_CONTACT
-                || messageType == MessageType.REMOVE_CONTACT
+        return messageType == MessageType.REMOVE_CONTACT
                 || messageType == MessageType.UPDATE_PSEUDO
                 || messageType == MessageType.CREATE_GROUP
                 || messageType == MessageType.LEAVE_GROUP
@@ -45,43 +42,33 @@ public class ManagementMessageHandler extends ClientPacketHandler {
                 || messageType == MessageType.UPDATE_GROUP_NAME;
     }
 
-    private void addContact(ManagementMessage message, ClientContext context) {
-        String contactPseudo = message.getParamAsType("contactPseudo", String.class);
-        Integer contactId = message.getParamAsType("contactId", Integer.class);
+    private void removeContact(ManagementMessage message, ClientController context) {
+        int contactId = message.getParamAsType("contactId", Double.class).intValue();
 
-        if (contactPseudo != null && contactId != null) {
-            System.out.println("[Client] Contact added: " + contactPseudo + " (ID: " + contactId + ")");
-            ContactClient contact = new ContactClient(contactId, contactPseudo);
-            context.getContactRepository().add(contact);
-        }
+        // TODO: Discuss about whether to delete the conversation or keep it
+        context.getContactRepository().delete(contactId);
+        publishEvent(new ContactRemovedEvent(this, contactId), context);
     }
 
-    private void removeContact(ManagementMessage message, ClientContext context) {
-        String contactPseudo = message.getParamAsType("contactPseudo", String.class);
-        Integer contactId = message.getParamAsType("contactId", Integer.class);
-
-        if (contactPseudo != null && contactId != null) {
-            System.out.println("[Client] Contact removed: " + contactPseudo + " (ID: " + contactId + ")");
-            context.getContactRepository().delete(contactId);
-        }
-    }
-
-    private void updatePseudo(ManagementMessage message, ClientContext context) {
+    private void updatePseudo(ManagementMessage message, ClientController context) {
         String newPseudo = message.getParamAsType("newPseudo", String.class);
         Integer contactId = message.getParamAsType("contactId", Integer.class);
 
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
-            // This is an acknowledgment of our own pseudo update
-            System.out.println("[Client] Your pseudo has been updated to: " + newPseudo);
-            // TODO: Update in UserRepository
+            context.getActiveUser().setPseudo(newPseudo);
+            publishEvent(new UserPseudoUpdatedEvent(this, newPseudo), context);
         } else if (contactId != null && newPseudo != null) {
-            // A contact has updated their pseudo
-            System.out.println("[Client] Contact " + contactId + " updated pseudo to: " + newPseudo);
-            context.getContactRepository().update(contactId, new ContactClient(contactId, newPseudo));
+            ContactClient contact = context.getContactRepository().findById(contactId);
+            if (contact != null) {
+                contact.updatePseudo(newPseudo);
+                context.getContactRepository().update(contactId, contact);
+                publishEvent(new ContactUpdatedEvent(this, contactId), context);
+            }
         }
     }
 
-    private void createGroup(ManagementMessage message, ClientContext context){
+
+    private void createGroup(ManagementMessage message, ClientController context){
         String newGroupe= message.getParamAsType(KeyInMessage.GROUP_NAME, String.class);
         Integer groupId = message.getParamAsType(KeyInMessage.GROUP_ID, Integer.class);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
@@ -92,7 +79,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         }
     }
 
-    private void leaveGroup(ManagementMessage message, ClientContext context){
+    private void leaveGroup(ManagementMessage message, ClientController context){
         // TODO if admin leave group what happen ? e destroy the group or a new admin 
         // need to be choose
         int deleteMenber = message.getParamAsType(KeyInMessage.MENBER_REMOVE_ID, Integer.class);
@@ -118,7 +105,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         }
     }
 
-    private void addGroupMenber(ManagementMessage message, ClientContext context) {
+    private void addGroupMenber(ManagementMessage message, ClientController context) {
         int newMenber = message.getParamAsType(KeyInMessage.MENBER_ADD_ID, Integer.class);
         Integer groupId = message.getParamAsType(KeyInMessage.GROUP_ID, Integer.class);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
@@ -158,7 +145,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         }
     }
 
-    private void removeGroupMenber(ManagementMessage message, ClientContext context) {
+    private void removeGroupMenber(ManagementMessage message, ClientController context) {
         System.out.println("On enleve");
         int deleteMenber = message.getParamAsType(KeyInMessage.MENBER_REMOVE_ID, Integer.class);
         Integer groupId = message.getParamAsType(KeyInMessage.GROUP_ID, Integer.class);
@@ -188,7 +175,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         }
     }
 
-    public void updateGroupName(ManagementMessage message, ClientContext context){
+    public void updateGroupName(ManagementMessage message, ClientController context){
         String newGroupName = message.getParamAsType(KeyInMessage.GROUP_NAME, String.class);
         Integer groupId = message.getParamAsType(KeyInMessage.GROUP_ID, Integer.class);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {

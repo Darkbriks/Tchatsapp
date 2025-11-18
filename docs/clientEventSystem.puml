@@ -1,0 +1,217 @@
+@startuml ObserverPattern
+
+skinparam linetype ortho
+
+package "event.system" {
+    
+    ' ===== EVENT BASE =====
+    abstract class Event {
+        - timestamp: long {final}
+        - source: Object {final}
+        --
+        + Event(source: Object)
+        + getTimestamp(): long
+        + getSource(): Object
+        + {abstract} getEventType(): Class<? extends Event>
+    }
+    
+    ' ===== EVENT OBSERVER =====
+    interface EventObserver<T extends Event> {
+        + onEvent(event: T): void
+    }
+    
+    ' ===== EVENT FILTER =====
+    interface EventFilter<T extends Event> {
+        + test(event: T): boolean
+    }
+    
+    ' ===== EXECUTION MODE =====
+    enum ExecutionMode {
+        SYNC
+        ASYNC
+    }
+    note right of ExecutionMode
+        SYNC: exécution immédiate dans thread émetteur
+        ASYNC: exécution dans pool de threads dédié
+    end note
+    
+    ' ===== EVENT SUBSCRIPTION =====
+    class EventSubscription<T extends Event> {
+        - observer: EventObserver<T> {final}
+        - filter: EventFilter<T>
+        - executionMode: ExecutionMode {final}
+        - active: AtomicBoolean
+        --
+        + EventSubscription(observer: EventObserver<T>, mode: ExecutionMode)
+        + EventSubscription(observer: EventObserver<T>, filter: EventFilter<T>, mode: ExecutionMode)
+        + getObserver(): EventObserver<T>
+        + getFilter(): EventFilter<T>
+        + getExecutionMode(): ExecutionMode
+        + isActive(): boolean
+        + cancel(): void
+        + matches(event: T): boolean
+    }
+    
+    EventSubscription --> EventObserver
+    EventSubscription --> EventFilter
+    EventSubscription --> ExecutionMode
+    
+    ' ===== EVENT BUS =====
+    class EventBus {
+        - {static} instance: EventBus
+        - subscriptions: ConcurrentHashMap<Class<? extends Event>, CopyOnWriteArrayList<EventSubscription<?>>>
+        - executor: ExecutorService
+        - logger: Logger
+        --
+        - EventBus()
+        + {static} getInstance(): EventBus
+        + <T extends Event> subscribe(eventType: Class<T>, observer: EventObserver<T>): EventSubscription<T>
+        + <T extends Event> subscribe(eventType: Class<T>, observer: EventObserver<T>, mode: ExecutionMode): EventSubscription<T>
+        + <T extends Event> subscribe(eventType: Class<T>, observer: EventObserver<T>, filter: EventFilter<T>, mode: ExecutionMode): EventSubscription<T>
+        + <T extends Event> unsubscribe(subscription: EventSubscription<T>): void
+        + <T extends Event> publish(event: T): void
+        + shutdown(): void
+        - <T extends Event> notifyObserver(subscription: EventSubscription<T>, event: T): void
+    }
+    
+    EventBus "1" *-- "many" EventSubscription
+    EventBus ..> Event : publishes
+    
+}
+
+package "event.types" {
+    
+    ' ===== MESSAGE EVENTS =====
+    abstract class MessageEvent extends Event {
+        - message: Message {final}
+        - conversationId: int {final}
+        --
+        + MessageEvent(source: Object, message: Message, conversationId: int)
+        + getMessage(): Message
+        + getConversationId(): int
+    }
+    
+    class TextMessageReceivedEvent extends MessageEvent {
+        --
+        + TextMessageReceivedEvent(source: Object, message: Message, conversationId: int)
+        + getEventType(): Class<? extends Event>
+    }
+    
+    class MediaMessageReceivedEvent extends MessageEvent {
+        --
+        + MediaMessageReceivedEvent(source: Object, message: Message, conversationId: int)
+        + getEventType(): Class<? extends Event>
+    }
+    
+    ' ===== REACTION EVENT =====
+    class ReactionEvent extends Event {
+        - messageId: String {final}
+        - emoji: String {final}
+        - userId: int {final}
+        - isAdd: boolean {final}
+        - conversationId: int {final}
+        --
+        + ReactionEvent(source: Object, messageId: String, emoji: String, userId: int, isAdd: boolean, conversationId: int)
+        + getMessageId(): String
+        + getEmoji(): String
+        + getUserId(): int
+        + isAdd(): boolean
+        + getConversationId(): int
+        + getEventType(): Class<? extends Event>
+    }
+    
+    ' ===== CONTACT EVENTS =====
+    abstract class ContactEvent extends Event {
+        - contact: Contact {final}
+        --
+        + ContactEvent(source: Object, contact: Contact)
+        + getContact(): Contact
+    }
+    
+    class ContactAddedEvent extends ContactEvent {
+        --
+        + ContactAddedEvent(source: Object, contact: Contact)
+        + getEventType(): Class<? extends Event>
+    }
+    
+    class ContactUpdatedEvent extends ContactEvent {
+        --
+        + ContactUpdatedEvent(source: Object, contact: Contact)
+        + getEventType(): Class<? extends Event>
+    }
+    
+    class ContactRemovedEvent extends ContactEvent {
+        - contactId: int {final}
+        --
+        + ContactRemovedEvent(source: Object, contactId: int)
+        + getContactId(): int
+        + getEventType(): Class<? extends Event>
+    }
+    
+    ' ===== GROUP EVENTS =====
+    abstract class GroupEvent extends Event {
+        - group: Group {final}
+        --
+        + GroupEvent(source: Object, group: Group)
+        + getGroup(): Group
+    }
+    
+    class GroupCreatedEvent extends GroupEvent {
+        --
+        + GroupCreatedEvent(source: Object, group: Group)
+        + getEventType(): Class<? extends Event>
+    }
+    
+    class GroupUpdatedEvent extends GroupEvent {
+        --
+        + GroupUpdatedEvent(source: Object, group: Group)
+        + getEventType(): Class<? extends Event>
+    }
+    
+    class GroupMemberAddedEvent extends GroupEvent {
+        - memberId: int {final}
+        --
+        + GroupMemberAddedEvent(source: Object, group: Group, memberId: int)
+        + getMemberId(): int
+        + getEventType(): Class<? extends Event>
+    }
+    
+    class GroupMemberRemovedEvent extends GroupEvent {
+        - memberId: int {final}
+        --
+        + GroupMemberRemovedEvent(source: Object, group: Group, memberId: int)
+        + getMemberId(): int
+        + getEventType(): Class<? extends Event>
+    }
+    
+    class GroupDeletedEvent extends GroupEvent {
+        --
+        + GroupDeletedEvent(source: Object, group: Group)
+        + getEventType(): Class<? extends Event>
+    }
+    
+    ' ===== CONNECTION EVENT =====
+    class ConnectionStateChangedEvent extends Event {
+        - connected: boolean {final}
+        --
+        + ConnectionStateChangedEvent(source: Object, connected: boolean)
+        + isConnected(): boolean
+        + getEventType(): Class<? extends Event>
+    }
+    
+    ' ===== ERROR EVENT =====
+    class ErrorEvent extends Event {
+        - errorMessage: String {final}
+        - errorCode: int {final}
+        - cause: Throwable
+        --
+        + ErrorEvent(source: Object, errorMessage: String, errorCode: int)
+        + ErrorEvent(source: Object, errorMessage: String, errorCode: int, cause: Throwable)
+        + getErrorMessage(): String
+        + getErrorCode(): int
+        + getCause(): Throwable
+        + getEventType(): Class<? extends Event>
+    }
+    
+}
+@enduml

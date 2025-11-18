@@ -11,13 +11,13 @@
 
 package fr.uga.im2ag.m1info.chatservice.client;
 
+import fr.uga.im2ag.m1info.chatservice.client.command.PendingCommandManager;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
 import fr.uga.im2ag.m1info.chatservice.common.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,9 +32,11 @@ public class Client {
     private static final int MAX_SIZE_CHUNK_FILE = 8192;
     private int clientId;
     private Socket cnx;
+    private DataOutputStream dos;
+    private DataInputStream dis;
     private PacketProcessor processor;
-    private MessageIdGenerator messageIdGenerator;
     private Thread receptionThread;
+    private final PendingCommandManager commandManager;
 
     /**
      * Creates a new Client with clientId 0 (for user creation).
@@ -50,6 +52,16 @@ public class Client {
      */
     public Client(int clientId) {
         this.clientId = clientId;
+        this.commandManager = new PendingCommandManager();
+    }
+
+    /**
+     * Get the pending command manager.
+     *
+     * @return the pending command manager
+     */
+    public PendingCommandManager getCommandManager() {
+        return commandManager;
     }
 
     /**
@@ -67,8 +79,8 @@ public class Client {
         }
 
         cnx = new Socket(host, port);
-        DataOutputStream dos = new DataOutputStream(cnx.getOutputStream());
-        DataInputStream dis = new DataInputStream(cnx.getInputStream());
+        dos = new DataOutputStream(cnx.getOutputStream());
+        dis = new DataInputStream(cnx.getInputStream());
 
         Packet connectionPacket;
         if (clientId == 0) {
@@ -129,24 +141,6 @@ public class Client {
     }
 
     /**
-     * Set the message ID generator.
-     *
-     * @param generator the MessageIdGenerator to use
-     */
-    public void setMessageIdGenerator(MessageIdGenerator generator) {
-        this.messageIdGenerator = generator;
-    }
-
-    /**
-     * Get the message ID generator.
-     *
-     * @return the message ID generator
-     */
-    public MessageIdGenerator getMessageIdGenerator() {
-        return messageIdGenerator;
-    }
-
-    /**
      * Set the packet processor to be called when packets are received by the client.
      *
      * @param p the PacketProcessor to use
@@ -179,12 +173,26 @@ public class Client {
     public void disconnect() {
         try {
             if (cnx != null) { cnx.close(); }
-            cnx = null;
+
             if (receptionThread != null && receptionThread.isAlive()) {
                 receptionThread.interrupt();
+                try {
+                    receptionThread.join(5000);
+                    if (receptionThread.isAlive()) {
+                        System.err.println("[Client] Reception thread did not terminate cleanly");
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    System.err.println("[Client] Interrupted while waiting for reception thread");
+                }
             }
+
+            commandManager.shutdown();
         } catch (IOException e) {
-            /* ignored */
+            System.err.println("[Client] Error during disconnect: " + e.getMessage());
+        } finally {
+            cnx = null;
+            receptionThread = null;
         }
     }
 
@@ -195,10 +203,11 @@ public class Client {
      * @return true if the packet was sent successfully, false otherwise
      */
     public boolean sendPacket(Packet m) {
-        System.out.println("[Client] Sending: " + m);
+        System.out.println("[Client] Sending packet: " + m);
         try {
-            DataOutputStream dos = new DataOutputStream(cnx.getOutputStream());
-            m.writeTo(dos);
+            synchronized (dos) {
+                m.writeTo(dos);
+            }
             return true;
         } catch (IOException e) {
             System.err.println("[Client] Failed to send packet: " + e.getMessage());
@@ -214,22 +223,30 @@ public class Client {
      * @param to the recipient ID
      */
     public void sendMedia(String msg, int to) {
-        try {
-            String fileName = msg.substring(1);
-            InputStream fileStream = new FileInputStream(new File(fileName));
-            int count = 0;
+        String fileName = msg.substring(1);
+        try (InputStream fileStream = new FileInputStream(fileName)) {
+            int count;
             byte[] buffer = new byte[MAX_SIZE_CHUNK_FILE];
             while ((count = fileStream.read(buffer)) > 0) {
                 MediaMessage mediaMsg = (MediaMessage) MessageFactory.create(MessageType.MEDIA, clientId, to);
-                mediaMsg.generateNewMessageId(messageIdGenerator);
                 mediaMsg.setMediaName(fileName);
                 mediaMsg.setContent(buffer);
                 mediaMsg.setSizeContent(count);
                 sendPacket(mediaMsg.toPacket());
             }
-            fileStream.close();
+        } catch (IOException e) {
+            System.err.println("[Client] Failed to send media file: " + e.getMessage());
+        }
+    }
+
+    public void sendAck(ProtocolMessage message, MessageStatus ackType) {
+        try {
+            AckMessage ackMsg = (AckMessage) MessageFactory.create(MessageType.MESSAGE_ACK, clientId, message.getFrom());
+            ackMsg.setAckType(ackType);
+            ackMsg.setAcknowledgedMessageId(message.getMessageId());
+            sendPacket(ackMsg.toPacket());
         } catch (Exception e) {
-            System.err.println("[Client] Failed to send media: " + e.getMessage());
+            System.err.println("[Client] Failed to send acknowledgment: " + e.getMessage());
         }
     }
 }

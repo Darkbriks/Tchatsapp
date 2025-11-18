@@ -1,9 +1,10 @@
 package fr.uga.im2ag.m1info.chatservice.client.model;
 
+import java.io.Serializable;
 import java.security.PublicKey;
 import java.time.Instant;
 
-public class ContactClient {
+public class ContactClient implements Serializable {
     private final int contactId;
     private String pseudo;
     private PublicKey publicKey;

@@ -1,9 +1,10 @@
 package fr.uga.im2ag.m1info.chatservice.client.model;
 
+import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
-public class GroupClient {
+public class GroupClient implements Serializable {
     private final int groupId;
     private String name;
     private int adminId;

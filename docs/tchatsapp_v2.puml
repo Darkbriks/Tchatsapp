@@ -727,18 +727,29 @@ package "client" {
         + getOrCreate(id: int, isGroup: boolean): Conversation
     }
     
-    ' ===== CLIENT LISTENER =====
-    interface ClientEventListener {
-        + onMessageReceived(msg: Message): void
-        + onReactionAdded(messageId: String, emoji: String, userId: int): void
-        + onContactAdded(contact: Contact): void
-        + onGroupUpdated(group: Group): void
-        + onConnectionStateChanged(connected: boolean): void
-        + onError(error: String): void
+    ' ===== EVENT BUS =====
+    class EventBus {
+        - {static} instance: EventBus
+        - subscriptions: ConcurrentHashMap<Class<? extends Event>, CopyOnWriteArrayList<EventSubscription<?>>>
+        - executor: ExecutorService
+        - logger: Logger
+        --
+        - EventBus()
+        + {static} getInstance(): EventBus
+        + <T extends Event> subscribe(eventType: Class<T>, observer: EventObserver<T>): EventSubscription<T>
+        + <T extends Event> subscribe(eventType: Class<T>, observer: EventObserver<T>, mode: ExecutionMode): EventSubscription<T>
+        + <T extends Event> subscribe(eventType: Class<T>, observer: EventObserver<T>, filter: EventFilter<T>, mode: ExecutionMode): EventSubscription<T>
+        + <T extends Event> unsubscribe(subscription: EventSubscription<T>): void
+        + <T extends Event> publish(event: T): void
+        + shutdown(): void
+        - <T extends Event> notifyObserver(subscription: EventSubscription<T>, event: T): void
     }
-    note right of ClientEventListener
-        **Pattern: Observer**
+    note bottom of EventBus
+        **Pattern: Singleton + Observer + Publisher-Subscriber**
+        Described in detail in clientEventSystem.puml
     end note
+
+    ClientController ..> EventBus : uses
     
     ' ===== CLIENT PACKET HANDLERS =====
     abstract class ClientPacketHandler {

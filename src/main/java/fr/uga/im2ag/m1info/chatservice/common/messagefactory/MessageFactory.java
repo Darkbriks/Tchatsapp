@@ -1,7 +1,9 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
+import fr.uga.im2ag.m1info.chatservice.common.MessageIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
+import fr.uga.im2ag.m1info.chatservice.common.ShaIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.MessageProvider;
 
 import java.util.HashMap;
@@ -14,6 +16,7 @@ import java.util.function.Supplier;
  */
 public class MessageFactory {
     private static final Map<MessageType, Supplier<ProtocolMessage>> registry = new HashMap<>();
+    private static MessageIdGenerator messageIdGenerator;
 
     /* Static initializer to load message providers using ServiceLoader. */
     static {
@@ -31,6 +34,15 @@ public class MessageFactory {
         if (registry.isEmpty()) {
             throw new IllegalStateException("No message providers found! Check META-INF/services configuration.");
         }
+
+        messageIdGenerator = new ShaIdGenerator(0);
+    }
+
+    public static void setMessageIdGenerator(MessageIdGenerator generator) {
+        if (generator == null) {
+            throw new IllegalArgumentException("MessageIdGenerator cannot be null");
+        }
+        messageIdGenerator = generator;
     }
 
     /** Create a ProtocolMessage from a Packet.
@@ -69,6 +81,7 @@ public class MessageFactory {
         msg.setFrom(from);
         msg.setTo(to);
         msg.setMessageType(type);
+        msg.generateNewMessageId(messageIdGenerator);
         return msg;
     }
 }
