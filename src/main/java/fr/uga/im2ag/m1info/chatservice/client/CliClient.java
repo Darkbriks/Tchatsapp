@@ -11,6 +11,7 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 
@@ -329,10 +330,11 @@ public class CliClient {
         System.out.println("║ 4. Accept/Reject contact request               ║");
         System.out.println("║ 5. Remove a contact                            ║");
         System.out.println("║ 6. Change your username                        ║");
-        System.out.println("║ 7. List contacts                               ║");
-        System.out.println("║ 8. List conversations                          ║");
-        System.out.println("║ 9. View conversation history                   ║");
-        System.out.println("║10. Group gestion                               ║");
+        System.out.println("║ 7. Group gestion                               ║");
+        System.out.println("║ 8. List contacts                               ║");
+        System.out.println("║ 9. List groups                                 ║");
+        System.out.println("║ 10. List conversations                         ║");
+        System.out.println("║ 11. View conversation history                  ║");
         System.out.println("║ 0. Quit                                        ║");
         System.out.println("╚════════════════════════════════════════════════╝");
         System.out.print("Your choice: ");
@@ -507,6 +509,35 @@ public class CliClient {
 
         }
 
+    }
+
+    /**
+     * List all groups.
+     */
+    private void handleListGroup() {
+        var groups = clientController.getGroupRepository().findAll();
+
+        if (groups.isEmpty()) {
+            System.out.println("\nNo groups yet.");
+            return;
+        }
+
+        System.out.println("\n╔════════════════════════════════════════════════╗");
+        System.out.println("║                 YOUR GROUPS                    ║");
+        System.out.println("╠════════════════════════════════════════════════╣");
+
+        for (GroupClient group : groups) {
+            System.out.println("║ ID: " + group.getGroupId());
+            System.out.println("║ NAME: " + group.getName());
+            for ( int menber : group.getMembers()){
+                if (clientController.getContactRepository().isContact(menber)){
+                    System.out.println("║ MENBER_NAME: " + clientController.getContactRepository().findById(menber).getPseudo());
+                } else {
+                    System.out.println("║ MENBER_ID: " + menber);
+                }
+            }
+            System.out.println("╚════════════════════════════════════════════════╝");
+        }
     }
 
     /**
@@ -743,10 +774,11 @@ public class CliClient {
                 case 4 -> handleRespondToContactRequest();
                 case 5 -> handleRemoveContact();
                 case 6 -> handleUpdatePseudo();
-                case 7 -> handleListContacts();
-                case 8 -> handleListConversations();
-                case 9 -> handleViewConversationHistory();
-                case 10 -> groupGestion();
+                case 7 -> groupGestion();
+                case 8 -> handleListContacts();
+                case 9 -> handleListGroup();
+                case 10 -> handleListConversations();
+                case 11 -> handleViewConversationHistory();
                 default -> System.out.println("Invalid choice. Please try again.");
             }
         }
