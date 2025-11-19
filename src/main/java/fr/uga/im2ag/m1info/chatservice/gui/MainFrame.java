@@ -1,25 +1,25 @@
 package fr.uga.im2ag.m1info.chatservice.gui;
 
-import javax.swing.*;
-
-import fr.uga.im2ag.m1info.chatservice.client.*;
+import fr.uga.im2ag.m1info.chatservice.client.Client;
+import fr.uga.im2ag.m1info.chatservice.client.ClientController;
+import fr.uga.im2ag.m1info.chatservice.client.ClientPaquetRouter;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
-import fr.uga.im2ag.m1info.chatservice.common.ShaIdGenerator;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 import fr.uga.im2ag.m1info.chatservice.gui.ConversationPanel.MessageItem;
 
+import javax.swing.*;
 import java.awt.*;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public class MainFrame extends JFrame {
@@ -29,7 +29,7 @@ public class MainFrame extends JFrame {
 
 
     private Client client;
-    private ClientContext context;
+    private ClientController controller;
     
     private final JPanel cards = new JPanel(new CardLayout());
     private final LoginPanel loginPanel = new LoginPanel();
@@ -98,14 +98,13 @@ public class MainFrame extends JFrame {
         }
 
         this.client = new Client(idClient);
-        this.client.setMessageIdGenerator(new ShaIdGenerator());
-        this.context = new ClientContext(client);
+        this.controller = new ClientController(client);
         initializeHandlers();
         String pseudo = "";
         boolean connected = false;
         if (client.getClientId() == 0) {
             pseudo = askPseudo();
-            if (pseudo == "" || pseudo == null) {return;}
+            if (Objects.equals(pseudo, "") || pseudo == null) {return;}
         }
         try {
             connected = client.connect(DEFAULT_HOST, DEFAULT_PORT, pseudo);
@@ -119,7 +118,7 @@ public class MainFrame extends JFrame {
     }
 
     private void initializeHandlers() {
-        ClientPaquetRouter router = new ClientPaquetRouter(context);
+        ClientPaquetRouter router = new ClientPaquetRouter(controller);
         router.addHandler(new AckConnectionHandler());
         router.addHandler(new TextMessageHandler());
         router.addHandler(new MediaMessageHandler());
@@ -148,7 +147,7 @@ public class MainFrame extends JFrame {
     }
 
     private void refreshHomeConversations() {
-        ConversationClientRepository convoRepo = context.getConversationRepository();
+        ConversationClientRepository convoRepo = controller.getConversationRepository();
 
         Set<ConversationClient> allConv = convoRepo.findAll();
 
@@ -184,21 +183,20 @@ public class MainFrame extends JFrame {
 
     public void handleConversationSelection(HomePanel.ConversationItem conversation) {
         CardLayout cl = (CardLayout) cards.getLayout();
-        ConversationClient conv = context.getConversationRepository()
+        ConversationClient conv = controller.getConversationRepository()
                                          .findById(conversation.getId());
         conversationPanel.setConversationTitle(conv.getConversationName());
         List<ConversationPanel.MessageItem> messageItems = loadMessages(conv);
         conversationPanel.setMessages(messageItems);
         conversationPanel.setOnSend(text -> {                   
-                        TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, context.getClientId(), 0);
-                        textMsg.generateNewMessageId(client.getMessageIdGenerator());
+                        TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, controller.getClientId(), 0);
                         textMsg.setContent(text);
-                        context.sendPacket(textMsg.toPacket());
+                        controller.sendPacket(textMsg.toPacket());
                         Message msg = new Message (textMsg.getMessageId(),
-                                           context.getClientId(), 
+                                           controller.getClientId(),
                                            Integer.parseInt(conv.getConversationId()), 
                                            text, 
-                                           Instant.ofEpochMilli(textMsg.getTimestamp()), 
+                                           textMsg.getTimestamp(),
                                            text);                              
                         conversationPanel.appendMessage(new MessageItem(true, null, text));
                         
@@ -210,7 +208,7 @@ public class MainFrame extends JFrame {
 
     public List<ConversationPanel.MessageItem> loadMessages(ConversationClient conversation){
         List<Message> messagesFromConv = conversation.getMessagesFrom(null, -1, true, true);
-        ContactClientRepository contactClientRepository = context.getContactRepository();
+        ContactClientRepository contactClientRepository = controller.getContactRepository();
         List<ConversationPanel.MessageItem> messageItems = new ArrayList<ConversationPanel.MessageItem>();
         for (Message message : messagesFromConv) {
             messageItems.add(new ConversationPanel.MessageItem (

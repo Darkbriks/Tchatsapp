@@ -3,9 +3,12 @@ package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
+import java.time.Instant;
+
 /**
  * Class representing an error message in the chat service protocol.
  */
+// TODO: Delete this class to use Ack only
 public class ErrorMessage extends ProtocolMessage {
 
     public enum ErrorLevel {
@@ -91,7 +94,8 @@ public class ErrorMessage extends ProtocolMessage {
 
     @Override
     public Packet toPacket() {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = getStringBuilder();
+        sb.append(messageId).append("|").append(timestamp.toEpochMilli()).append("|");
         sb.append(errorLevel.toInt()).append('|').append(errorType).append('|').append(errorMessage);
         return new Packet.PacketBuilder(sb.length())
                 .setMessageType(this.messageType)
@@ -107,10 +111,12 @@ public class ErrorMessage extends ProtocolMessage {
         this.from = packet.from();
         this.to = packet.to();
         String payload = new String(packet.getModifiablePayload().array());
-        String[] parts = payload.split("\\|", 3);
-        this.errorLevel = ErrorLevel.fromInt(Integer.parseInt(parts[0]));
-        this.errorType = parts[1];
-        this.errorMessage = parts[2];
+        String[] parts = payload.split("\\|", 5);
+        this.messageId = parts[0];
+        this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
+        this.errorLevel = ErrorLevel.fromInt(Integer.parseInt(parts[2]));
+        this.errorType = parts[3];
+        this.errorMessage = parts[4];
         return this;
     }
 }

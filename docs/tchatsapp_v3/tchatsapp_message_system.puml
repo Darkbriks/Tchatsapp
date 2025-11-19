@@ -1,0 +1,283 @@
+@startuml TchatsApp_Message_System
+
+skinparam linetype ortho
+skinparam packageStyle rectangle
+
+title Système de Messages - Détaillé
+
+' ============================================
+' MESSAGE FACTORY + PROVIDERS
+' ============================================
+package "Message Factory System" {
+    
+    class MessageFactory <<Factory + ServiceLoader>> {
+        - {static} registry: Map<MessageType, Supplier<ProtocolMessage>>
+        - {static} messageIdGenerator: MessageIdGenerator
+        --
+        + {static} fromPacket(packet: Packet): ProtocolMessage
+        + {static} create(type: MessageType, from: int, to: int): ProtocolMessage
+        + {static} setMessageIdGenerator(generator: MessageIdGenerator): void
+    }
+    
+    note top of MessageFactory
+        **Pattern: Factory + ServiceLoader**
+        
+        Utilise ServiceLoader pour découvrir automatiquement
+        tous les MessageProvider via META-INF/services.
+        
+        Chaque nouveau type de message nécessite:
+        1. Une classe XxxMessage extends ProtocolMessage
+        2. Une classe XxxMessageProvider implements MessageProvider
+        3. Une entrée dans META-INF/services/...MessageProvider
+    end note
+    
+    interface MessageProvider <<ServiceLoader>> {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    ' ===== PROTOCOL MESSAGE HIERARCHY =====
+    abstract class ProtocolMessage {
+        # messageType: MessageType
+        # from: int
+        # to: int
+        # messageId: String
+        # timestamp: Instant
+        --
+        + ProtocolMessage(messageType: MessageType, from: int, to: int)
+        + {abstract} toPacket(): Packet
+        + {abstract} fromPacket(packet: Packet): ProtocolMessage
+        + getMessageType(): MessageType
+        + getFrom(): int
+        + getTo(): int
+        + getMessageId(): String
+        + getTimestamp(): Instant
+        # setFrom(from: int): void
+        # setTo(to: int): void
+        # setMessageType(type: MessageType): void
+        # generateNewMessageId(generator: MessageIdGenerator): void
+    }
+    
+    ' ===== CONCRETE MESSAGE TYPES =====
+    class TextMessage extends ProtocolMessage {
+        - content: String
+        - replyToMessageId: String
+        --
+        + TextMessage()
+        + getContent(): String
+        + setContent(content: String): void
+        + getReplyToMessageId(): String
+        + setReplyToMessageId(replyToId: String): void
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    note bottom of TextMessage
+        **Format payload:**
+        messageId|timestamp|replyToId|content
+    end note
+    
+    class MediaMessage extends ProtocolMessage {
+        - mediaName: String
+        - content: byte[]
+        - sizeContent: int
+        --
+        + MediaMessage()
+        + getMediaName(): String
+        + setMediaName(name: String): void
+        + getContent(): byte[]
+        + setContent(content: byte[]): void
+        + getSizeContent(): int
+        + setSizeContent(size: int): void
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    class ManagementMessage extends ProtocolMessage {
+        - params: Map<String, Object>
+        --
+        + ManagementMessage()
+        + getParam(key: String): Object
+        + getParamAsType(key: String, clazz: Class<T>): T
+        + addParam(key: String, value: Object): ManagementMessage
+        + removeParam(key: String): ManagementMessage
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    note bottom of ManagementMessage
+        **Format payload:**
+        key1=value1;key2=value2;...
+        
+        Utilisé pour:
+        - CREATE_USER
+        - UPDATE_PSEUDO
+        - CREATE_GROUP
+        - ADD_CONTACT
+        - etc.
+    end note
+    
+    class AckMessage extends ProtocolMessage {
+        - acknowledgedMessageId: String
+        - ackType: MessageStatus
+        - errorReason: String
+        --
+        + AckMessage()
+        + getAcknowledgedMessageId(): String
+        + setAcknowledgedMessageId(msgId: String): void
+        + getAckType(): MessageStatus
+        + setAckType(type: MessageStatus): void
+        + getErrorReason(): String
+        + setErrorReason(reason: String): void
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    class ErrorMessage extends ProtocolMessage {
+        - errorCode: String
+        - errorMessage: String
+        - details: Map<String, String>
+        --
+        + ErrorMessage()
+        + getErrorCode(): String
+        + setErrorCode(code: String): void
+        + getErrorMessage(): String
+        + setErrorMessage(message: String): void
+        + getDetails(): Map<String, String>
+        + addDetail(key: String, value: String): void
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    class ContactRequestMessage extends ProtocolMessage {
+        - requestId: String
+        - senderPseudo: String
+        --
+        + ContactRequestMessage()
+        + getRequestId(): String
+        + setRequestId(id: String): void
+        + getSenderPseudo(): String
+        + setSenderPseudo(pseudo: String): void
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    class ContactRequestResponseMessage extends ProtocolMessage {
+        - requestId: String
+        - accepted: boolean
+        --
+        + ContactRequestResponseMessage()
+        + getRequestId(): String
+        + setRequestId(id: String): void
+        + isAccepted(): boolean
+        + setAccepted(accepted: boolean): void
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    ' ===== MESSAGE PROVIDERS =====
+    class TextMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class MediaMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class ManagementMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class AckMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class ErrorMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class ContactRequestMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class ContactRequestResponseMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    ' ===== RELATIONS =====
+    MessageFactory ..> MessageProvider : loads via ServiceLoader
+    MessageFactory ..> ProtocolMessage : creates
+    MessageProvider ..> ProtocolMessage : provides
+    
+    TextMessageProvider ..> TextMessage : creates
+    MediaMessageProvider ..> MediaMessage : creates
+    ManagementMessageProvider ..> ManagementMessage : creates
+    AckMessageProvider ..> AckMessage : creates
+    ErrorMessageProvider ..> ErrorMessage : creates
+    ContactRequestMessageProvider ..> ContactRequestMessage : creates
+    ContactRequestResponseMessageProvider ..> ContactRequestResponseMessage : creates
+}
+
+' ============================================
+' MESSAGE ID GENERATION
+' ============================================
+package "Message ID Generation" {
+    
+    interface MessageIdGenerator {
+        + generateId(senderId: int, timestamp: long): String
+    }
+    
+    class ShaIdGenerator implements MessageIdGenerator {
+        - instanceId: int
+        --
+        + ShaIdGenerator(instanceId: int)
+        + generateId(senderId: int, timestamp: long): String
+    }
+    
+    note right of ShaIdGenerator
+        Génère des IDs uniques basés sur:
+        - instanceId
+        - senderId
+        - timestamp
+        - hash SHA-256
+    end note
+    
+    MessageFactory o-- MessageIdGenerator : uses
+    ProtocolMessage ..> MessageIdGenerator : uses for ID generation
+}
+
+' ============================================
+' MESSAGE TYPE ENUM
+' ============================================
+enum MessageType {
+    TEXT
+    MEDIA
+    CREATE_USER
+    CONNECT_USER
+    UPDATE_PSEUDO
+    CONTACT_REQUEST
+    CONTACT_REQUEST_RESPONSE
+    REMOVE_CONTACT
+    MESSAGE_ACK
+    ERROR
+    EMPTY
+    --
+    + {static} fromInt(i: int): MessageType
+    + toByte(): byte
+}
+
+note bottom of MessageType
+    Chaque type de message est associé
+    à un code numérique dans le protocole
+end note
+
+ProtocolMessage --> MessageType
+
+@enduml

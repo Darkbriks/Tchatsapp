@@ -1,0 +1,373 @@
+@startuml TchatsApp_Architecture_Principale
+
+!define COMMON_PKG #E8F4F8
+!define CLIENT_PKG #F0E8F8
+!define SERVER_PKG #F8E8E8
+
+skinparam linetype ortho
+skinparam packageStyle rectangle
+
+' ============================================
+' PACKAGE COMMON - Composants partagés
+' ============================================
+package "common" COMMON_PKG {
+    
+    ' ===== PACKET SYSTEM =====
+    package "Packet System" #FAFAFA {
+        class Packet {
+            - buffer: ByteBuffer
+            --
+            + from(): int
+            + to(): int
+            + payloadSize(): int
+            + messageType(): MessageType
+            + toPacket(): Packet
+            + {static} readFrom(dis): Packet
+        }
+
+        class PacketBuilder {
+            - buf: ByteBuffer
+            --
+            + setFrom(int): PacketBuilder
+            + setTo(int): PacketBuilder
+            + build(): Packet
+        }
+        
+        note bottom of PacketBuilder
+            **Pattern: Builder**
+            Classe interne statique de Packet
+        end note
+        
+        PacketBuilder -up-> Packet : creates
+    }
+    
+    ' ===== MESSAGE FACTORY SYSTEM =====
+    package "Message Factory System" #FAFAFA {
+        class MessageFactory {
+            - {static} registry: Map<MessageType, Supplier>
+            - {static} messageIdGenerator: MessageIdGenerator
+            --
+            + {static} fromPacket(Packet): ProtocolMessage
+            + {static} create(MessageType, int, int): ProtocolMessage
+        }
+        
+        interface MessageProvider {
+            + getType(): MessageType[]
+            + createInstance(): ProtocolMessage
+        }
+        
+        abstract class ProtocolMessage {
+            # messageType: MessageType
+            # from: int
+            # to: int
+            # messageId: String
+            --
+            + {abstract} toPacket(): Packet
+            + {abstract} fromPacket(Packet): void
+        }
+        
+        note top of MessageFactory
+            **Pattern: Factory + ServiceLoader**
+            Chargement automatique des providers
+            via META-INF/services
+        end note
+        
+        MessageFactory ..> MessageProvider : uses
+        MessageFactory ..> ProtocolMessage : creates
+        MessageProvider ..> ProtocolMessage : provides
+    }
+    
+    ' ===== PROCESSING SYSTEM =====
+    package "Processing System" #FAFAFA {
+        interface PacketProcessor {
+            + process(ProtocolMessage): void
+        }
+        
+        note top of PacketProcessor
+            **Pattern: Strategy**
+        end note
+    }
+    
+    ' ===== REPOSITORY SYSTEM =====
+    package "Repository System" #FAFAFA {
+        interface Repository<ID, T> {
+            + add(T): void
+            + update(ID, T): void
+            + delete(ID): void
+            + findById(ID): T
+            + findAll(): Set<T>
+        }
+        
+        abstract class AbstractRepository<ID, T> {
+            # storage: Map<ID, T>
+            --
+            # {abstract} getKey(T): ID
+        }
+
+        class RepositoryWriter<T> {
+            - file: File
+            --
+            + writeData(Set<T>): void
+            + writeData(T): void
+            + readData(): Set<T>
+            + readData(Preicate<T>): T
+            + updateData(Predicate<T>, T): void
+            + removeData(Predicate<T>): void
+            + deleteCache(): void
+        }
+        
+        AbstractRepository ..|> Repository
+        AbstractRepository ..> RepositoryWriter : uses
+        
+        note top of Repository
+            **Pattern: Repository**
+        end note
+    }
+}
+
+' ============================================
+' PACKAGE CLIENT
+' ============================================
+package "client" CLIENT_PKG {
+    
+    ' ===== CLIENT CORE =====
+    package "Client Core" #FAFAFA {
+        class Client {
+            - clientId: int
+            - cnx: Socket
+            - processor: PacketProcessor
+            - commandManager: PendingCommandManager
+            --
+            + connect(host, port, username): boolean
+            + sendPacket(Packet): boolean
+            + disconnect(): void
+        }
+        
+        class ClientController {
+            - client: Client
+            - activeUser: UserClient
+            - conversationRepository
+            - contactRepository
+            - groupRepository
+            - eventBus: EventBus
+            --
+            + sendTextMessage(content, toUserId): String
+            + sendContactRequest(receiverId): String
+            + updatePseudo(newPseudo): boolean
+        }
+        
+        note top of ClientController
+            **Pattern: Facade**
+            Interface simplifiée pour toutes
+            les opérations client
+        end note
+        
+        ClientController *-- Client
+        ClientController o-- EventBus
+    }
+    
+    ' ===== PACKET ROUTING =====
+    package "Packet Routing" #FAFAFA {
+        class ClientPaquetRouter {
+            - handlers: List<ClientPacketHandler>
+            - context: ClientController
+            --
+            + process(ProtocolMessage): void
+            + addHandler(ClientPacketHandler): void
+        }
+        
+        abstract class ClientPacketHandler {
+            + {abstract} handle(ProtocolMessage, ClientController): void
+            + {abstract} canHandle(MessageType): boolean
+            # publishEvent(Event, ClientController): void
+        }
+        
+        note top of ClientPacketHandler
+            **Pattern: Chain of Responsibility**
+        end note
+        
+        ClientPaquetRouter *-- "many" ClientPacketHandler
+        ClientPaquetRouter ..|> PacketProcessor
+    }
+    
+    ' ===== EVENT SYSTEM =====
+    package "Event System" #FAFAFA {
+        class EventBus {
+            - {static} instance: EventBus
+            - subscriptions: Map
+            - executor: ExecutorService
+            --
+            + {static} getInstance(): EventBus
+            + subscribe(Class<T>, EventObserver<T>): EventSubscription
+            + publish(Event): void
+        }
+        
+        interface EventObserver<T> {
+            + onEvent(T): void
+        }
+        
+        class EventSubscription<T> {
+            - observer: EventObserver<T>
+            - filter: EventFilter<T>
+            - mode: ExecutionMode
+            --
+            + cancel(): void
+        }
+        
+        abstract class Event {
+            + getEventType(): Class
+        }
+        
+        note top of EventBus
+            **Pattern: Singleton + Observer**
+            Gestion centralisée des événements
+            avec exécution async/sync
+        end note
+        
+        EventBus *-- "many" EventSubscription
+        EventSubscription o-- EventObserver
+        EventBus ..> Event : publishes
+    }
+    
+    ' ===== COMMAND SYSTEM =====
+    package "Command System" #FAFAFA {
+        class PendingCommandManager {
+            - pendingCommands: Map<String, PendingCommand>
+            - scheduler: ScheduledExecutorService
+            --
+            + addPendingCommand(PendingCommand): void
+            + handleAck(AckMessage): void
+        }
+        
+        interface PendingCommand {
+            + getCommandId(): String
+            + onAckReceived(MessageStatus): void
+            + onAckFailed(String): void
+        }
+        
+        note bottom of PendingCommand
+            **Pattern: Command**
+            Encapsule les actions avec
+            gestion des ACK
+        end note
+        
+        PendingCommandManager o-- "many" PendingCommand
+    }
+    
+    ' ===== CLIENT REPOSITORIES =====
+    package "Client Repositories" #FAFAFA {
+        class ContactClientRepository {
+            - pendingRequests: Map
+            - sentRequests: Map
+            - receivedRequests: Map
+        }
+        
+        class ConversationClientRepository {
+            + getOrCreate(id, isGroup): ConversationClient
+        }
+        
+        class GroupClientRepository
+        
+        ContactClientRepository -up-|> AbstractRepository
+        ConversationClientRepository -up-|> AbstractRepository
+        GroupClientRepository -up-|> AbstractRepository
+    }
+}
+
+' ============================================
+' PACKAGE SERVER
+' ============================================
+package "server" SERVER_PKG {
+    
+    ' ===== SERVER CORE =====
+    package "Server Core" #FAFAFA {
+        class TchatsAppServer {
+            - activeConnections: Map<SocketChannel, ConnectionState>
+            - connectedClients: Map<Integer, ConnectionState>
+            - clientQueues: Map<Integer, Queue<ByteBuffer>>
+            - packetProcessor: PacketProcessor
+            - serverContext: ServerContext
+            --
+            + start(): void
+            + stop(): void
+            - accept(SelectionKey): void
+            - read(SelectionKey): void
+            - write(SelectionKey): void
+        }
+        
+        class ServerContext {
+            - userRepository: UserRepository
+            - currentConnectionState: ThreadLocal
+            --
+            + sendPacketToClient(Packet): void
+            + generateClientId(): int
+            + registerConnection(ConnectionState, int): boolean
+        }
+        
+        class ConnectionState {
+            - channel: SocketChannel
+            - clientId: int
+            - readBuffer: ByteBuffer
+            - identified: boolean
+        }
+        
+        TchatsAppServer *-- ServerContext
+        TchatsAppServer *-- "many" ConnectionState
+    }
+    
+    ' ===== SERVER ROUTING =====
+    package "Server Routing" #FAFAFA {
+        class ServerPacketRouter {
+            - handlers: List<ServerPacketHandler>
+            - context: ServerContext
+            --
+            + process(ProtocolMessage): void
+            + addHandler(ServerPacketHandler): void
+        }
+        
+        abstract class ServerPacketHandler {
+            + {abstract} handle(ProtocolMessage, ServerContext): void
+            + {abstract} canHandle(MessageType): boolean
+        }
+        
+        note right of ServerPacketHandler
+            **Pattern: Chain of Responsibility**
+        end note
+        
+        ServerPacketRouter *-- "many" ServerPacketHandler
+        ServerPacketRouter ..|> PacketProcessor
+    }
+    
+    ' ===== SERVER REPOSITORY =====
+    package "Server Repository" #FAFAFA {
+        class UserRepository {
+            - users: Map<Integer, UserInfo>
+            --
+            + add(UserInfo): void
+            + findById(int): UserInfo
+        }
+        
+        UserRepository -up-|> AbstractRepository
+    }
+}
+
+' ============================================
+' RELATIONS ENTRE PACKAGES
+' ============================================
+
+Client ..> Packet : uses
+Client o-- PacketProcessor : uses
+ClientController ..> MessageFactory : uses
+ClientPaquetRouter ..> MessageFactory : uses
+
+TchatsAppServer ..> Packet : uses
+TchatsAppServer o-- PacketProcessor : uses
+ServerPacketRouter ..> MessageFactory : uses
+
+ClientController *-- ContactClientRepository
+ClientController *-- ConversationClientRepository
+ClientController *-- GroupClientRepository
+
+ServerContext *-- UserRepository
+
+@enduml

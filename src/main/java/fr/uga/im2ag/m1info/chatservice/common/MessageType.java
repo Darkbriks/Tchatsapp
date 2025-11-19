@@ -9,7 +9,8 @@ public enum MessageType {
     ACK_CONNECTION,
     CREATE_GROUP,
     UPDATE_PSEUDO,
-    ADD_CONTACT,
+    CONTACT_REQUEST,
+    CONTACT_REQUEST_RESPONSE,
     REMOVE_CONTACT,
     ADD_GROUP_MEMBER,
     REMOVE_GROUP_MEMBER,
@@ -27,6 +28,7 @@ public enum MessageType {
     FILE_TRANSFER_START,
     FILE_TRANSFER_ACK,
     GROUP_KEY_DISTRIBUTION,
+    MESSAGE_ACK,
     NONE;
 
     /** Convert an integer to a MessageType enum.
@@ -66,33 +68,6 @@ public enum MessageType {
      */
     @Override
     public String toString() {
-        return switch (this) {
-            case TEXT -> "TEXT";
-            case MEDIA -> "MEDIA";
-            case CREATE_USER -> "CREATE_USER";
-            case CONNECT_USER -> "CONNECT_USER";
-            case ACK_CONNECTION -> "ACK_CONNECTION";
-            case CREATE_GROUP -> "CREATE_GROUP";
-            case UPDATE_PSEUDO -> "UPDATE_PSEUDO";
-            case ADD_CONTACT -> "ADD_CONTACT";
-            case REMOVE_CONTACT -> "REMOVE_CONTACT";
-            case ADD_GROUP_MEMBER -> "ADD_GROUP_MEMBER";
-            case REMOVE_GROUP_MEMBER -> "REMOVE_GROUP_MEMBER";
-            case UPDATE_GROUP_NAME -> "UPDATE_GROUP_NAME";
-            case DELETE_GROUP -> "DELETE_GROUP";
-            case LEAVE_GROUP -> "LEAVE_GROUP";
-            case MESSAGE_REACTION -> "MESSAGE_REACTION";
-            case NOTIFICATION -> "NOTIFICATION";
-            case EMPTY -> "EMPTY";
-            case ERROR -> "ERROR";
-            case NONE -> "NONE";
-            case KEY_EXCHANGE -> "KEY_EXCHANGE";
-            case KEY_EXCHANGE_RESPONSE -> "KEY_EXCHANGE_RESPONSE";
-            case ENCRYPTED_TEXT -> "ENCRYPTED_TEXT";
-            case ENCRYPTED_FILE_CHUNK -> "ENCRYPTED_FILE_CHUNK";
-            case FILE_TRANSFER_START -> "FILE_TRANSFER_START";
-            case FILE_TRANSFER_ACK -> "FILE_TRANSFER_ACK";
-            case GROUP_KEY_DISTRIBUTION -> "GROUP_KEY_DISTRIBUTION";
-        };
+        return this.name();
     }
 }

@@ -1,17 +1,29 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
+import fr.uga.im2ag.m1info.chatservice.common.MessageIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
-import java.nio.ByteBuffer;
+import java.time.Instant;
 
 /**
  * Abstract class representing a protocol message in the chat service.
  */
 public abstract class ProtocolMessage {
+    private static final ThreadLocal<StringBuilder> STRING_BUILDER = ThreadLocal.withInitial(StringBuilder::new);
+
+    protected static StringBuilder getStringBuilder() {
+        StringBuilder sb = STRING_BUILDER.get();
+        sb.setLength(0);
+        return sb;
+    }
+
     protected MessageType messageType;
     protected int from;
     protected int to;
+
+    protected String messageId;
+    protected Instant timestamp;
 
     public abstract Packet toPacket();
     public abstract ProtocolMessage fromPacket(Packet packet);
@@ -26,6 +38,8 @@ public abstract class ProtocolMessage {
         this.messageType = messageType;
         this.from = from;
         this.to = to;
+        this.messageId = null;
+        this.timestamp = Instant.now();
     }
 
     /** Get the type of the message.
@@ -52,6 +66,22 @@ public abstract class ProtocolMessage {
         return to;
     }
 
+    /** Get the message ID.
+     *
+     * @return the message ID
+     */
+    public String getMessageId() {
+        return messageId;
+    }
+
+    /** Get the timestamp of the message.
+     *
+     * @return the timestamp
+     */
+    public Instant getTimestamp() {
+        return timestamp;
+    }
+
     /** Set the sender ID of the message.
      *
      * @param from the sender ID
@@ -74,5 +104,17 @@ public abstract class ProtocolMessage {
      */
     void setMessageType(MessageType messageType) {
         this.messageType = messageType;
+    }
+
+    /** Generate a new message ID using the provided MessageIdGenerator.
+     * The timestamp is also updated to the current time.
+     *
+     * @param messageIdGenerator the MessageIdGenerator to use
+     * @throws IllegalStateException if the 'from' field is not set
+     */
+    void generateNewMessageId(MessageIdGenerator messageIdGenerator) {
+        if (this.from == -1) { throw new IllegalStateException("Cannot generate message ID: 'from' field is not set."); }
+        timestamp = Instant.now();
+        messageId = messageIdGenerator.generateId(from, timestamp.toEpochMilli());
     }
 }

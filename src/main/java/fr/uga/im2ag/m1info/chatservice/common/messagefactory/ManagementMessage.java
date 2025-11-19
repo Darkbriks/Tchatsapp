@@ -1,14 +1,21 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
+import fr.uga.im2ag.m1info.chatservice.common.TypeConverter;
 
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Map;
 
 /**
  * Class representing a management message in the chat service protocol.
  */
 public class ManagementMessage extends ProtocolMessage {
+    private static final Gson gson = new Gson();
     private final Map<String, Object> params;
 
     /** Default constructor for ManagementMessage with CREATE_USER type.
@@ -36,27 +43,7 @@ public class ManagementMessage extends ProtocolMessage {
      * @return the parameter value cast to the specified type, or null if not found or cannot be cast
      */
     public <T> T getParamAsType(String key, Class<T> clazz) {
-        Object value = params.get(key);
-        if (clazz.isInstance(value)) {
-            return clazz.cast(value);
-        } else {
-            try {
-                if (clazz == Integer.class) {
-                    return clazz.cast(Integer.parseInt(value.toString()));
-                } else if (clazz == Long.class) {
-                    return clazz.cast(Long.parseLong(value.toString()));
-                } else if (clazz == Double.class) {
-                    return clazz.cast(Double.parseDouble(value.toString()));
-                } else if (clazz == Boolean.class) {
-                    return clazz.cast(Boolean.parseBoolean(value.toString()));
-                } else if (clazz == String.class) {
-                    return clazz.cast(value.toString());
-                }
-            } catch (Exception e) {
-                // Conversion failed
-            }
-            return null;
-        }
+        return TypeConverter.convert(params.get(key), clazz);
     }
 
     /** Add a parameter to the message.
@@ -82,16 +69,17 @@ public class ManagementMessage extends ProtocolMessage {
 
     @Override
     public Packet toPacket() {
-        StringBuilder payload = new StringBuilder();
-        for (Map.Entry<String, Object> entry : params.entrySet()) {
-            payload.append(entry.getKey()).append("=").append(entry.getValue().toString()).append(";");
-        }
-        int payloadLength = payload.length();
-        return new Packet.PacketBuilder(payloadLength)
+        StringBuilder payload = getStringBuilder();
+        payload.append(messageId).append("|");
+        payload.append(timestamp.toEpochMilli()).append("|");
+        payload.append(gson.toJson(params));
+
+        byte[] bytes = payload.toString().getBytes(StandardCharsets.UTF_8);
+        return new Packet.PacketBuilder(bytes.length)
                 .setMessageType(messageType)
                 .setFrom(from)
                 .setTo(to)
-                .setPayload(payload.toString().getBytes())
+                .setPayload(bytes)
                 .build();
     }
 
@@ -100,15 +88,20 @@ public class ManagementMessage extends ProtocolMessage {
         this.messageType = packet.messageType();
         this.from = packet.from();
         this.to = packet.to();
-        params.clear();
-        String payloadStr = new String(packet.getModifiablePayload().array());
-        String[] entries = payloadStr.split(";");
-        for (String entry : entries) {
-            String[] keyValue = entry.split("=");
-            if (keyValue.length == 2) {
-                params.put(keyValue[0], keyValue[1]);
-            }
+
+        String payload = new String(packet.getModifiablePayload().array(), StandardCharsets.UTF_8);
+        String[] parts = payload.split("\\|", 3);
+
+        this.messageId = parts[0];
+        this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
+
+        if (parts.length > 2) {
+            Type type = new TypeToken<Map<String, Object>>(){}.getType();
+            Map<String, Object> parsedParams = gson.fromJson(parts[2], type);
+            params.clear();
+            params.putAll(parsedParams);
         }
+
         return this;
     }
 }

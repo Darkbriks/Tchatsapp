@@ -1,0 +1,249 @@
+@startuml TchatsApp_Event_System
+
+skinparam linetype ortho
+skinparam packageStyle rectangle
+
+title Système d'Événements - Détaillé
+
+' ============================================
+' EVENT BUS CORE
+' ============================================
+package "Event Bus Core" {
+    
+    class EventBus {
+        - {static} instance: EventBus
+        - subscriptions: ConcurrentHashMap<Class<? extends Event>, CopyOnWriteArrayList<EventSubscription<?>>>
+        - executor: ExecutorService
+        - logger: Logger
+        --
+        - EventBus()
+        + {static} getInstance(): EventBus
+        + <T extends Event> subscribe(eventType: Class<T>, observer: EventObserver<T>): EventSubscription<T>
+        + <T extends Event> subscribe(eventType: Class<T>, observer: EventObserver<T>, mode: ExecutionMode): EventSubscription<T>
+        + <T extends Event> subscribe(eventType: Class<T>, observer: EventObserver<T>, filter: EventFilter<T>, mode: ExecutionMode): EventSubscription<T>
+        + <T extends Event> unsubscribe(subscription: EventSubscription<T>): void
+        + <T extends Event> publish(event: T): void
+        + shutdown(): void
+        - <T extends Event> notifyObserver(subscription: EventSubscription<T>, event: T): void
+    }
+    
+    note top of EventBus
+        **Pattern: Singleton + Observer + Publisher-Subscriber**
+        
+        Caractéristiques:
+        - Thread-safe avec ConcurrentHashMap et CopyOnWriteArrayList
+        - Support exécution synchrone/asynchrone
+        - Filtrage des événements
+        - Gestion centralisée des abonnements
+        - ThreadPoolExecutor pour événements async
+    end note
+    
+    class EventSubscription<T> {
+        - observer: EventObserver<T>
+        - filter: EventFilter<T>
+        - mode: ExecutionMode
+        - active: AtomicBoolean
+        --
+        + EventSubscription(observer: EventObserver<T>, filter: EventFilter<T>, mode: ExecutionMode)
+        + getObserver(): EventObserver<T>
+        + getFilter(): EventFilter<T>
+        + getExecutionMode(): ExecutionMode
+        + isActive(): boolean
+        + cancel(): void
+        + matches(event: T): boolean
+    }
+    
+    interface EventObserver<T> {
+        + onEvent(event: T): void
+    }
+    
+    note bottom of EventObserver
+        **Pattern: Observer**
+        Interface fonctionnelle pour
+        les abonnés aux événements
+    end note
+    
+    interface EventFilter<T> {
+        + test(event: T): boolean
+    }
+    
+    enum ExecutionMode {
+        SYNC
+        ASYNC
+    }
+    
+    note bottom of ExecutionMode
+        SYNC: Exécution dans le thread appelant
+        ASYNC: Exécution dans le pool de threads
+    end note
+    
+    EventBus *-- "many" EventSubscription
+    EventSubscription o-- EventObserver
+    EventSubscription o-- EventFilter
+    EventSubscription o-- ExecutionMode
+}
+
+' ============================================
+' EVENT HIERARCHY
+' ============================================
+package "Event Types" {
+    
+    abstract class Event {
+        # source: Object
+        # timestamp: Instant
+        --
+        + Event(source: Object)
+        + getSource(): Object
+        + getTimestamp(): Instant
+        + getEventType(): Class<? extends Event>
+    }
+    
+    ' ===== CONNECTION EVENTS =====
+    class ConnectionEstablishedEvent extends Event {
+        - clientId: int
+        - success: boolean
+        --
+        + ConnectionEstablishedEvent(source: Object, clientId: int, success: boolean)
+        + getClientId(): int
+        + isSuccess(): boolean
+    }
+    
+    note right of ConnectionEstablishedEvent
+        Événement émis après conexion
+        réussie au serveur
+    end note
+    
+    ' ===== MESSAGE EVENTS =====
+    abstract class MessageEvent extends Event {
+        # conversationId: String
+        # message: Message
+        --
+        + MessageEvent(source: Object, conversationId: String, message: Message)
+        + getConversationId(): String
+        + getMessage(): Message
+    }
+    
+    class TextMessageReceivedEvent extends MessageEvent {
+        + TextMessageReceivedEvent(source: Object, conversationId: String, message: Message)
+    }
+    
+    class MediaMessageReceivedEvent extends MessageEvent {
+        + MediaMessageReceivedEvent(source: Object, conversationId: String, message: Message)
+    }
+    
+    class MessageStatusChangedEvent extends Event {
+        - messageId: String
+        - conversationId: String
+        - newStatus: MessageStatus
+        --
+        + MessageStatusChangedEvent(source: Object, messageId: String, conversationId: String, newStatus: MessageStatus)
+        + getMessageId(): String
+        + getConversationId(): String
+        + getNewStatus(): MessageStatus
+    }
+    
+    ' ===== CONTACT EVENTS =====
+    abstract class ContactEvent extends Event {
+        # contactId: int
+        --
+        + ContactEvent(source: Object, contactId: int)
+        + getContactId(): int
+    }
+    
+    class ContactAddedEvent extends ContactEvent {
+        - contactPseudo: String
+        --
+        + ContactAddedEvent(source: Object, contactId: int, contactPseudo: String)
+        + getContactPseudo(): String
+    }
+    
+    class ContactUpdatedEvent extends ContactEvent {
+        - oldPseudo: String
+        - newPseudo: String
+        --
+        + ContactUpdatedEvent(source: Object, contactId: int, oldPseudo: String, newPseudo: String)
+        + getOldPseudo(): String
+        + getNewPseudo(): String
+    }
+    
+    class ContactRemovedEvent extends ContactEvent {
+        + ContactRemovedEvent(source: Object, contactId: int)
+    }
+    
+    class ContactRequestReceivedEvent extends Event {
+        - requestId: String
+        - senderId: int
+        - senderPseudo: String
+        --
+        + ContactRequestReceivedEvent(source: Object, requestId: String, senderId: int, senderPseudo: String)
+        + getRequestId(): String
+        + getSenderId(): int
+        + getSenderPseudo(): String
+    }
+    
+    class ContactRequestResponseEvent extends Event {
+        - requestId: String
+        - accepted: boolean
+        - responderId: int
+        --
+        + ContactRequestResponseEvent(source: Object, requestId: String, accepted: boolean, responderId: int)
+        + getRequestId(): String
+        + isAccepted(): boolean
+        + getResponderId(): int
+    }
+    
+    ' ===== USER EVENTS =====
+    class UserPseudoUpdatedEvent extends Event {
+        - userId: int
+        - oldPseudo: String
+        - newPseudo: String
+        --
+        + UserPseudoUpdatedEvent(source: Object, userId: int, oldPseudo: String, newPseudo: String)
+        + getUserId(): int
+        + getOldPseudo(): String
+        + getNewPseudo(): String
+    }
+    
+    ' ===== MANAGEMENT EVENTS =====
+    class ManagementOperationSucceededEvent extends Event {
+        - operationType: MessageType
+        - details: Map<String, Object>
+        --
+        + ManagementOperationSucceededEvent(source: Object, operationType: MessageType, details: Map)
+        + getOperationType(): MessageType
+        + getDetails(): Map<String, Object>
+    }
+    
+    class ManagementOperationFailedEvent extends Event {
+        - operationType: MessageType
+        - errorMessage: String
+        --
+        + ManagementOperationFailedEvent(source: Object, operationType: MessageType, errorMessage: String)
+        + getOperationType(): MessageType
+        + getErrorMessage(): String
+    }
+    
+    ' ===== ERROR EVENTS =====
+    class ErrorEvent extends Event {
+        - errorMessage: String
+        - errorCode: String
+        --
+        + ErrorEvent(source: Object, errorMessage: String, errorCode: String)
+        + getErrorMessage(): String
+        + getErrorCode(): String
+    }
+}
+
+' ============================================
+' CLIENT CONTROLLER INTEGRATION
+' ============================================
+class ClientController {
+    - eventBus: EventBus
+    --
+    + publishEvent(event: Event): void
+    + subscribeToEvent(eventType: Class<T>, observer: EventObserver<T>): EventSubscription<T>
+}
+
+ClientController o-- EventBus
+
+@enduml

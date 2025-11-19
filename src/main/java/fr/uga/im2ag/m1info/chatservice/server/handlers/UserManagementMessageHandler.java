@@ -7,13 +7,14 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
 import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
+import fr.uga.im2ag.m1info.chatservice.server.util.AckHelper;
 
 /**
  * Handler for user management messages such as user creation, connection, and contact management.
  * TODO: Discuss if we keep handlers like this one, with multiple message types,
  * or if we create one handler per message type for clarity (but more classes).
  */
-public class UserManagementMessageHandler extends ServerPacketHandler {
+public class UserManagementMessageHandler extends ValidatingServerPacketHandler {
     @Override
     public void handle(ProtocolMessage message, TchatsAppServer.ServerContext serverContext) {
         if (!(message instanceof ManagementMessage userMsg)) {
@@ -23,7 +24,6 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
         switch (userMsg.getMessageType()) {
             case CREATE_USER -> createUser(serverContext, userMsg);
             case CONNECT_USER -> connectUser(serverContext, userMsg);
-            case ADD_CONTACT -> addContact(serverContext, userMsg);
             case REMOVE_CONTACT -> removeContact(serverContext, userMsg);
             case UPDATE_PSEUDO -> updatePseudo(serverContext, userMsg);
             default -> throw new IllegalArgumentException("Unsupported management message type");
@@ -34,7 +34,6 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
     public boolean canHandle(MessageType messageType) {
         return messageType == MessageType.CREATE_USER
                 || messageType == MessageType.CONNECT_USER
-                || messageType == MessageType.ADD_CONTACT
                 || messageType == MessageType.REMOVE_CONTACT
                 || messageType == MessageType.UPDATE_PSEUDO;
     }
@@ -46,10 +45,10 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
      * @param serverContext the server context
      * @param managementMessage the management message containing the CREATE_USER request
      */
-    private static void createUser(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
+    private void createUser(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
         TchatsAppServer.ConnectionState state = serverContext.getCurrentConnectionState();
         if (state == null) {
-            System.err.println("[Server] CREATE_USER called without connection state");
+            ServerPacketHandler.LOG.warning("CREATE_USER called without connection state");
             return;
         }
 
@@ -64,7 +63,7 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
         serverContext.getUserRepository().add(newUser);
 
         if (!serverContext.registerConnection(state, newClientId)) {
-            System.err.println("[Server] Failed to register connection for new user " + newClientId);
+            ServerPacketHandler.LOG.warning("Failed to register connection for new user " + newClientId);
             serverContext.sendErrorMessage(0, newClientId, ErrorMessage.ErrorLevel.ERROR, "CONNECTION_FAILED", "Failed to register connection");
             serverContext.closeConnection(state);
             return;
@@ -76,7 +75,7 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
                 .addParam("newUser", true);
         serverContext.sendPacketToClient(response.toPacket());
 
-        System.out.printf("[Server] Created new user: id=%d, pseudo=%s%n", newClientId, pseudo);
+        ServerPacketHandler.LOG.info(String.format("Created new user: id=%d, pseudo=%s", newClientId, pseudo));
     }
 
     /**
@@ -86,26 +85,20 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
      * @param serverContext the server context
      * @param managementMessage the management message containing the CONNECT_USER request
      */
-    private static void connectUser(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
+    private void connectUser(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
         TchatsAppServer.ConnectionState state = serverContext.getCurrentConnectionState();
         if (state == null) {
-            System.err.println("[Server] CONNECT_USER called without connection state");
+            ServerPacketHandler.LOG.warning("CONNECT_USER called without connection state");
             return;
         }
 
         int clientId = managementMessage.getFrom();
 
-        // Check if client is registered
-        if (!serverContext.isClientRegistered(clientId)) {
-            System.out.printf("[Server] Client %d tried to connect but is not registered%n", clientId);
-            serverContext.sendErrorMessage(0, clientId, ErrorMessage.ErrorLevel.ERROR, "USER_NOT_FOUND", "Client ID not registered. Please create an account first.");
-            serverContext.closeConnection(state);
-            return;
-        }
+        if (!validateSenderRegistered(managementMessage, serverContext)) { return; }
 
         // Check if already connected
         if (serverContext.isClientConnected(clientId)) {
-            System.out.printf("[Server] Client %d is already connected%n", clientId);
+            ServerPacketHandler.LOG.warning("Client " + clientId + " is already connected");
             serverContext.sendErrorMessage(0, clientId, ErrorMessage.ErrorLevel.ERROR, "ALREADY_CONNECTED", "This account is already connected from another location.");
             serverContext.closeConnection(state);
             return;
@@ -113,7 +106,7 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
 
         // Register the connection
         if (!serverContext.registerConnection(state, clientId)) {
-            System.err.println("[Server] Failed to register connection for user " + clientId);
+            ServerPacketHandler.LOG.warning("Failed to register connection for user " + clientId);
             serverContext.sendErrorMessage(0, clientId, ErrorMessage.ErrorLevel.ERROR, "CONNECTION_FAILED", "Failed to register connection");
             serverContext.closeConnection(state);
             return;
@@ -134,46 +127,7 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
         response.addParam("newUser", false);
         serverContext.sendPacketToClient(response.toPacket());
 
-        System.out.printf("[Server] Client %d connected successfully%n", clientId);
-    }
-
-    /**
-     * Handles adding a contact for a user.
-     * TODO: Discuss if both users should add each other as contacts, or if one-sided is enough
-     * For now and for simplicity, both users must add each other manually
-     *
-     * @param serverContext    the server context
-     * @param managementMessage the management message containing the add contact request
-     */
-    private static void addContact(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
-        int from = managementMessage.getFrom();
-        int contactId = managementMessage.getParamAsType("contactId", Integer.class);
-
-        UserInfo user = serverContext.getUserRepository().findById(from);
-        if (user == null) {
-            System.out.printf("[Server] User %d not found while trying to add contact %d%n", from, contactId);
-            return;
-        }
-
-        if (serverContext.getUserRepository().findById(contactId) == null) {
-            System.out.printf("[Server] User %d tried to add non-existing contact %d%n", from, contactId);
-            serverContext.sendErrorMessage(0, from, ErrorMessage.ErrorLevel.WARNING, "CONTACT_NOT_EXISTING", "Cannot add non-existing user as contact.");
-            return;
-        }
-
-        user.addContact(contactId);
-        serverContext.getUserRepository().update(user.getId(), user);
-        System.out.printf("[Server] User %d added contact %d%n", from, contactId);
-
-        UserInfo contactUser = serverContext.getUserRepository().findById(contactId);
-        if (contactUser != null && serverContext.isClientConnected(contactId)) {
-            serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_CONTACT, from, contactId))
-                    .addParam("contactId", from)
-                    .addParam("contactPseudo", user.getUsername())
-                    .addParam("ack", "true")
-                    .toPacket()
-            );
-        }
+        ServerPacketHandler.LOG.info("Client " + clientId + " connected successfully");
     }
 
     /**
@@ -184,31 +138,40 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
      * @param serverContext    the server context
      * @param managementMessage the management message containing the remove contact request
      */
-    private static void removeContact(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
+    private void removeContact(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
         int from = managementMessage.getFrom();
         int contactId = managementMessage.getParamAsType("contactId", Integer.class);
 
-        UserInfo user = serverContext.getUserRepository().findById(from);
-        if (user == null) {
-            System.out.printf("[Server] User %d not found while trying to remove contact %d%n", from, contactId);
+        if (!validateSenderRegistered(managementMessage, serverContext)) { return; }
+        if (!checkContactRelationship(from, contactId, serverContext)) {
+            ServerPacketHandler.LOG.warning(String.format("User %d tried to remove non-existing contact %d", from, contactId));
+            AckHelper.sendFailedAck(serverContext, managementMessage, "Contact not found");
             return;
         }
 
-        if (!user.getContacts().contains(contactId)) {
-            System.out.printf("[Server] User %d tried to remove non-existing contact %d%n", from, contactId);
-            serverContext.sendErrorMessage(0, from, ErrorMessage.ErrorLevel.WARNING, "CONTACT_NOT_FOUND", "Cannot remove contact who is not in your contacts.");
-            return;
-        }
+        try {
+            UserInfo user = serverContext.getUserRepository().findById(from);
+            UserInfo contact = serverContext.getUserRepository().findById(contactId);
 
-        user.removeContact(contactId);
-        serverContext.getUserRepository().update(user.getId(), user);
-        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.REMOVE_CONTACT, from, contactId))
-                .addParam("contactId", contactId)
-                .addParam("contactPseudo", serverContext.getUserRepository().findById(contactId).getUsername())
-                .addParam("ack", "true")
-                .toPacket()
-        );
-        System.out.printf("[Server] User %d removed contact %d%n", from, contactId);
+            user.removeContact(contactId);
+            serverContext.getUserRepository().update(user.getId(), user);
+
+            contact.removeContact(from);
+            serverContext.getUserRepository().update(contact.getId(), contact);
+
+            ServerPacketHandler.LOG.info(String.format("User %d removed contact %d", from, contactId));
+
+            serverContext.sendPacketToClient((
+                    (ManagementMessage) MessageFactory.create(MessageType.REMOVE_CONTACT, from, contactId))
+                    .addParam("contactId", from)
+                    .toPacket()
+            );
+            AckHelper.sendSentAck(serverContext, managementMessage);
+
+        } catch (Exception e) {
+            ServerPacketHandler.LOG.severe(String.format("Error while removing contact %d for user %d: %s", contactId, from, e.getMessage()));
+            AckHelper.sendFailedAck(serverContext, managementMessage, "Internal server error");
+        }
     }
 
     /**
@@ -217,25 +180,26 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
      * @param serverContext    the server context
      * @param managementMessage the management message containing the update pseudo request
      */
-    private static void updatePseudo(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
+    private void updatePseudo(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
         int from = managementMessage.getFrom();
         String newPseudo = managementMessage.getParamAsType("newPseudo", String.class);
 
         UserInfo user = serverContext.getUserRepository().findById(from);
         if (user == null) {
-            System.out.printf("[Server] User %d not found while trying to update pseudo%n", from);
+            ServerPacketHandler.LOG.warning(String.format("User %d not found while trying to update pseudo", from));
+            AckHelper.sendFailedAck(serverContext, managementMessage, "User not found");
             return;
         }
 
         if (newPseudo == null || newPseudo.isEmpty()) {
-            System.out.printf("[Server] User %d provided invalid new pseudo%n", from);
-            serverContext.sendErrorMessage(0, from, ErrorMessage.ErrorLevel.ERROR, "INVALID_PSEUDO", "The new pseudo cannot be null or empty.");
+            ServerPacketHandler.LOG.warning(String.format("User %d provided invalid new pseudo", from));
+            AckHelper.sendFailedAck(serverContext, managementMessage, "Invalid pseudo");
             return;
         }
 
         user.setUsername(newPseudo);
         serverContext.getUserRepository().update(user.getId(), user);
-        System.out.printf("[Server] User %d updated pseudo to %s%n", from, newPseudo);
+        ServerPacketHandler.LOG.info(String.format("User %d updated pseudo to %s", from, newPseudo));
 
         for (int contactId : user.getContacts()) {
             if (serverContext.isClientConnected(contactId)) {
@@ -247,10 +211,6 @@ public class UserManagementMessageHandler extends ServerPacketHandler {
             }
         }
 
-        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, from, from))
-                .addParam("newPseudo", newPseudo)
-                .addParam("ack", "true")
-                .toPacket()
-        );
+        AckHelper.sendSentAck(serverContext, managementMessage);
     }
 }

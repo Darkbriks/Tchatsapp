@@ -1,50 +1,26 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
-import fr.uga.im2ag.m1info.chatservice.common.MessageIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
-import java.nio.ByteBuffer;
+import java.time.Instant;
 
 /**
  * Class representing a text message in the chat service protocol.
  */
 public class TextMessage extends ProtocolMessage {
-    private String messageId;
     private String content;
     private String replyToMessageId;
-    private long timestamp;
 
     /** Default constructor for TextMessage.
      * This is used for message factory registration only.
      */
     public TextMessage() {
         super(MessageType.NONE, -1, -1);
-        timestamp = 0;
+        timestamp = Instant.EPOCH;
         messageId = null;
         this.content = "";
         this.replyToMessageId = null;
-    }
-
-    /** Generate a new unique message ID using the provided MessageIdGenerator.
-     *
-     * @param messageIdGenerator the MessageIdGenerator to use for generating the ID
-     * @return the TextMessage instance for method chaining
-     * @throws IllegalStateException if the 'from' field is not set
-     */
-    public TextMessage generateNewMessageId(MessageIdGenerator messageIdGenerator) {
-        if (this.from == -1) { throw new IllegalStateException("Cannot generate message ID: 'from' field is not set."); }
-        timestamp = System.currentTimeMillis();
-        messageId = messageIdGenerator.generateId(from, timestamp);
-        return this;
-    }
-
-    /** Get the message ID.
-     *
-     * @return the message ID
-     */
-    public String getMessageId() {
-        return messageId;
     }
 
     /** Get the text content of the message.
@@ -61,14 +37,6 @@ public class TextMessage extends ProtocolMessage {
      */
     public String getReplyToMessageId() {
         return replyToMessageId;
-    }
-
-    /** Get the timestamp of the message.
-     *
-     * @return the timestamp in milliseconds since epoch
-     */
-    public long getTimestamp() {
-        return timestamp;
     }
 
     /** Set the text content of the message.
@@ -94,8 +62,8 @@ public class TextMessage extends ProtocolMessage {
     @Override
     public Packet toPacket() {
         if (messageId == null) { throw  new IllegalArgumentException("Message id is null"); }
-        StringBuilder sb = new StringBuilder();
-        sb.append(messageId).append("|").append(timestamp).append("|");
+        StringBuilder sb = getStringBuilder();
+        sb.append(messageId).append("|").append(timestamp.toEpochMilli()).append("|");
         if (replyToMessageId != null) {
             sb.append(replyToMessageId);
         }
@@ -117,7 +85,7 @@ public class TextMessage extends ProtocolMessage {
         String payload = new String(packet.getModifiablePayload().array());
         String[] parts = payload.split("\\|", 4);
         this.messageId = parts[0];
-        this.timestamp = Long.parseLong(parts[1]);
+        this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
         this.replyToMessageId = parts[2].isEmpty() ? null : parts[2];
         this.content = parts[3];
         return this;

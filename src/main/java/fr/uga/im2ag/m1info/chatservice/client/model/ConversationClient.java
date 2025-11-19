@@ -1,11 +1,12 @@
 package fr.uga.im2ag.m1info.chatservice.client.model;
 
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.*;
 
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
-
-public class ConversationClient {
+public class ConversationClient implements Serializable{
     private final String conversationId;
     private String conversationName;
     private final Map<String, Message> messages;
@@ -45,10 +46,10 @@ public class ConversationClient {
 
     public void addMessage(TextMessage message){
         Message msg = new Message (message.getMessageId(),
-                                           message.getFrom(), 
-                                           message.getTo(), 
-                                           message.getContent(), 
-                                           Instant.ofEpochMilli(message.getTimestamp()), 
+                                           message.getFrom(),
+                                           message.getTo(),
+                                           message.getContent(),
+                                           message.getTimestamp(),
                                            null);
 
         this.addMessage(msg);
@@ -102,6 +103,7 @@ public class ConversationClient {
     }
 
     public Message getLastMessage() {
+        // TODO: Use getMessagesFrom ?
         if (messageOrder.isEmpty()) {
             return null;
         }

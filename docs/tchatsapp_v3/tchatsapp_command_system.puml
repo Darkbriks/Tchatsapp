@@ -1,0 +1,217 @@
+@startuml TchatsApp_Command_System
+
+skinparam linetype ortho
+skinparam packageStyle rectangle
+
+title Système de Commandes - Détaillé
+
+' ============================================
+' COMMAND PATTERN CORE
+' ============================================
+package "Command Pattern Core" {
+    
+    interface PendingCommand {
+        + getCommandId(): String
+        + onAckReceived(ackType: MessageStatus): boolean
+        + onAckFailed(reason: String): void
+    }
+    
+    note bottom of PendingCommand
+        **Pattern: Command**
+        
+        Encapsule une action qui attend une
+        confirmation (ACK) du serveur.
+        
+        Permet de:
+        - Annuler une action si timeout
+        - Mettre à jour l'état en fonction de l'ACK
+        - Gérer les erreurs de manière uniforme
+
+        Quand la méthode onAckReceived retourne true,
+        la commande est considérée comme terminée
+        et sera supprimée du gestionnaire.
+    end note
+    
+    class PendingCommandManager {
+        - pendingCommands: Map<String, PendingCommand>
+        - scheduler: ScheduledExecutorService
+        - {static} DEFAULT_TIMEOUT_MS: long = 30_000
+        --
+        + PendingCommandManager()
+        + addPendingCommand(command: PendingCommand): void
+        + handleAck(ack: AckMessage): void
+        + removePendingCommand(commandId: String): PendingCommand
+        + shutdown(): void
+    }
+    
+    note bottom of PendingCommandManager
+        **Responsabilités:**
+        1. Gérer le cycle de vie des commandes
+        2. Timeout automatique (30s par défaut)
+        3. Mapper ACK aux commandes
+        4. Thread-safe avec ConcurrentHashMap
+    end note
+    
+    PendingCommandManager o-- "many" PendingCommand
+}
+
+' ============================================
+' CONCRETE COMMANDS
+' ============================================
+package "Concrete Commands" {
+    
+    class SendTextMessageCommand implements PendingCommand {
+        - commandId: String
+        - message: Message
+        - conversationRepository: ConversationClientRepository
+        --
+        + SendTextMessageCommand(commandId: String, message: Message, repository: ConversationClientRepository)
+        + getCommandId(): String
+        + onAckReceived(ackType: MessageStatus): boolean
+        + onAckFailed(reason: String): void
+    }
+    
+    abstract class SendManagementMessageCommand implements PendingCommand {
+        - commandId: String
+        - messageType: MessageType
+        --
+        + SendManagementMessageCommand(commandId: String, messageType: MessageType)
+        + getCommandId(): String
+        + onAckFailed(reason: String): void
+    }
+    
+    class UpdatePseudoCommand extends SendManagementMessageCommand {
+        - newPseudo: String
+        --
+        + UpdatePseudoCommand(commandId: String, newPseudo: String)
+        + onAckReceived(ackType: MessageStatus): boolean
+    }
+
+    class OtherExampleCommand extends SendManagementMessageCommand {
+        - targetUserId: int
+        - someOtherField: type
+        --
+        + OtherExampleCommand(commandId: String, targetUserId: int, someOtherField: type)
+        + onAckReceived(ackType: MessageStatus): boolean
+    }
+}
+
+' ============================================
+' MESSAGE STATUS
+' ============================================
+enum MessageStatus {
+    SENDING
+    SENT
+    DELIVERED
+    READ
+    FAILED
+    --
+    + {static} fromString(s: String): MessageStatus
+    + toString(): String
+}
+
+note bottom of MessageStatus
+    États d'un message dans le système:
+    - SENDING: en cours d'envoi
+    - SENT: reçu par le serveur
+    - DELIVERED: reçu par le destinataire
+    - READ: lu par le destinataire
+    - FAILED: échec d'envoi
+end note
+
+' ============================================
+' ACK MESSAGE
+' ============================================
+package "ACK System" {
+    
+    class AckMessage {
+        - acknowledgedMessageId: String
+        - ackType: MessageStatus
+        - errorReason: String
+        --
+        + getAcknowledgedMessageId(): String
+        + getAckType(): MessageStatus
+        + getErrorReason(): String
+    }
+    
+    note right of AckMessage
+        Message d'acquittement envoyé
+        pour confirmer la réception/lecture
+        d'un message.
+    end note
+}
+
+' ============================================
+' INTEGRATION WITH CLIENT
+' ============================================
+package "Client Integration" {
+    
+    class Client {
+        - commandManager: PendingCommandManager
+        --
+        + getCommandManager(): PendingCommandManager
+        + sendPacket(packet: Packet): boolean
+        + sendAck(message: ProtocolMessage, ackType: MessageStatus): void
+    }
+    
+    class ClientController {
+        --
+        + getCommandManager(): PendingCommandManager
+        + sendTextMessage(content: String, toUserId: int): String
+        + sendManagementMessage(messageType: MessageType, toUserId: int): ManagementMessage
+        + updatePseudo(newPseudo: String): boolean
+        + removeContact(contactId: int): boolean
+    }
+    
+    class AckMessageHandler {
+        --
+        + handle(message: ProtocolMessage, context: ClientController): void
+    }
+    
+    note bottom of AckMessageHandler
+        Reçoit les ACK du serveur et
+        les transmet au PendingCommandManager
+    end note
+    
+    Client *-- PendingCommandManager
+    ClientController ..> PendingCommandManager : uses
+    AckMessageHandler ..> PendingCommandManager : notifies
+}
+
+' ============================================
+' SEQUENCE DIAGRAM
+' ============================================
+note as SequenceDiagram
+    **Séquence d'envoi de message avec ACK:**
+    
+    1. User -> ClientController: sendTextMessage("Hello", 2)
+    2. ClientController -> Message: create()
+    3. ClientController -> Conversation: addMessage(msg)
+    4. ClientController -> SendTextMessageCommand: new(msgId, msg)
+    5. ClientController -> PendingCommandManager: addPendingCommand(cmd)
+    6. PendingCommandManager -> Scheduler: schedule timeout (30s)
+    7. ClientController -> Client: sendPacket(textMsg.toPacket())
+    
+    --- Si ACK reçu ---
+    8. Server -> Client: AckMessage(msgId, DELIVERED)
+    9. AckMessageHandler -> PendingCommandManager: handleAck(ack)
+    10. PendingCommandManager -> SendTextMessageCommand: onAckReceived(DELIVERED)
+    11. SendTextMessageCommand -> Message: setStatus(DELIVERED)
+    12. SendTextMessageCommand -> EventBus: publish(MessageStatusChangedEvent)
+    
+    --- Si timeout ---
+    8. Scheduler -> PendingCommandManager: timeout callback
+    9. PendingCommandManager -> SendTextMessageCommand: onAckFailed("Timeout")
+    10. SendTextMessageCommand -> Message: setStatus(FAILED)
+    11. SendTextMessageCommand -> EventBus: publish(MessageStatusChangedEvent)
+end note
+
+' ============================================
+' RELATIONS
+' ============================================
+PendingCommand ..> MessageStatus : uses
+AckMessage --> MessageStatus
+SendTextMessageCommand ..> MessageStatus : updates
+SendManagementMessageCommand ..> MessageStatus : uses
+
+@enduml

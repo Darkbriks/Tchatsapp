@@ -1,10 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.gui;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-
-import fr.uga.im2ag.m1info.chatservice.client.Client;
-import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
-
 import java.awt.*;
 import java.awt.event.ActionListener;
 

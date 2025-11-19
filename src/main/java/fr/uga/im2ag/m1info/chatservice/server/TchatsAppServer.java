@@ -11,17 +11,14 @@
 
 package fr.uga.im2ag.m1info.chatservice.server;
 
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.Packet;
 import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
-import fr.uga.im2ag.m1info.chatservice.server.handlers.MediaMessageHandler;
-import fr.uga.im2ag.m1info.chatservice.server.handlers.ErrorMessageHandler;
-import fr.uga.im2ag.m1info.chatservice.server.handlers.TextMessageHandler;
-import fr.uga.im2ag.m1info.chatservice.server.handlers.UserManagementMessageHandler;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
+import fr.uga.im2ag.m1info.chatservice.server.handlers.*;
+import fr.uga.im2ag.m1info.chatservice.server.repository.GroupRepository;
 import fr.uga.im2ag.m1info.chatservice.server.repository.UserRepository;
 
 import java.io.IOException;
@@ -29,7 +26,9 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.time.Instant;
-import java.util.*;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.logging.Logger;
 
@@ -119,6 +118,7 @@ public class TchatsAppServer {
 
     public class ServerContext {
         private final UserRepository userRepository = new UserRepository();
+        private final GroupRepository groupRepository = new GroupRepository();
         private final ThreadLocal<ConnectionState> currentConnectionState = new ThreadLocal<>();
 
         /**
@@ -128,6 +128,15 @@ public class TchatsAppServer {
          */
         public UserRepository getUserRepository() {
             return userRepository;
+        }
+
+        /**
+         * Get the group repository.
+         *
+         * @return the group repository
+         */
+        public GroupRepository getGroupRepository() {
+            return groupRepository;
         }
 
         /**
@@ -263,7 +272,7 @@ public class TchatsAppServer {
      * the method {@link #setPacketProcessor setPacketProcessor }
      * @param port the port on which the server is listening
      * @param workerThreads the number of threads used to process packets
-     * @throws IOException
+     * @throws IOException if an I/O error occurs
      */
     public TchatsAppServer(int port, int workerThreads) throws IOException {
         this.selector = Selector.open();
@@ -297,7 +306,7 @@ public class TchatsAppServer {
     /**
      * starts the server. This method blocks until the server is running.
      * The server can be stoped via a call to {@link #stop stop() method}
-     * @throws IOException
+     * @throws IOException if an I/O error occurs
      */
     public void start() throws IOException {
         started = true;
@@ -320,7 +329,7 @@ public class TchatsAppServer {
     }
 
     /**
-     * Stops th server
+     * Stops the server
      */
     public void stop() {
         started = false;
@@ -522,10 +531,11 @@ public class TchatsAppServer {
         TchatsAppServer s = new TchatsAppServer(port, workers);
 
         ServerPacketRouter router = new ServerPacketRouter(s.serverContext);
-        router.addHandler(new TextMessageHandler());
-        router.addHandler(new MediaMessageHandler());
+        router.addHandler(new RelayMessageHandler());
         router.addHandler(new UserManagementMessageHandler());
-        router.addHandler(new ErrorMessageHandler());
+        router.addHandler(new ContactRequestServerHandler());
+        router.addHandler(new AckMessageHandler());
+        router.addHandler(new GroupMessageHandler());
         s.setPacketProcessor(router);
 
         s.start();

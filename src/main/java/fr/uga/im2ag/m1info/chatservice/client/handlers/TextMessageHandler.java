@@ -1,30 +1,49 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
-import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
+import fr.uga.im2ag.m1info.chatservice.client.ClientController;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.TextMessageReceivedEvent;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.Message;
+import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 
 public class TextMessageHandler extends ClientPacketHandler {
     @Override
-    public void handle(ProtocolMessage message, ClientContext context) {
+    public void handle(ProtocolMessage message, ClientController context) {
         if (!(message instanceof TextMessage textMsg)) {
             throw new IllegalArgumentException("Invalid message type for TextMessageHandler");
         }
-        ConversationClient conv = context.getConversationRepository().findById(Integer.toString(message.getFrom()));
-        conv.addMessage(textMsg);
 
-        // TODO: Add the message to ConversationRepository and notify observers
-        System.out.println("[Message received]");
-        System.out.println("\tFrom: " + textMsg.getFrom());
-        System.out.println("\tTo: " + textMsg.getTo());
-        System.out.println("\tMessageId: " + textMsg.getMessageId());
-        System.out.println("\tTimestamp: " + textMsg.getTimestamp());
-        if (textMsg.getReplyToMessageId() != null) {
-            System.out.println("\tReply to: " + textMsg.getReplyToMessageId());
+        String conversationId;
+        int otherUserId;
+
+        if (textMsg.getFrom() == context.getClientId()) {
+            otherUserId = textMsg.getTo();
+        } else {
+            otherUserId = textMsg.getFrom();
         }
-        System.out.println("\tContent: " + textMsg.getContent());
+
+        ConversationClient conversation = context.getOrCreatePrivateConversation(otherUserId);
+        conversationId = conversation.getConversationId();
+
+        Message msg = new Message(
+                textMsg.getMessageId(),
+                textMsg.getFrom(),
+                textMsg.getTo(),
+                textMsg.getContent(),
+                textMsg.getTimestamp(),
+                textMsg.getReplyToMessageId()
+        );
+
+        conversation.addMessage(msg);
+        context.getConversationRepository().update(conversationId, conversation);
+
+        publishEvent(new TextMessageReceivedEvent(this, conversationId, msg), context);
+
+        context.sendAck(textMsg, MessageStatus.DELIVERED);
+        context.sendAck(textMsg, MessageStatus.READ); // TODO: Remove this line when read receipts are implemented properly
     }
 
     @Override

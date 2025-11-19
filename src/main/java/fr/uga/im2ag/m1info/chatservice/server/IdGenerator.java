@@ -12,5 +12,5 @@
 package fr.uga.im2ag.m1info.chatservice.server;
 
 public interface IdGenerator {
-    public int generateId();
+    int generateId();
 }

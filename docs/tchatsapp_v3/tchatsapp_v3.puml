@@ -1,0 +1,1139 @@
+@startuml TchatsApp_Complete
+
+!define COMMON_PKG #E8F4F8
+!define CLIENT_PKG #F0E8F8
+!define SERVER_PKG #F8E8E8
+
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+
+title TchatsApp - Architecture Complète et Détaillée
+
+' ============================================
+' PACKAGE COMMON
+' ============================================
+package "common" COMMON_PKG {
+    
+    ' ===== PACKET =====
+    class Packet {
+        - buffer: ByteBuffer {readOnly}
+        - {static} HEADER_SIZE: int = 16
+        --
+        + from(): int
+        + to(): int
+        + payloadSize(): int
+        + messageType(): MessageType
+        + getPayload(): ByteBuffer
+        + getModifiablePayload(): ByteBuffer
+        + asByteBuffer(): ByteBuffer
+        + asByteArray(): byte[]
+        + writeTo(dos: DataOutputStream): void
+        + {static} readFrom(dis: DataInputStream): Packet
+        + {static} getHeaderSize(): int
+        + toString(): String
+    }
+    
+    class PacketBuilder <<Builder>> {
+        - buf: ByteBuffer
+        - payloadSize: int
+        - ready: boolean
+        - completed: boolean
+        --
+        + PacketBuilder(payloadSize: int)
+        + reset(payloadSize: int): PacketBuilder
+        + setFrom(from: int): PacketBuilder
+        + setTo(to: int): PacketBuilder
+        + setMessageType(type: MessageType): PacketBuilder
+        + setPayload(payload: byte[]): PacketBuilder
+        + fillFrom(bf: ByteBuffer): PacketBuilder
+        + getPayload(): ByteBuffer
+        + isReady(): boolean
+        + isCompleted(): boolean
+        + build(): Packet
+    }
+    
+    note top of PacketBuilder
+        **Pattern: Builder**
+        Classe interne statique de Packet
+    end note
+    
+    Packet +-- PacketBuilder
+    
+    ' ===== PACKET PROCESSOR =====
+    interface PacketProcessor <<Strategy>> {
+        + process(message: ProtocolMessage): void
+    }
+    
+    ' ===== MESSAGE TYPE =====
+    enum MessageType {
+        TEXT = 1
+        MEDIA = 2
+        CREATE_USER = 10
+        CONNECT_USER = 11
+        UPDATE_PSEUDO = 12
+        CONTACT_REQUEST = 20
+        CONTACT_REQUEST_RESPONSE = 21
+        REMOVE_CONTACT = 22
+        MESSAGE_ACK = 30
+        ERROR = 40
+        EMPTY = 50
+        --
+        - value: int
+        --
+        + MessageType(value: int)
+        + {static} fromInt(i: int): MessageType
+        + {static} fromByte(b: byte): MessageType
+        + toByte(): byte
+        + toInt(): int
+        + toString(): String
+    }
+    
+    ' ===== MESSAGE STATUS =====
+    enum MessageStatus {
+        SENDING
+        SENT
+        DELIVERED
+        READ
+        FAILED
+        --
+        + {static} fromString(s: String): MessageStatus
+        + toString(): String
+    }
+    
+    ' ===== PROTOCOL MESSAGE =====
+    abstract class ProtocolMessage {
+        - {static} STRING_BUILDER: ThreadLocal<StringBuilder>
+        # messageType: MessageType
+        # from: int
+        # to: int
+        # messageId: String
+        # timestamp: Instant
+        --
+        + ProtocolMessage(messageType: MessageType, from: int, to: int)
+        + {abstract} toPacket(): Packet
+        + {abstract} fromPacket(packet: Packet): ProtocolMessage
+        + getMessageType(): MessageType
+        + getFrom(): int
+        + getTo(): int
+        + getMessageId(): String
+        + getTimestamp(): Instant
+        # setFrom(from: int): void
+        # setTo(to: int): void
+        # setMessageType(type: MessageType): void
+        # generateNewMessageId(generator: MessageIdGenerator): void
+        # {static} getStringBuilder(): StringBuilder
+    }
+    
+    class TextMessage extends ProtocolMessage {
+        - content: String
+        - replyToMessageId: String
+        --
+        + TextMessage()
+        + getContent(): String
+        + setContent(content: String): void
+        + getReplyToMessageId(): String
+        + setReplyToMessageId(replyToId: String): void
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    class MediaMessage extends ProtocolMessage {
+        - mediaName: String
+        - content: byte[]
+        - sizeContent: int
+        --
+        + MediaMessage()
+        + getMediaName(): String
+        + setMediaName(name: String): void
+        + getContent(): byte[]
+        + setContent(content: byte[]): void
+        + getSizeContent(): int
+        + setSizeContent(size: int): void
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    class ManagementMessage extends ProtocolMessage {
+        - params: Map<String, Object>
+        --
+        + ManagementMessage()
+        + getParam(key: String): Object
+        + getParamAsType(key: String, clazz: Class<T>): T
+        + addParam(key: String, value: Object): ManagementMessage
+        + removeParam(key: String): ManagementMessage
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    class AckMessage extends ProtocolMessage {
+        - acknowledgedMessageId: String
+        - ackType: MessageStatus
+        - errorReason: String
+        --
+        + AckMessage()
+        + getAcknowledgedMessageId(): String
+        + setAcknowledgedMessageId(msgId: String): void
+        + getAckType(): MessageStatus
+        + setAckType(type: MessageStatus): void
+        + getErrorReason(): String
+        + setErrorReason(reason: String): void
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    class ErrorMessage extends ProtocolMessage {
+        - errorCode: String
+        - errorMessage: String
+        - details: Map<String, String>
+        --
+        + ErrorMessage()
+        + getErrorCode(): String
+        + setErrorCode(code: String): void
+        + getErrorMessage(): String
+        + setErrorMessage(message: String): void
+        + getDetails(): Map<String, String>
+        + addDetail(key: String, value: String): void
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    class ContactRequestMessage extends ProtocolMessage {
+        - requestId: String
+        - senderPseudo: String
+        --
+        + ContactRequestMessage()
+        + getRequestId(): String
+        + setRequestId(id: String): void
+        + getSenderPseudo(): String
+        + setSenderPseudo(pseudo: String): void
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    class ContactRequestResponseMessage extends ProtocolMessage {
+        - requestId: String
+        - accepted: boolean
+        --
+        + ContactRequestResponseMessage()
+        + getRequestId(): String
+        + setRequestId(id: String): void
+        + isAccepted(): boolean
+        + setAccepted(accepted: boolean): void
+        + toPacket(): Packet
+        + fromPacket(packet: Packet): ProtocolMessage
+    }
+    
+    ' ===== MESSAGE FACTORY =====
+    class MessageFactory <<Factory + ServiceLoader>> {
+        - {static} registry: Map<MessageType, Supplier<ProtocolMessage>>
+        - {static} messageIdGenerator: MessageIdGenerator
+        --
+        + {static} fromPacket(packet: Packet): ProtocolMessage
+        + {static} create(type: MessageType, from: int, to: int): ProtocolMessage
+        + {static} setMessageIdGenerator(generator: MessageIdGenerator): void
+    }
+    
+    note top of MessageFactory
+        **Pattern: Factory + ServiceLoader**
+        Chargement automatique via META-INF/services
+    end note
+    
+    ' ===== MESSAGE PROVIDERS =====
+    interface MessageProvider <<ServiceLoader>> {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class TextMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class MediaMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class ManagementMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class AckMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class ErrorMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class ContactRequestMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    class ContactRequestResponseMessageProvider implements MessageProvider {
+        + getType(): MessageType[]
+        + createInstance(): ProtocolMessage
+    }
+    
+    ' ===== ID GENERATORS =====
+    interface MessageIdGenerator {
+        + generateId(senderId: int, timestamp: long): String
+    }
+    
+    class ShaIdGenerator implements MessageIdGenerator {
+        - instanceId: int
+        --
+        + ShaIdGenerator(instanceId: int)
+        + generateId(senderId: int, timestamp: long): String
+    }
+    
+    interface IdGenerator {
+        + generateId(): int
+    }
+    
+    class SequentialIdGenerator implements IdGenerator {
+        - currentId: AtomicInteger
+        --
+        + SequentialIdGenerator()
+        + SequentialIdGenerator(startId: int)
+        + generateId(): int
+    }
+    
+    ' ===== REPOSITORY =====
+    interface Repository<ID, T> {
+        + add(entity: T): void
+        + update(id: ID, entity: T): void
+        + delete(id: ID): void
+        + findById(id: ID): T
+        + findAll(): Set<T>
+    }
+    
+    abstract class AbstractRepository<ID, T> {
+        # storage: Map<ID, T>
+        --
+        + AbstractRepository(storage: Map<ID, T>)
+        + AbstractRepository()
+        + add(entity: T): void
+        + update(id: ID, entity: T): void
+        + delete(id: ID): void
+        + findById(id: ID): T
+        + findAll(): Set<T>
+        # {abstract} getKey(entity: T): ID
+    }
+    
+    Repository <|.. AbstractRepository
+    
+    ' ===== TYPE CONVERTER =====
+    class TypeConverter {
+        --
+        + {static} intToBytes(value: int): byte[]
+        + {static} bytesToInt(bytes: byte[]): int
+        + {static} longToBytes(value: long): byte[]
+        + {static} bytesToLong(bytes: byte[]): long
+        + {static} stringToBytes(str: String): byte[]
+        + {static} bytesToString(bytes: byte[]): String
+        + {static} booleanToByte(value: boolean): byte
+        + {static} byteToBoolean(b: byte): boolean
+    }
+    
+    ' Relations
+    ProtocolMessage --> MessageType
+    AckMessage --> MessageStatus
+    MessageFactory ..> MessageProvider : uses
+    MessageFactory ..> ProtocolMessage : creates
+    MessageFactory o-- MessageIdGenerator
+    MessageProvider ..> ProtocolMessage : provides
+    TextMessageProvider ..> TextMessage
+    MediaMessageProvider ..> MediaMessage
+    ManagementMessageProvider ..> ManagementMessage
+    AckMessageProvider ..> AckMessage
+    ErrorMessageProvider ..> ErrorMessage
+    ContactRequestMessageProvider ..> ContactRequestMessage
+    ContactRequestResponseMessageProvider ..> ContactRequestResponseMessage
+}
+
+' ============================================
+' PACKAGE CLIENT
+' ============================================
+package "client" CLIENT_PKG {
+    
+    ' ===== CLIENT CORE =====
+    class Client {
+        - {static} MAX_SIZE_CHUNK_FILE: int = 8192
+        - clientId: int
+        - cnx: Socket
+        - dos: DataOutputStream
+        - dis: DataInputStream
+        - processor: PacketProcessor
+        - receptionThread: Thread
+        - commandManager: PendingCommandManager
+        --
+        + Client()
+        + Client(clientId: int)
+        + connect(host: String, port: int, username: String): boolean
+        + disconnect(): void
+        + getClientId(): int
+        + updateClientId(clientId: int): void
+        + setPacketProcessor(p: PacketProcessor): void
+        + isConnected(): boolean
+        + sendPacket(m: Packet): boolean
+        + sendMedia(msg: String, to: int): void
+        + sendAck(message: ProtocolMessage, ackType: MessageStatus): void
+        + getCommandManager(): PendingCommandManager
+        - startReceptionThread(dis: DataInputStream): void
+        - processReceivedPacket(m: Packet): void
+    }
+    
+    class ClientController <<Facade>> {
+        - client: Client
+        - connectionEstablished: boolean {volatile}
+        - lastErrorMessage: String {volatile}
+        - conversationRepository: ConversationClientRepository
+        - contactRepository: ContactClientRepository
+        - groupRepository: GroupClientRepository
+        - activeUser: UserClient
+        - eventBus: EventBus
+        --
+        + ClientController(client: Client, conversationRepository: ConversationClientRepository, contactRepository: ContactClientRepository, groupRepository: GroupClientRepository, user: UserClient)
+        + ClientController(client: Client)
+        + connect(host: String, port: int, username: String): boolean
+        + disconnect(): void
+        + getClientId(): int
+        + getConversationRepository(): ConversationClientRepository
+        + getContactRepository(): ContactClientRepository
+        + getGroupRepository(): GroupClientRepository
+        + getActiveUser(): UserClient
+        + getCommandManager(): PendingCommandManager
+        + isConnected(): boolean
+        + isConnectionEstablished(): boolean
+        + markConnectionEstablished(): void
+        + setLastError(errorMessage: String): void
+        + getLastError(): String
+        + clearLastError(): void
+        + updateClientId(clientId: int): void
+        + {static} generatePrivateConversationId(userId1: int, userId2: int): String
+        + {static} generateGroupConversationId(groupId: int): String
+        + getOrCreatePrivateConversation(otherUserId: int): ConversationClient
+        + sendTextMessage(content: String, toUserId: int): String
+        + sendContactRequest(receiverId: int): String
+        + respondToContactRequest(senderId: int, accept: boolean): void
+        + subscribeToEvent(eventType: Class<T>, observer: EventObserver<T>, filter: EventFilter<T>, mode: ExecutionMode): EventSubscription<T>
+        + subscribeToEvent(eventType: Class<T>, observer: EventObserver<T>, mode: ExecutionMode): EventSubscription<T>
+        + subscribeToEvent(eventType: Class<T>, observer: EventObserver<T>): EventSubscription<T>
+        + unsubscribe(subscription: EventSubscription): void
+        + publishEvent(event: Event, token: PublishEventToken): void
+        + sendPacket(packet: Packet): boolean
+        + sendMedia(msg: String, to: int): void
+        + sendManagementMessage(messageType: MessageType, toUserId: int): ManagementMessage
+        + updatePseudo(newPseudo: String): boolean
+        + removeContact(contactId: int): boolean
+        + sendAck(originalMessage: ProtocolMessage, ackType: MessageStatus): void
+    }
+    
+    note bottom of ClientController
+        **Pattern: Facade**
+        Interface simplifiée pour le client
+    end note
+    
+    ' ===== PACKET ROUTING =====
+    class ClientPaquetRouter implements PacketProcessor {
+        - handlers: List<ClientPacketHandler>
+        - context: ClientController
+        --
+        + ClientPaquetRouter(handlers: List<ClientPacketHandler>, context: ClientController)
+        + ClientPaquetRouter(context: ClientController)
+        + addHandler(handler: ClientPacketHandler): void
+        + removeHandler(handler: ClientPacketHandler): void
+        + process(message: ProtocolMessage): void
+    }
+    
+    abstract class ClientPacketHandler {
+        - publishEventToken: PublishEventToken
+        --
+        + {abstract} handle(message: ProtocolMessage, context: ClientController): void
+        + {abstract} canHandle(messageType: MessageType): boolean
+        # publishEvent(event: Event, context: ClientController): void
+    }
+    
+    class PublishEventToken {
+        - PublishEventToken()
+        --
+        + isValidFor(controller: ClientController): boolean
+    }
+    
+    ClientPacketHandler +-- PublishEventToken
+    
+    class TextMessageHandler extends ClientPacketHandler {
+        + handle(message: ProtocolMessage, context: ClientController): void
+        + canHandle(messageType: MessageType): boolean
+    }
+    
+    class MediaMessageHandler extends ClientPacketHandler {
+        + handle(message: ProtocolMessage, context: ClientController): void
+        + canHandle(messageType: MessageType): boolean
+    }
+    
+    class ManagementMessageHandler extends ClientPacketHandler {
+        + handle(message: ProtocolMessage, context: ClientController): void
+        + canHandle(messageType: MessageType): boolean
+    }
+    
+    class ContactRequestHandler extends ClientPacketHandler {
+        + handle(message: ProtocolMessage, context: ClientController): void
+        + canHandle(messageType: MessageType): boolean
+    }
+    
+    class ErrorMessageHandler extends ClientPacketHandler {
+        + handle(message: ProtocolMessage, context: ClientController): void
+        + canHandle(messageType: MessageType): boolean
+    }
+    
+    class AckMessageHandler extends ClientPacketHandler {
+        + handle(message: ProtocolMessage, context: ClientController): void
+        + canHandle(messageType: MessageType): boolean
+    }
+    
+    class AckConnectionHandler extends ClientPacketHandler {
+        + handle(message: ProtocolMessage, context: ClientController): void
+        + canHandle(messageType: MessageType): boolean
+    }
+    
+    ' ===== EVENT SYSTEM =====
+    class EventBus <<Singleton + Pub/Sub>> {
+        - {static} instance: EventBus
+        - subscriptions: ConcurrentHashMap<Class<? extends Event>, CopyOnWriteArrayList<EventSubscription<?>>>
+        - executor: ExecutorService
+        - logger: Logger
+        --
+        - EventBus()
+        + {static} getInstance(): EventBus
+        + <T extends Event> subscribe(eventType: Class<T>, observer: EventObserver<T>): EventSubscription<T>
+        + <T extends Event> subscribe(eventType: Class<T>, observer: EventObserver<T>, mode: ExecutionMode): EventSubscription<T>
+        + <T extends Event> subscribe(eventType: Class<T>, observer: EventObserver<T>, filter: EventFilter<T>, mode: ExecutionMode): EventSubscription<T>
+        + <T extends Event> unsubscribe(subscription: EventSubscription<T>): void
+        + <T extends Event> publish(event: T): void
+        + shutdown(): void
+        - <T extends Event> notifyObserver(subscription: EventSubscription<T>, event: T): void
+    }
+    
+    interface EventObserver<T> {
+        + onEvent(event: T): void
+    }
+    
+    interface EventFilter<T> {
+        + test(event: T): boolean
+    }
+    
+    class EventSubscription<T> {
+        - observer: EventObserver<T>
+        - filter: EventFilter<T>
+        - mode: ExecutionMode
+        - active: AtomicBoolean
+        --
+        + EventSubscription(observer: EventObserver<T>, filter: EventFilter<T>, mode: ExecutionMode)
+        + getObserver(): EventObserver<T>
+        + getFilter(): EventFilter<T>
+        + getExecutionMode(): ExecutionMode
+        + isActive(): boolean
+        + cancel(): void
+        + matches(event: T): boolean
+    }
+    
+    enum ExecutionMode {
+        SYNC
+        ASYNC
+    }
+    
+    abstract class Event {
+        # source: Object
+        # timestamp: Instant
+        --
+        + Event(source: Object)
+        + getSource(): Object
+        + getTimestamp(): Instant
+        + getEventType(): Class<? extends Event>
+    }
+    
+    class ConnectionEstablishedEvent extends Event {
+        - clientId: int
+        - success: boolean
+        --
+        + ConnectionEstablishedEvent(source: Object, clientId: int, success: boolean)
+        + getClientId(): int
+        + isSuccess(): boolean
+    }
+    
+    abstract class MessageEvent extends Event {
+        # conversationId: String
+        # message: Message
+        --
+        + MessageEvent(source: Object, conversationId: String, message: Message)
+        + getConversationId(): String
+        + getMessage(): Message
+    }
+    
+    class TextMessageReceivedEvent extends MessageEvent {
+        + TextMessageReceivedEvent(source: Object, conversationId: String, message: Message)
+    }
+    
+    class MediaMessageReceivedEvent extends MessageEvent {
+        + MediaMessageReceivedEvent(source: Object, conversationId: String, message: Message)
+    }
+    
+    class MessageStatusChangedEvent extends Event {
+        - messageId: String
+        - conversationId: String
+        - newStatus: MessageStatus
+        --
+        + MessageStatusChangedEvent(source: Object, messageId: String, conversationId: String, newStatus: MessageStatus)
+        + getMessageId(): String
+        + getConversationId(): String
+        + getNewStatus(): MessageStatus
+    }
+    
+    abstract class ContactEvent extends Event {
+        # contactId: int
+        --
+        + ContactEvent(source: Object, contactId: int)
+        + getContactId(): int
+    }
+    
+    class ContactAddedEvent extends ContactEvent {
+        - contactPseudo: String
+        --
+        + ContactAddedEvent(source: Object, contactId: int, contactPseudo: String)
+        + getContactPseudo(): String
+    }
+    
+    class ContactUpdatedEvent extends ContactEvent {
+        - oldPseudo: String
+        - newPseudo: String
+        --
+        + ContactUpdatedEvent(source: Object, contactId: int, oldPseudo: String, newPseudo: String)
+        + getOldPseudo(): String
+        + getNewPseudo(): String
+    }
+    
+    class ContactRemovedEvent extends ContactEvent {
+        + ContactRemovedEvent(source: Object, contactId: int)
+    }
+    
+    class ContactRequestReceivedEvent extends Event {
+        - requestId: String
+        - senderId: int
+        - senderPseudo: String
+        --
+        + ContactRequestReceivedEvent(source: Object, requestId: String, senderId: int, senderPseudo: String)
+        + getRequestId(): String
+        + getSenderId(): int
+        + getSenderPseudo(): String
+    }
+    
+    class ContactRequestResponseEvent extends Event {
+        - requestId: String
+        - accepted: boolean
+        - responderId: int
+        --
+        + ContactRequestResponseEvent(source: Object, requestId: String, accepted: boolean, responderId: int)
+        + getRequestId(): String
+        + isAccepted(): boolean
+        + getResponderId(): int
+    }
+    
+    class UserPseudoUpdatedEvent extends Event {
+        - userId: int
+        - oldPseudo: String
+        - newPseudo: String
+        --
+        + UserPseudoUpdatedEvent(source: Object, userId: int, oldPseudo: String, newPseudo: String)
+        + getUserId(): int
+        + getOldPseudo(): String
+        + getNewPseudo(): String
+    }
+    
+    class ManagementOperationSucceededEvent extends Event {
+        - operationType: MessageType
+        - details: Map<String, Object>
+        --
+        + ManagementOperationSucceededEvent(source: Object, operationType: MessageType, details: Map)
+        + getOperationType(): MessageType
+        + getDetails(): Map<String, Object>
+    }
+    
+    class ManagementOperationFailedEvent extends Event {
+        - operationType: MessageType
+        - errorMessage: String
+        --
+        + ManagementOperationFailedEvent(source: Object, operationType: MessageType, errorMessage: String)
+        + getOperationType(): MessageType
+        + getErrorMessage(): String
+    }
+    
+    class ErrorEvent extends Event {
+        - errorMessage: String
+        - errorCode: String
+        --
+        + ErrorEvent(source: Object, errorMessage: String, errorCode: String)
+        + getErrorMessage(): String
+        + getErrorCode(): String
+    }
+    
+    ' ===== COMMAND SYSTEM =====
+    interface PendingCommand <<Command>> {
+        + getCommandId(): String
+        + onAckReceived(ackType: MessageStatus): void
+        + onAckFailed(reason: String): void
+    }
+    
+    class PendingCommandManager {
+        - pendingCommands: Map<String, PendingCommand>
+        - scheduler: ScheduledExecutorService
+        - {static} DEFAULT_TIMEOUT_MS: long = 30000
+        --
+        + PendingCommandManager()
+        + addPendingCommand(command: PendingCommand): void
+        + handleAck(ack: AckMessage): void
+        + removePendingCommand(commandId: String): PendingCommand
+        + shutdown(): void
+    }
+    
+    class SendTextMessageCommand implements PendingCommand {
+        - commandId: String
+        - message: Message
+        - conversationRepository: ConversationClientRepository
+        --
+        + SendTextMessageCommand(commandId: String, message: Message, repository: ConversationClientRepository)
+        + getCommandId(): String
+        + onAckReceived(ackType: MessageStatus): void
+        + onAckFailed(reason: String): void
+    }
+    
+    class SendManagementMessageCommand implements PendingCommand {
+        - commandId: String
+        - messageType: MessageType
+        --
+        + SendManagementMessageCommand(commandId: String, messageType: MessageType)
+        + getCommandId(): String
+        + onAckReceived(ackType: MessageStatus): void
+        + onAckFailed(reason: String): void
+    }
+    
+    ' ===== MODELS =====
+    class UserClient {
+        - userId: int
+        - pseudo: String
+        --
+        + UserClient()
+        + UserClient(userId: int, pseudo: String)
+        + getUserId(): int
+        + setUserId(userId: int): void
+        + getPseudo(): String
+        + setPseudo(pseudo: String): void
+    }
+    
+    class ContactClient {
+        - contactId: int
+        - pseudo: String
+        - lastSeen: Instant
+        --
+        + ContactClient(contactId: int, pseudo: String)
+        + getContactId(): int
+        + getPseudo(): String
+        + setPseudo(pseudo: String): void
+        + getLastSeen(): Instant
+        + updateLastSeen(): void
+    }
+    
+    class ContactRequest {
+        - requestId: String
+        - senderId: int
+        - receiverId: int
+        - createdAt: Instant
+        - expiresAt: Instant
+        - status: Status
+        --
+        + ContactRequest(requestId: String, senderId: int, receiverId: int, createdAt: Instant, expiresAt: Instant)
+        + getRequestId(): String
+        + getSenderId(): int
+        + getReceiverId(): int
+        + getCreatedAt(): Instant
+        + getExpiresAt(): Instant
+        + getStatus(): Status
+        + setStatus(status: Status): void
+        + isExpired(): boolean
+        + isActive(): boolean
+    }
+    
+    enum Status {
+        PENDING
+        ACCEPTED
+        REJECTED
+        EXPIRED
+    }
+    
+    ContactRequest +-- Status
+    
+    class ConversationClient {
+        - conversationId: String
+        - isGroup: boolean
+        - messages: Map<String, Message>
+        - messageOrder: List<String>
+        --
+        + ConversationClient(conversationId: String, isGroup: boolean)
+        + getConversationId(): String
+        + isGroup(): boolean
+        + addMessage(message: Message): void
+        + getMessage(messageId: String): Message
+        + getMessages(): List<Message>
+        + getLastMessage(): Message
+        + getUnreadCount(): int
+        + markAllAsRead(): void
+    }
+    
+    class Message {
+        - messageId: String
+        - fromUserId: int
+        - toUserId: int
+        - content: String
+        - timestamp: long
+        - replyToMessageId: String
+        - status: MessageStatus
+        --
+        + Message(messageId: String, fromUserId: int, toUserId: int, content: String, timestamp: long, replyToMessageId: String)
+        + getMessageId(): String
+        + getFromUserId(): int
+        + getToUserId(): int
+        + getContent(): String
+        + getTimestamp(): long
+        + getReplyToMessageId(): String
+        + getStatus(): MessageStatus
+        + setStatus(status: MessageStatus): void
+        + isRead(): boolean
+    }
+    
+    class GroupClient {
+        - groupId: int
+        - title: String
+        - adminId: int
+        - members: Set<Integer>
+        --
+        + GroupClient(groupId: int, title: String, adminId: int)
+        + getGroupId(): int
+        + getTitle(): String
+        + setTitle(title: String): void
+        + getAdminId(): int
+        + getMembers(): Set<Integer>
+        + addMember(memberId: int): void
+        + removeMember(memberId: int): void
+        + isMember(userId: int): boolean
+        + isAdmin(userId: int): boolean
+    }
+    
+    interface Media {
+        + getMediaId(): String
+        + getMediaType(): String
+        + getThumbnail(): byte[]
+        + getContent(): byte[]
+        + isLoaded(): boolean
+    }
+    
+    ' ===== REPOSITORIES =====
+    class ContactClientRepository extends AbstractRepository {
+        - pendingRequests: Map<String, ContactRequest>
+        - sentRequests: Map<Integer, String>
+        - receivedRequests: Map<Integer, String>
+        - {static} DEFAULT_REQUEST_EXPIRATION: Duration = 7 days
+        --
+        + ContactClientRepository(contacts: Map, pendingRequests: Map, sentRequests: Map, receivedRequests: Map)
+        + ContactClientRepository()
+        + isContact(contactId: int): boolean
+        + addSentRequest(request: ContactRequest): void
+        + addReceivedRequest(request: ContactRequest): void
+        + getRequest(requestId: String): ContactRequest
+        + hasSentRequestTo(receiverId: int): boolean
+        + hasReceivedRequestFrom(senderId: int): boolean
+        + getSentRequestTo(receiverId: int): ContactRequest
+        + getReceivedRequestFrom(senderId: int): ContactRequest
+        + getPendingReceivedRequests(): Set<ContactRequest>
+        + getPendingSentRequests(): Set<ContactRequest>
+        + removeRequest(requestId: String): void
+        + cleanupExpiredRequests(): int
+        + {static} createRequest(requestId: String, senderId: int, receiverId: int): ContactRequest
+        # getKey(entity: ContactClient): Integer
+    }
+    
+    class ConversationClientRepository extends AbstractRepository {
+        --
+        + ConversationClientRepository()
+        + getOrCreate(id: String, isGroup: boolean): ConversationClient
+        # getKey(entity: ConversationClient): String
+    }
+    
+    class GroupClientRepository extends AbstractRepository {
+        --
+        + GroupClientRepository()
+        # getKey(entity: GroupClient): Integer
+    }
+    
+    ' ===== CLI =====
+    class CliClient {
+        - client: Client
+        - controller: ClientController
+        - router: ClientPaquetRouter
+        - scanner: Scanner
+        - running: boolean
+        --
+        + {static} main(args: String[]): void
+        + CliClient()
+        - setupHandlers(): void
+        - setupEventListeners(): void
+        - run(): void
+        - handleCommand(command: String): void
+        - displayHelp(): void
+        - displayContacts(): void
+        - displayConversations(): void
+        - displayMessages(conversationId: String): void
+    }
+    
+    ' Relations Client
+    Client *-- PendingCommandManager
+    Client o-- PacketProcessor
+    
+    ClientController *-- Client
+    ClientController *-- UserClient
+    ClientController *-- ContactClientRepository
+    ClientController *-- ConversationClientRepository
+    ClientController *-- GroupClientRepository
+    ClientController o-- EventBus
+    
+    ClientPaquetRouter *-- "many" ClientPacketHandler
+    
+    EventBus *-- "many" EventSubscription
+    EventSubscription o-- EventObserver
+    EventSubscription o-- EventFilter
+    EventSubscription o-- ExecutionMode
+    
+    PendingCommandManager o-- "many" PendingCommand
+    
+    ContactClientRepository ..> ContactClient
+    ContactClientRepository ..> ContactRequest
+    ConversationClientRepository ..> ConversationClient
+    GroupClientRepository ..> GroupClient
+    
+    ConversationClient *-- "many" Message
+    Message --> MessageStatus
+    
+    CliClient *-- Client
+    CliClient *-- ClientController
+    CliClient *-- ClientPaquetRouter
+}
+
+' ============================================
+' PACKAGE SERVER
+' ============================================
+package "server" SERVER_PKG {
+    
+    ' ===== SERVER CORE =====
+    class TchatsAppServer {
+        - {static} LOG: Logger
+        - {static} MAX_MSG_SIZE: int = 2<<20
+        - {static} BUFFER_LENGTH: int = 2<<16
+        - IDENTIFY_TIMEOUT: int = 1
+        - activeConnections: Map<SocketChannel, ConnectionState>
+        - connectedClients: Map<Integer, ConnectionState>
+        - clientQueues: Map<Integer, Queue<ByteBuffer>>
+        - packetProcessor: PacketProcessor
+        - idGenerator: IdGenerator
+        - workers: ExecutorService
+        - scheduler: ScheduledExecutorService
+        - selector: Selector
+        - started: boolean {volatile}
+        - serverContext: ServerContext
+        --
+        + TchatsAppServer(port: int, workers: int)
+        + setPacketProcessor(p: PacketProcessor): void
+        + start(): void
+        + stop(): void
+        + sendPacket(pkt: Packet): void
+        + removeClient(clientId: int): void
+        + {static} main(args: String[]): void
+        - accept(key: SelectionKey): void
+        - read(key: SelectionKey): void
+        - write(key: SelectionKey): void
+        - readPacket(state: ConnectionState): void
+        - readPacketHeader(buf: ByteBuffer, state: ConnectionState): void
+        - wakeupSendQueue(channel: SocketChannel): void
+        - processMessage(message: ProtocolMessage): void
+        - closeChannel(sc: SocketChannel): void
+        - closeKey(key: SelectionKey): void
+    }
+    
+    class ConnectionState {
+        - channel: SocketChannel
+        - clientId: int
+        - connectedAt: Instant
+        - readBuffer: ByteBuffer
+        - identified: boolean {volatile}
+        - currentPacket: PacketBuilder
+        --
+        + ConnectionState(c: SocketChannel)
+    }
+    
+    TchatsAppServer +-- ConnectionState
+    
+    class ServerContext {
+        - userRepository: UserRepository
+        - currentConnectionState: ThreadLocal<ConnectionState>
+        --
+        + getUserRepository(): UserRepository
+        + sendPacketToClient(pkt: Packet): void
+        + generateClientId(): int
+        + setCurrentConnectionState(state: ConnectionState): void
+        + clearCurrentConnectionState(): void
+        + getCurrentConnectionState(): ConnectionState
+        + registerConnection(state: ConnectionState, clientId: int): boolean
+        + isClientRegistered(clientId: int): boolean
+        + isClientConnected(clientId: int): boolean
+        + closeConnection(state: ConnectionState): void
+    }
+    
+    TchatsAppServer +-- ServerContext
+    
+    ' ===== SERVER ROUTING =====
+    class ServerPacketRouter implements PacketProcessor {
+        - handlers: List<ServerPacketHandler>
+        - context: ServerContext
+        --
+        + ServerPacketRouter(context: ServerContext)
+        + addHandler(handler: ServerPacketHandler): void
+        + removeHandler(handler: ServerPacketHandler): void
+        + process(message: ProtocolMessage): void
+    }
+    
+    abstract class ServerPacketHandler {
+        + {abstract} handle(message: ProtocolMessage, context: ServerContext): void
+        + {abstract} canHandle(messageType: MessageType): boolean
+    }
+    
+    class ValidatingServerPacketHandler extends ServerPacketHandler {
+        - delegate: ServerPacketHandler
+        --
+        + ValidatingServerPacketHandler(delegate: ServerPacketHandler)
+        + handle(message: ProtocolMessage, context: ServerContext): void
+        + canHandle(messageType: MessageType): boolean
+        - validate(message: ProtocolMessage, context: ServerContext): boolean
+    }
+    
+    class RelayMessageHandler extends ServerPacketHandler {
+        + handle(message: ProtocolMessage, context: ServerContext): void
+        + canHandle(messageType: MessageType): boolean
+    }
+    
+    class UserManagementMessageHandler extends ServerPacketHandler {
+        + handle(message: ProtocolMessage, context: ServerContext): void
+        + canHandle(messageType: MessageType): boolean
+        - handleCreateUser(message: ManagementMessage, context: ServerContext): void
+        - handleConnectUser(message: ManagementMessage, context: ServerContext): void
+        - handleUpdatePseudo(message: ManagementMessage, context: ServerContext): void
+        - handleRemoveContact(message: ManagementMessage, context: ServerContext): void
+    }
+    
+    class ContactRequestServerHandler extends ServerPacketHandler {
+        + handle(message: ProtocolMessage, context: ServerContext): void
+        + canHandle(messageType: MessageType): boolean
+        - handleContactRequest(message: ContactRequestMessage, context: ServerContext): void
+        - handleContactRequestResponse(message: ContactRequestResponseMessage, context: ServerContext): void
+    }
+    
+    class AckMessageHandler extends ServerPacketHandler {
+        + handle(message: ProtocolMessage, context: ServerContext): void
+        + canHandle(messageType: MessageType): boolean
+    }
+    
+    ' ===== SERVER UTILITIES =====
+    class AckHelper {
+        --
+        + {static} sendAck(context: ServerContext, originalMessage: ProtocolMessage, ackType: MessageStatus): void
+        + {static} sendAckWithError(context: ServerContext, originalMessage: ProtocolMessage, errorReason: String): void
+        + {static} sendConnectionAck(context: ServerContext, to: int, success: boolean): void
+    }
+    
+    ' ===== SERVER MODELS =====
+    class UserInfo {
+        - userId: int
+        - contacts: Set<Integer>
+        --
+        + UserInfo(userId: int)
+        + getUserId(): int
+        + getContacts(): Set<Integer>
+        + addContact(contactId: int): void
+        + removeContact(contactId: int): void
+        + hasContact(contactId: int): boolean
+    }
+    
+    ' ===== SERVER REPOSITORY =====
+    class UserRepository extends AbstractRepository {
+        --
+        + UserRepository()
+        + isUserRegistered(userId: int): boolean
+        + getUserContacts(userId: int): Set<Integer>
+        + addContactToUser(userId: int, contactId: int): void
+        + removeContactFromUser(userId: int, contactId: int): void
+        # getKey(entity: UserInfo): Integer
+    }
+
+    ' Relations Server
+    TchatsAppServer *-- ServerContext
+    TchatsAppServer *-- "many" ConnectionState
+    TchatsAppServer o-- PacketProcessor
+    TchatsAppServer o-- IdGenerator
+    
+    ServerContext *-- UserRepository
+    
+    ServerPacketRouter *-- "many" ServerPacketHandler
+    ValidatingServerPacketHandler o-- ServerPacketHandler
+    
+    UserRepository ..> UserInfo
+}
+
+' ============================================
+' RELATIONS ENTRE PACKAGES
+' ============================================
+Client ..> Packet
+Client ..> MessageFactory
+ClientPaquetRouter ..> MessageFactory
+
+TchatsAppServer ..> Packet
+TchatsAppServer ..> MessageFactory
+ServerPacketRouter ..> MessageFactory
+
+note as PatternsNote
+    **Patterns de Conception Utilisés:**
+    
+    **Creational:**
+    - Factory (MessageFactory)
+    - Builder (Packet.PacketBuilder)
+    - Singleton (EventBus)
+    
+    **Structural:**
+    - Facade (ClientController)
+    - Decorator (ValidatingServerPacketHandler)
+    - Repository (AbstractRepository)
+    
+    **Behavioral:**
+    - Strategy (PacketProcessor)
+    - Chain of Responsibility (Handlers)
+    - Observer (EventBus)
+    - Command (PendingCommand)
+    
+    **Architectural:**
+    - Publisher-Subscriber (EventBus)
+    - Service Provider (MessageProvider)
+end note
+
+@enduml
