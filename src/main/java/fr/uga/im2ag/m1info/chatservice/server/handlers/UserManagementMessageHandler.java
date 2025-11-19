@@ -140,7 +140,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
      */
     private void removeContact(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
         int from = managementMessage.getFrom();
-        int contactId = managementMessage.getParamAsType("contactId", Double.class).intValue();
+        int contactId = managementMessage.getParamAsType("contactId", Integer.class);
 
         if (!validateSenderRegistered(managementMessage, serverContext)) { return; }
         if (!checkContactRelationship(from, contactId, serverContext)) {

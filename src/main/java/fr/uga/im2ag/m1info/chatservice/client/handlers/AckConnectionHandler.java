@@ -13,7 +13,7 @@ public class AckConnectionHandler extends ClientPacketHandler {
             throw new IllegalArgumentException("Invalid message type for AckConnectionHandler");
         }
 
-        int clientId = ackMsg.getParamAsType("clientId", Double.class).intValue();
+        int clientId = ackMsg.getParamAsType("clientId", Integer.class);
         String pseudo = ackMsg.getParamAsType("pseudo", String.class);
         Boolean isNewUser = ackMsg.getParamAsType("newUser", Boolean.class);
 

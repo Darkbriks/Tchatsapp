@@ -10,11 +10,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.function.Supplier;
+import java.util.logging.Logger;
 
 /**
  * Factory class for creating ProtocolMessage instances from Packets.
  */
 public class MessageFactory {
+    private static final Logger LOG = Logger.getLogger(MessageFactory.class.getName());
     private static final Map<MessageType, Supplier<ProtocolMessage>> registry = new HashMap<>();
     private static MessageIdGenerator messageIdGenerator;
 
@@ -24,10 +26,10 @@ public class MessageFactory {
         for (MessageProvider provider : loader) {
             for (MessageType type : provider.getType()) {
                 if (registry.containsKey(type)) {
-                    System.err.println("Warning: Overriding existing message provider for type: " + type);
+                    LOG.warning("Overriding existing message provider for type: " + type);
                 }
                 registry.put(type, provider::createInstance);
-                System.out.println("Registered message provider for type: " + type);
+                LOG.info("Registered message provider for type: " + type);
             }
         }
 
@@ -55,7 +57,7 @@ public class MessageFactory {
         MessageType type = packet.messageType();
         Supplier<ProtocolMessage> constructor = registry.get(type);
         if (constructor == null) {
-            System.out.println("Supported types: " + registry.keySet());
+            LOG.severe("Unknown message type: " + type);
             throw new IllegalArgumentException("Unknown message type: " + type);
         }
         ProtocolMessage msg = constructor.get();
@@ -74,7 +76,7 @@ public class MessageFactory {
     public static ProtocolMessage create(MessageType type, int from, int to) {
         Supplier<ProtocolMessage> constructor = registry.get(type);
         if (constructor == null) {
-            System.out.println("Supported types: " + registry.keySet());
+            LOG.severe("Unknown message type: " + type);
             throw new IllegalArgumentException("Unknown message type: " + type);
         }
         ProtocolMessage msg = constructor.get();

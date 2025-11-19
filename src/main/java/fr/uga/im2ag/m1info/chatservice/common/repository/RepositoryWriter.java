@@ -1,4 +1,4 @@
-package fr.uga.im2ag.m1info.chatservice.client.utils;
+package fr.uga.im2ag.m1info.chatservice.common.repository;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -6,26 +6,37 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.logging.Logger;
 
+/**
+ * A generic repository writer that handles serialization and deserialization of data to and from a file.
+ *
+ * @param <T> the type of data to be stored in the repository
+ */
+// TODO: Find a way to reduce I/O operations for performance improvement
 public class RepositoryWriter<T> {
+    private static final Logger LOG = Logger.getLogger(RepositoryWriter.class.getName());
     private final String filePath;
 
     public RepositoryWriter(String filePath) {
-        Path dossier = null;
+        Path folder = null;
+        String fp = System.getProperty("user.dir");
         try {
-            dossier = Files.createTempDirectory("tchatsapp");
+            folder = Files.createTempDirectory("tchatsapp");
+            fp = folder.toAbsolutePath().toString();
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.severe("Failed to create temporary directory: " + e.getMessage());
+        } finally {
+            this.filePath = fp + File.separator + filePath + ".dat";
+            LOG.info("RepositoryWriter initialized with file path: " + this.filePath);
         }
-        this.filePath = dossier.toAbsolutePath().toString() + File.separator + filePath + ".dat";
-        System.out.println(this.filePath);
     }
 
     public void writeData(Set<T> dataSet) {
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(filePath))) {
             oos.writeObject(dataSet);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.severe("Failed to write data to file: " + e.getMessage());
         }
     }
 
@@ -35,6 +46,7 @@ public class RepositoryWriter<T> {
         writeData(existingData);
     }
 
+    @SuppressWarnings("unchecked")
     public Set<T> readData() {
         File file = new File(filePath);
         if (!file.exists()) {
@@ -48,7 +60,7 @@ public class RepositoryWriter<T> {
             }
             return new HashSet<T>();
         } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
+            LOG.severe("Failed to read data from file: " + e.getMessage());
             return new HashSet<T>();
         }
     }

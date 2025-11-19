@@ -5,6 +5,13 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.atomic.AtomicLong;
 
+/** Utility class for generating unique message IDs,
+ * using SHA-256, user ID, timestamp, and a counter.
+ * Security is not a goal here, just uniqueness.
+ * <p>
+ * Message ID can be useful to have responses to specific messages,
+ * or reactions, for example.
+ */
 public class ShaIdGenerator implements MessageIdGenerator {
     private final AtomicLong counter;
 

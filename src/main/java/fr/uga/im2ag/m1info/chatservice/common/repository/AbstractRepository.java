@@ -1,11 +1,16 @@
 package fr.uga.im2ag.m1info.chatservice.common.repository;
 
-import fr.uga.im2ag.m1info.chatservice.client.utils.RepositoryWriter;
-
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * An abstract implementation of the Repository interface providing basic CRUD operations
+ * and caching functionality.
+ *
+ * @param <K> the type of the identifier for the entities
+ * @param <V> the type of entities to be managed by the repository
+ */
 public abstract class AbstractRepository<K, V> implements Repository<K, V> {
     protected final Map<K, V> storage;
     private final RepositoryWriter<V> writer;

@@ -8,6 +8,7 @@ import java.time.Instant;
 /**
  * Class representing an error message in the chat service protocol.
  */
+// TODO: Delete this class to use Ack only
 public class ErrorMessage extends ProtocolMessage {
 
     public enum ErrorLevel {

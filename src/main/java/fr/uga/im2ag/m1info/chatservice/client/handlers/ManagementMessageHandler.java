@@ -1,13 +1,11 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
-import java.util.Set;
-
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.*;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
-import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
+import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 
@@ -43,7 +41,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
     }
 
     private void removeContact(ManagementMessage message, ClientController context) {
-        int contactId = message.getParamAsType("contactId", Double.class).intValue();
+        int contactId = message.getParamAsType("contactId", Integer.class);
 
         // TODO: Discuss about whether to delete the conversation or keep it
         context.getContactRepository().delete(contactId);
