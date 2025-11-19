@@ -18,6 +18,7 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import java.time.ZoneId;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
+import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 /**
@@ -25,7 +26,6 @@ import java.util.Scanner;
  * Provides a text-based menu to interact with the chat service.
  */
 public class CliClient {
-    private static final int SERVER_ID = 0;
     private static final String DEFAULT_HOST = "localhost";
     private static final int DEFAULT_PORT = 1666;
     private static final DateTimeFormatter TIME_FORMATTER =
@@ -321,22 +321,22 @@ public class CliClient {
      * Display the main menu.
      */
     private void displayMenu() {
-        System.out.println("\n╔════════════════════════════════════════════════╗");
-        System.out.println("║              TCHATSAPP MAIN MENU               ║");
-        System.out.println("╠════════════════════════════════════════════════╣");
-        System.out.println("║ 1. Send a message                              ║");
-        System.out.println("║ 2. Send contact request                        ║");
-        System.out.println("║ 3. View pending contact requests               ║");
-        System.out.println("║ 4. Accept/Reject contact request               ║");
-        System.out.println("║ 5. Remove a contact                            ║");
-        System.out.println("║ 6. Change your username                        ║");
-        System.out.println("║ 7. Group gestion                               ║");
-        System.out.println("║ 8. List contacts                               ║");
-        System.out.println("║ 9. List groups                                 ║");
-        System.out.println("║ 10. List conversations                         ║");
-        System.out.println("║ 11. View conversation history                  ║");
-        System.out.println("║ 0. Quit                                        ║");
-        System.out.println("╚════════════════════════════════════════════════╝");
+        System.out.println("\n╔═════════════════════════════════════════════════╗");
+        System.out.println("║               TCHATSAPP MAIN MENU               ║");
+        System.out.println("╠═════════════════════════════════════════════════╣");
+        System.out.println("║  1. Send a message                              ║");
+        System.out.println("║  2. Send contact request                        ║");
+        System.out.println("║  3. View pending contact requests               ║");
+        System.out.println("║  4. Accept/Reject contact request               ║");
+        System.out.println("║  5. Remove a contact                            ║");
+        System.out.println("║  6. Change your username                        ║");
+        System.out.println("║  7. Group gestion                               ║");
+        System.out.println("║  8. List contacts                               ║");
+        System.out.println("║  9. List groups                                 ║");
+        System.out.println("║ 10. List conversations                          ║");
+        System.out.println("║ 11. View conversation history                   ║");
+        System.out.println("║  0. Quit                                        ║");
+        System.out.println("╚═════════════════════════════════════════════════╝");
         System.out.print("Your choice: ");
     }
 
@@ -371,11 +371,14 @@ public class CliClient {
      * @return The integer user provide 
      * @throws throw e; 
      */
-    private int readIntegerFromUser(String errorMessage){
-        int result;
+    private int readIntegerFromUser(String errorMessage) throws IOException{
+        int result = 0;
         try {
             result = scanner.nextInt();
             scanner.nextLine();
+        } catch (NoSuchElementException e){
+            System.out.println("Control D catch ");
+            System.exit(1);
         } catch (Exception e) {
             System.err.println("Invalid ID.");
             scanner.nextLine();
