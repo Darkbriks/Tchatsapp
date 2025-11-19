@@ -1,12 +1,13 @@
 package fr.uga.im2ag.m1info.chatservice.server.model;
 
+import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
 /**
  * Class representing group information used by the chat server.
  */
-public class GroupInfo {
+public class GroupInfo implements Serializable {
     private final int id;
     private final int adminId;
     private String groupName;

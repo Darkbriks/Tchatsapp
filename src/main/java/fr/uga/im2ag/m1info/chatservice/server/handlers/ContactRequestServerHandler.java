@@ -77,7 +77,7 @@ public class ContactRequestServerHandler extends ValidatingServerPacketHandler {
         // Forward to receiver
         serverContext.sendPacketToClient(crMsg.toPacket());
 
-        System.out.printf("[Server] Contact request from %d to %d forwarded%n", senderId, receiverId);
+        LOG.info(String.format("[Server] Contact request from %d to %d forwarded", senderId, receiverId));
     }
 
     /**
@@ -92,23 +92,21 @@ public class ContactRequestServerHandler extends ValidatingServerPacketHandler {
         // Validate that this request actually exists and matches
         PendingRequest pending = pendingRequests.get(requestId);
         if (pending == null) {
-            System.err.printf("[Server] Response to unknown request %s from user %d%n", requestId, responderId);
+            LOG.warning(String.format("[Server] Response to unknown request %s from user %d%n", requestId, responderId));
             AckHelper.sendFailedAck(serverContext, crMsg, "Unknown request");
             return;
         }
 
         // Validate that the responder is the actual receiver
         if (pending.receiverId != responderId) {
-            System.err.printf("[Server] User %d attempted to respond to request meant for user %d (SPOOFING ATTEMPT)%n",
-                    responderId, pending.receiverId);
+            LOG.warning(String.format("[Server] Response to request %s from invalid responder %d (expected %d)%n", requestId, responderId, pending.receiverId));
             AckHelper.sendFailedAck(serverContext, crMsg, "Invalid responder");
             return;
         }
 
         // Validate that the target is the actual sender
         if (pending.senderId != originalSenderId) {
-            System.err.printf("[Server] Response targets wrong user %d instead of %d%n",
-                    originalSenderId, pending.senderId);
+            LOG.warning(String.format("[Server] Response to request %s targets invalid user %d (expected %d)%n", requestId, originalSenderId, pending.senderId));
             AckHelper.sendFailedAck(serverContext, crMsg, "Invalid target");
             return;
         }
@@ -120,7 +118,7 @@ public class ContactRequestServerHandler extends ValidatingServerPacketHandler {
             UserInfo sender = serverContext.getUserRepository().findById(originalSenderId);
 
             if (responder == null || sender == null) {
-                System.err.printf("[Server] User not found during contact acceptance%n");
+                LOG.warning(String.format("[Server] User not found during contact acceptance for request %s%n", requestId));
                 AckHelper.sendFailedAck(serverContext, crMsg, "User not found");
                 return;
             }
@@ -130,10 +128,9 @@ public class ContactRequestServerHandler extends ValidatingServerPacketHandler {
             serverContext.getUserRepository().update(responderId, responder);
             serverContext.getUserRepository().update(originalSenderId, sender);
 
-            System.out.printf("[Server] Contact request accepted: users %d and %d are now contacts%n",
-                    originalSenderId, responderId);
+            LOG.info(String.format("[Server] Contact request accepted: users %d and %d are now contacts%n", originalSenderId, responderId));
         } else {
-            System.out.printf("[Server] Contact request rejected by user %d%n", responderId);
+            LOG.info(String.format("[Server] Contact request %s rejected by user %d%n", requestId, responderId));
         }
 
         // Send ACK to responder

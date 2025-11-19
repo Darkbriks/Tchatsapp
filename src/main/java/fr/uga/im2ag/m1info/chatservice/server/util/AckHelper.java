@@ -7,10 +7,14 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
 
+import java.util.logging.Logger;
+
 /**
  * Utility class for sending acknowledgment messages from the server to clients.
  */
 public class AckHelper {
+    private static final Logger LOGGER = Logger.getLogger(AckHelper.class.getName());
+
     /**
      * Send a SENT acknowledgment to the client who sent the message.
      * This indicates the server has received and processed the message.
@@ -74,9 +78,9 @@ public class AckHelper {
 
         serverContext.sendPacketToClient(ack.toPacket());
 
-        System.out.printf("[Server] Sent %s ACK for message %s to client %d%n",
+        LOGGER.info(String.format("Sent %s ACK for message %s to client %d",
                 ackType,
-                originalMessage.getMessageId().substring(0, Math.min(8, originalMessage.getMessageId().length())),
-                originalMessage.getFrom());
+                originalMessage.getMessageId(),
+                originalMessage.getFrom()));
     }
 }

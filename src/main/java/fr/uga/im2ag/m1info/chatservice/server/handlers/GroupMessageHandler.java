@@ -1,15 +1,15 @@
 package fr.uga.im2ag.m1info.chatservice.server.handlers;
 
-import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
+import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
+import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer.ServerContext;
 import fr.uga.im2ag.m1info.chatservice.server.model.GroupInfo;
 import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
-import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer.ServerContext;
 import fr.uga.im2ag.m1info.chatservice.server.util.AckHelper;
 
 public class GroupMessageHandler extends  ServerPacketHandler {
@@ -37,24 +37,24 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
         GroupInfo group = serverContext.getGroupRepository().findById(groupId);
         if (group == null) {
-            System.out.printf("[Server] Group %d not found while trying to update name%n", groupId);
+            LOG.warning(String.format("Group %d not found while trying to update name", groupId));
             return;
         }
 
         if (group.getAdminId() != adminGroup){
-            System.out.printf("[Server] User %d is not the admin of group %d. Real admin is %d%n", adminGroup, groupId, group.getAdminId());
+            LOG.warning(String.format("User %d is not the admin of group %d. Real admin is %d", adminGroup, groupId, group.getAdminId()));
             return;
         }
 
         if (newGroupName == null || newGroupName.isEmpty()) {
-            System.out.printf("[Server] User %d provided invalid new groupName for group %d %n", adminGroup, groupId);
+            LOG.warning(String.format("User %d provided invalid new groupName for group %d", adminGroup, groupId));
             serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.ERROR, "INVALID_PSEUDO", "The new pseudo cannot be null or empty.");
             return;
         }
 
         group.setGroupName(newGroupName);
         serverContext.getGroupRepository().update(group.getId(), group);
-        System.out.printf("[Server] Group %d updated name to %s%n", groupId, newGroupName);
+        LOG.info(String.format("Group %d updated name to %s", groupId, newGroupName));
 
         for (int menberId : group.getMenbers()) {
             if (serverContext.isClientConnected(menberId)) {
@@ -83,23 +83,23 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         GroupInfo group = serverContext.getGroupRepository().findById(groupId);
         UserInfo oldMenber = serverContext.getUserRepository().findById(oldMenberID);
         if (group == null) {
-            System.out.printf("[Server] Group %d not found while trying to remove menber%n", groupId);
+            LOG.warning(String.format("Group %d not found while trying to remove menber", groupId));
             return;
         }
 
         if (group.getAdminId() != adminGroup){
-            System.out.printf("[Server] User %d is not the admin of group %d. Real admin is %d%n", adminGroup, groupId, group.getAdminId());
+            LOG.warning(String.format("User %d is not the admin of group %d. Real admin is %d", adminGroup, groupId, group.getAdminId()));
             return;
         }
 
         if (oldMenber == null) {
-            System.out.printf("[Server] User %d provided invalid menberId to remove , [%d] not found\n", adminGroup, oldMenberID);
+            LOG.warning(String.format("User %d provided invalid menberId to remove , [%d] not found", adminGroup, oldMenberID));
             serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_EXISTING", "Cannot remove non-existing user as menber.");
             return;
         }
 
         if (! group.hasMenber(oldMenberID)) {
-            System.out.printf("[Server] User %d provided invalid menberId to remove , [%d] not in group\n", adminGroup, oldMenberID);
+            LOG.warning(String.format("User %d provided invalid menberId to remove , [%d] not in group", adminGroup, oldMenberID));
             serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_INSIDE", "Cannot remove user who is not a menber.");
             return;
         }
@@ -118,7 +118,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         
         group.removeMenber(oldMenberID);
         serverContext.getGroupRepository().update(group.getId(), group);
-        System.out.printf("[Server] Group %d remove menber %d%n", groupId, oldMenberID);
+        LOG.info(String.format("Group %d remove menber %d", groupId, oldMenberID));
 
         AckHelper.sendSentAck(serverContext, groupManagementMessage);
     }
@@ -131,25 +131,25 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         GroupInfo group = serverContext.getGroupRepository().findById(groupId);
         UserInfo newMenber = serverContext.getUserRepository().findById(newMenberID);
         if (group == null) {
-            System.out.printf("[Server] Group %d not found while trying to add menber%n", groupId);
+            LOG.warning(String.format("Group %d not found while trying to add menber", groupId));
             AckHelper.sendFailedAck(serverContext, groupManagementMessage, "Group not found");
             return;
         }
 
         if (group.getAdminId() != adminGroup){
-            System.out.printf("[Server] User %d is not the admin of group %d. Real admin is %d%n", adminGroup, groupId, group.getAdminId());
+            LOG.warning(String.format("User %d is not the admin of group %d. Real admin is %d", adminGroup, groupId, group.getAdminId()));
             AckHelper.sendFailedAck(serverContext, groupManagementMessage, "You are not the admin");
             return;
         }
 
         if (newMenber == null) {
-            System.out.printf("[Server] User %d provided invalid menberId to add, [%d] not found\n", adminGroup, newMenberID);
+            LOG.warning(String.format("User %d provided invalid menberId to add , [%d] not found", adminGroup, newMenberID));
             AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User to add don't exists");
             serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_EXISTING", "Cannot add non-existing user as menber.");
             return;
         }
         if (newMenberID == adminGroup) {
-            System.out.printf("[Server] User %d provided invalid menberId to add, [%d] add himself\n", adminGroup, newMenberID);
+            LOG.warning(String.format("User %d provided invalid menberId to add , [%d] add himself", adminGroup, newMenberID));
             AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User add himself");
             serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_EXISTING", "Cannot add already inside user as menber.");
             return;
@@ -168,7 +168,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
         group.addMenber(newMenberID);
         serverContext.getGroupRepository().update(group.getId(), group);
-        System.out.printf("[Server] Group %d add menber %d%n", adminGroup, newMenberID);
+        LOG.info(String.format("Group %d add menber %d", groupId, newMenberID));
         ManagementMessage message  = (ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, newMenberID);
         message.addParam(KeyInMessage.MENBER_ADD_ID, newMenberID)
                 .addParam(KeyInMessage.GROUP_ID, groupId)
@@ -193,17 +193,17 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         GroupInfo group = serverContext.getGroupRepository().findById(groupId);
         UserInfo newMenber = serverContext.getUserRepository().findById(groupMenber);
         if (group == null) {
-            System.out.printf("[Server] Group %d not found while a menber trying to leave%n", groupId);
+            LOG.warning(String.format("Group %d not found while a menber trying to leave", groupId));
             return;
         }
 
         if (! group.hasMenber(groupMenber)){
-            System.out.printf("[Server] User %d is not in the group %d but try to leave i\n", groupMenber, groupId);
+            LOG.warning(String.format("User %d is not in the group %d but try to leave i", groupMenber, groupId));
             return;
         }
 
         if (newMenber == null) {
-            System.out.printf("[Server] User %d doesn't exist and tyr to leave group %d\n", groupMenber, groupId);
+            LOG.warning(String.format("User %d provided invalid menberId to leave , [%d] not found", groupMenber, groupMenber));
             serverContext.sendErrorMessage(0, groupMenber, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_EXISTING", "Cannot add non-existing user as menber.");
             return;
         }
@@ -211,7 +211,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
         for (int menberId : group.getMenbers()) {
             if (serverContext.isClientConnected(menberId)) {
-                System.out.printf("[Server] menber %d leave group %d Send this info to %d\n", groupMenber, groupId, menberId);
+                LOG.info(String.format("menber %d leave group %d Send this info to %d", groupMenber, groupId, menberId));
                 serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.LEAVE_GROUP, groupId, menberId))
                         .addParam(KeyInMessage.GROUP_ID, groupId)
                         .addParam(KeyInMessage.MENBER_REMOVE_ID, groupMenber )
@@ -222,7 +222,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
         group.removeMenber(groupMenber);
         serverContext.getGroupRepository().update(group.getId(), group);
-        System.out.printf("[Server] menber %d leave group %d \n", groupMenber, groupId);
+        LOG.info(String.format("menber %d leave group %d", groupMenber, groupId));
 
         AckHelper.sendSentAck(serverContext, groupManagementMessage);
     }
@@ -235,7 +235,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         GroupInfo group = new GroupInfo(groupID, adminGroup, newGroupName);
         group.addMenber(adminGroup);
         serverContext.getGroupRepository().add(group);
-        System.out.printf("[Server] Group %d with name %s now exist and admin is menber %d%n", groupID, newGroupName, adminGroup);
+        LOG.info(String.format("Group %d with name %s now exist and admin is menber %d", groupID, newGroupName, adminGroup));
         serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.CREATE_GROUP, groupID, adminGroup))
                 .addParam(KeyInMessage.GROUP_ID, groupID)
                 .addParam(KeyInMessage.GROUP_NAME, newGroupName)

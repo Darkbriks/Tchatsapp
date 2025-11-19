@@ -48,7 +48,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
     private void createUser(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
         TchatsAppServer.ConnectionState state = serverContext.getCurrentConnectionState();
         if (state == null) {
-            System.err.println("[Server] CREATE_USER called without connection state");
+            ServerPacketHandler.LOG.warning("CREATE_USER called without connection state");
             return;
         }
 
@@ -63,7 +63,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
         serverContext.getUserRepository().add(newUser);
 
         if (!serverContext.registerConnection(state, newClientId)) {
-            System.err.println("[Server] Failed to register connection for new user " + newClientId);
+            ServerPacketHandler.LOG.warning("Failed to register connection for new user " + newClientId);
             serverContext.sendErrorMessage(0, newClientId, ErrorMessage.ErrorLevel.ERROR, "CONNECTION_FAILED", "Failed to register connection");
             serverContext.closeConnection(state);
             return;
@@ -75,7 +75,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
                 .addParam("newUser", true);
         serverContext.sendPacketToClient(response.toPacket());
 
-        System.out.printf("[Server] Created new user: id=%d, pseudo=%s%n", newClientId, pseudo);
+        ServerPacketHandler.LOG.info(String.format("Created new user: id=%d, pseudo=%s", newClientId, pseudo));
     }
 
     /**
@@ -88,7 +88,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
     private void connectUser(TchatsAppServer.ServerContext serverContext, ManagementMessage managementMessage) {
         TchatsAppServer.ConnectionState state = serverContext.getCurrentConnectionState();
         if (state == null) {
-            System.err.println("[Server] CONNECT_USER called without connection state");
+            ServerPacketHandler.LOG.warning("CONNECT_USER called without connection state");
             return;
         }
 
@@ -98,7 +98,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
 
         // Check if already connected
         if (serverContext.isClientConnected(clientId)) {
-            System.out.printf("[Server] Client %d is already connected%n", clientId);
+            ServerPacketHandler.LOG.warning("Client " + clientId + " is already connected");
             serverContext.sendErrorMessage(0, clientId, ErrorMessage.ErrorLevel.ERROR, "ALREADY_CONNECTED", "This account is already connected from another location.");
             serverContext.closeConnection(state);
             return;
@@ -106,7 +106,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
 
         // Register the connection
         if (!serverContext.registerConnection(state, clientId)) {
-            System.err.println("[Server] Failed to register connection for user " + clientId);
+            ServerPacketHandler.LOG.warning("Failed to register connection for user " + clientId);
             serverContext.sendErrorMessage(0, clientId, ErrorMessage.ErrorLevel.ERROR, "CONNECTION_FAILED", "Failed to register connection");
             serverContext.closeConnection(state);
             return;
@@ -127,7 +127,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
         response.addParam("newUser", false);
         serverContext.sendPacketToClient(response.toPacket());
 
-        System.out.printf("[Server] Client %d connected successfully%n", clientId);
+        ServerPacketHandler.LOG.info("Client " + clientId + " connected successfully");
     }
 
     /**
@@ -144,7 +144,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
 
         if (!validateSenderRegistered(managementMessage, serverContext)) { return; }
         if (!checkContactRelationship(from, contactId, serverContext)) {
-            System.out.printf("[Server] User %d tried to remove non-existing contact %d%n", from, contactId);
+            ServerPacketHandler.LOG.warning(String.format("User %d tried to remove non-existing contact %d", from, contactId));
             AckHelper.sendFailedAck(serverContext, managementMessage, "Contact not found");
             return;
         }
@@ -159,7 +159,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
             contact.removeContact(from);
             serverContext.getUserRepository().update(contact.getId(), contact);
 
-            System.out.printf("[Server] User %d removed contact %d%n", from, contactId);
+            ServerPacketHandler.LOG.info(String.format("User %d removed contact %d", from, contactId));
 
             serverContext.sendPacketToClient((
                     (ManagementMessage) MessageFactory.create(MessageType.REMOVE_CONTACT, from, contactId))
@@ -169,7 +169,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
             AckHelper.sendSentAck(serverContext, managementMessage);
 
         } catch (Exception e) {
-            System.err.printf("[Server] Error while removing contact %d for user %d: %s%n", contactId, from, e.getMessage());
+            ServerPacketHandler.LOG.severe(String.format("Error while removing contact %d for user %d: %s", contactId, from, e.getMessage()));
             AckHelper.sendFailedAck(serverContext, managementMessage, "Internal server error");
         }
     }
@@ -186,20 +186,20 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
 
         UserInfo user = serverContext.getUserRepository().findById(from);
         if (user == null) {
-            System.out.printf("[Server] User %d not found while trying to update pseudo%n", from);
+            ServerPacketHandler.LOG.warning(String.format("User %d not found while trying to update pseudo", from));
             AckHelper.sendFailedAck(serverContext, managementMessage, "User not found");
             return;
         }
 
         if (newPseudo == null || newPseudo.isEmpty()) {
-            System.out.printf("[Server] User %d provided invalid new pseudo%n", from);
+            ServerPacketHandler.LOG.warning(String.format("User %d provided invalid new pseudo", from));
             AckHelper.sendFailedAck(serverContext, managementMessage, "Invalid pseudo");
             return;
         }
 
         user.setUsername(newPseudo);
         serverContext.getUserRepository().update(user.getId(), user);
-        System.out.printf("[Server] User %d updated pseudo to %s%n", from, newPseudo);
+        ServerPacketHandler.LOG.info(String.format("User %d updated pseudo to %s", from, newPseudo));
 
         for (int contactId : user.getContacts()) {
             if (serverContext.isClientConnected(contactId)) {

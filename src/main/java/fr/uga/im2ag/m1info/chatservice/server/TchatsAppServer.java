@@ -11,23 +11,24 @@
 
 package fr.uga.im2ag.m1info.chatservice.server;
 
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.Packet;
 import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.*;
-import fr.uga.im2ag.m1info.chatservice.server.repository.UserRepository;
 import fr.uga.im2ag.m1info.chatservice.server.repository.GroupRepository;
+import fr.uga.im2ag.m1info.chatservice.server.repository.UserRepository;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.time.Instant;
-import java.util.*;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.logging.Logger;
 
@@ -271,7 +272,7 @@ public class TchatsAppServer {
      * the method {@link #setPacketProcessor setPacketProcessor }
      * @param port the port on which the server is listening
      * @param workerThreads the number of threads used to process packets
-     * @throws IOException
+     * @throws IOException if an I/O error occurs
      */
     public TchatsAppServer(int port, int workerThreads) throws IOException {
         this.selector = Selector.open();
@@ -305,7 +306,7 @@ public class TchatsAppServer {
     /**
      * starts the server. This method blocks until the server is running.
      * The server can be stoped via a call to {@link #stop stop() method}
-     * @throws IOException
+     * @throws IOException if an I/O error occurs
      */
     public void start() throws IOException {
         started = true;
@@ -328,7 +329,7 @@ public class TchatsAppServer {
     }
 
     /**
-     * Stops th server
+     * Stops the server
      */
     public void stop() {
         started = false;
