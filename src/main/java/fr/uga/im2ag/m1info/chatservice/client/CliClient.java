@@ -310,8 +310,8 @@ public class CliClient {
         System.out.println("╠════════════════════════════════════════════════╣");
         System.out.println("║ 1. Create a group                              ║");
         System.out.println("║ 2. Leavea a group                              ║");
-        System.out.println("║ 3. Add menber ( admin only )                   ║");
-        System.out.println("║ 4. Remove menber ('admin only )                ║");
+        System.out.println("║ 3. Add member ( admin only )                   ║");
+        System.out.println("║ 4. Remove member ('admin only )                ║");
         System.out.println("║ 0. Back to Main menu                           ║");
         System.out.println("╚════════════════════════════════════════════════╝");
         System.out.print("Your choice: ");
@@ -445,39 +445,39 @@ public class CliClient {
     }
 
     /**
-     * Handle add menber to a group 
+     * Handle add member to a group 
      */
-    private void handleAddMenberGroup() {
+    private void handleAddMemberGroup() {
         System.out.print("Group id: ");
         int groupId;
-        int newMenber;
+        int newMember;
         try {
             groupId= readIntegerFromUser("Invalid group ID.");
-            System.out.print("Menber id: ");
-            newMenber = readIntegerFromUser("Invalid menber ID.");
+            System.out.print("Member id: ");
+            newMember = readIntegerFromUser("Invalid member ID.");
         } catch (Exception e) {
             return;
         }
-        clientController.addMemberToGroup(groupId, newMenber);
+        clientController.addMemberToGroup(groupId, newMember);
 
     }
 
     /**
-     * Handle remove menber to a group 
+     * Handle remove member to a group 
      */
-    private void handleRemoveMenberGroup() {
+    private void handleRemoveMemberGroup() {
         System.out.print("Group id: ");
         int groupId;
-        int deleteMenber;
+        int deleteMember;
         try {
             groupId= readIntegerFromUser("Invalid group ID.");
-        System.out.print("Menber id: ");
-            deleteMenber = readIntegerFromUser("Invalid menber ID.");
+        System.out.print("Member id: ");
+            deleteMember = readIntegerFromUser("Invalid member ID.");
         } catch (Exception e) {
             return;
         }
 
-        clientController.removeMemberToGroup(groupId, deleteMenber);
+        clientController.removeMemberToGroup(groupId, deleteMember);
     }
 
     /*
@@ -500,8 +500,8 @@ public class CliClient {
         switch (action) {
             case 1 -> handleCreateGroup();
             case 2 -> handleLeaveGroup();
-            case 3 -> handleAddMenberGroup();
-            case 4 -> handleRemoveMenberGroup();
+            case 3 -> handleAddMemberGroup();
+            case 4 -> handleRemoveMemberGroup();
             default -> { 
                 System.out.println("Invalid choice. Please try again.");
                 groupGestion();
@@ -529,11 +529,11 @@ public class CliClient {
         for (GroupClient group : groups) {
             System.out.println("║ ID: " + group.getGroupId());
             System.out.println("║ NAME: " + group.getName());
-            for ( int menber : group.getMembers()){
-                if (clientController.getContactRepository().isContact(menber)){
-                    System.out.println("║ MENBER_NAME: " + clientController.getContactRepository().findById(menber).getPseudo());
+            for ( int member : group.getMembers()){
+                if (clientController.getContactRepository().isContact(member)){
+                    System.out.println("║ MENBER_NAME: " + clientController.getContactRepository().findById(member).getPseudo());
                 } else {
-                    System.out.println("║ MENBER_ID: " + menber);
+                    System.out.println("║ MENBER_ID: " + member);
                 }
             }
             System.out.println("╚════════════════════════════════════════════════╝");

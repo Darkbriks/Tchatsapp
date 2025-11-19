@@ -11,7 +11,7 @@ public class GroupInfo implements Serializable {
     private final int id;
     private final int adminId;
     private String groupName;
-    private final Set<Integer> menbers;
+    private final Set<Integer> members;
     private long lastLogin;
 
     /**
@@ -20,14 +20,14 @@ public class GroupInfo implements Serializable {
      * @param id        the group ID
      * @param adminID        the admin group ID
      * @param groupName  the groupName
-     * @param menbers  the set of menber IDs
+     * @param members  the set of member IDs
      * @param lastLogin the timestamp of the last login
      */
-    public GroupInfo(int id, int adminID, String groupName, Set<Integer> menbers, long lastLogin) {
+    public GroupInfo(int id, int adminID, String groupName, Set<Integer> members, long lastLogin) {
         this.id = id;
         this.adminId = adminID;
         this.groupName = groupName;
-        this.menbers = menbers;
+        this.members = members;
         this.lastLogin = lastLogin;
     }
 
@@ -37,14 +37,14 @@ public class GroupInfo implements Serializable {
      * @param id       the group ID
      * @param adminID        the admin group ID
      * @param groupName the groupName
-     * @param menbers the set of menber IDs
+     * @param members the set of member IDs
      */
-    public GroupInfo(int id, int adminID, String groupName, Set<Integer> menbers) {
-        this(id, adminID, groupName, menbers, System.currentTimeMillis());
+    public GroupInfo(int id, int adminID, String groupName, Set<Integer> members) {
+        this(id, adminID, groupName, members, System.currentTimeMillis());
     }
 
     /**
-     * Constructs a GroupInfo instance with no menbers and current time as last login.
+     * Constructs a GroupInfo instance with no members and current time as last login.
      *
      * @param id       the group ID
      * @param adminID        the admin group ID
@@ -81,22 +81,22 @@ public class GroupInfo implements Serializable {
     }
 
     /**
-     * Checks if the group has a specific menber ID.
+     * Checks if the group has a specific member ID.
      *
-     * @param menberId the menber ID to check
-     * @return true if the menber ID exists, false otherwise
+     * @param memberId the member ID to check
+     * @return true if the member ID exists, false otherwise
      */
-    public boolean hasMenber(int menberId) {
-        return menbers.contains(menberId);
+    public boolean hasMember(int memberId) {
+        return members.contains(memberId);
     }
 
     /**
-     * Gets the set of menber IDs.
+     * Gets the set of member IDs.
      *
-     * @return the set of menber IDs
+     * @return the set of member IDs
      */
-    public Set<Integer> getMenbers() {
-        return menbers;
+    public Set<Integer> getMembers() {
+        return members;
     }
 
     /**
@@ -116,20 +116,20 @@ public class GroupInfo implements Serializable {
         this.groupName = groupName;
     }
 
-    /** Adds a menber ID to the menbers set.
+    /** Adds a member ID to the members set.
      *
-     * @param menberId the menber ID to add
+     * @param memberId the member ID to add
      */
-    public void addMenber(int menberId) {
-        menbers.add(menberId);
+    public void addMember(int memberId) {
+        members.add(memberId);
     }
 
-    /** Removes a menber ID from the menbers set.
+    /** Removes a member ID from the members set.
      *
-     * @param menberId the menber ID to remove
+     * @param memberId the member ID to remove
      */
-    public void removeMenber(int menberId) {
-        menbers.remove(menberId);
+    public void removeMember(int memberId) {
+        members.remove(memberId);
     }
 
     /** Updates the last login timestamp to the current time. */

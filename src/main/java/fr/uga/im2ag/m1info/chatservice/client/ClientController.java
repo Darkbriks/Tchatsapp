@@ -597,10 +597,10 @@ public class ClientController {
      * Add member to a group, Need to be the admin of the group for this work
      *
      * @param groupID the id of the group 
-     * @param newMenber the menber to add to the group
+     * @param newMember the member to add to the group
      * @return true if the request was sent, false otherwise
      */
-    public boolean addMemberToGroup(int groupID, int newMenber) {
+    public boolean addMemberToGroup(int groupID, int newMember) {
         /* We send the message and the server handle we are not the admin */
 
         ManagementMessage mgmtMsg = sendManagementMessage(MessageType.ADD_GROUP_MEMBER, groupID);
@@ -608,15 +608,15 @@ public class ClientController {
             return false;
         }
 
-        mgmtMsg.addParam(KeyInMessage.MENBER_ADD_ID, newMenber);
+        mgmtMsg.addParam(KeyInMessage.MEMBER_ADD_ID, newMember);
 
         sendPacket(mgmtMsg.toPacket());
 
-        client.getCommandManager().addPendingCommand(new AddMenberGroupCommand(
+        client.getCommandManager().addPendingCommand(new AddMemberGroupCommand(
                 mgmtMsg.getMessageId(),
                 groupID,
                 groupRepository,
-                newMenber
+                newMember
         ));
         return true;
     }
@@ -625,10 +625,10 @@ public class ClientController {
      * Remove a member from a group, Need to be the admin of the group for this work
      *
      * @param groupID the id of the group 
-     * @param deleteMenber the menber to add to the group
+     * @param deleteMember the member to add to the group
      * @return true if the request was sent, false otherwise
      */
-    public boolean removeMemberToGroup(int groupID, int deleteMenber) {
+    public boolean removeMemberToGroup(int groupID, int deleteMember) {
         /* We send the message and the server handle we are not the admin */
 
         ManagementMessage mgmtMsg = sendManagementMessage(MessageType.REMOVE_GROUP_MEMBER, groupID);
@@ -636,14 +636,14 @@ public class ClientController {
             return false;
         }
 
-        mgmtMsg.addParam(KeyInMessage.MENBER_REMOVE_ID, deleteMenber);
+        mgmtMsg.addParam(KeyInMessage.MEMBER_REMOVE_ID, deleteMember);
 
         sendPacket(mgmtMsg.toPacket());
-        client.getCommandManager().addPendingCommand(new RemoveMenberGroupCommand(
+        client.getCommandManager().addPendingCommand(new RemoveMemberGroupCommand(
                 mgmtMsg.getMessageId(),
                 groupID,
                 groupRepository,
-                deleteMenber
+                deleteMember
         ));
         return true;
     }

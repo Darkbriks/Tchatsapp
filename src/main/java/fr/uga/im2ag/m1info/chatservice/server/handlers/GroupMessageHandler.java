@@ -22,8 +22,8 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         switch (userMsg.getMessageType()) {
             case CREATE_GROUP -> createGroup(serverContext, userMsg);
             case LEAVE_GROUP -> leaveGroup(serverContext, userMsg);
-            case ADD_GROUP_MEMBER -> addGroupMenber(serverContext, userMsg);
-            case REMOVE_GROUP_MEMBER -> removeGroupMenber(serverContext, userMsg);
+            case ADD_GROUP_MEMBER -> addGroupMember(serverContext, userMsg);
+            case REMOVE_GROUP_MEMBER -> removeGroupMember(serverContext, userMsg);
             case UPDATE_GROUP_NAME -> updateGroupName(serverContext, userMsg);
             default -> throw new IllegalArgumentException("Unsupported group management message type");
         }
@@ -56,9 +56,9 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         serverContext.getGroupRepository().update(group.getId(), group);
         LOG.info(String.format("Group %d updated name to %s", groupId, newGroupName));
 
-        for (int menberId : group.getMenbers()) {
-            if (serverContext.isClientConnected(menberId)) {
-                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_GROUP_NAME, groupId, menberId))
+        for (int memberId : group.getMembers()) {
+            if (serverContext.isClientConnected(memberId)) {
+                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_GROUP_NAME, groupId, memberId))
                         .addParam(KeyInMessage.GROUP_ID, groupId)
                         .addParam(KeyInMessage.GROUP_NAME, newGroupName)
                         .toPacket()
@@ -74,16 +74,16 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         );
     }
 
-    private static void removeGroupMenber(ServerContext serverContext, ManagementMessage groupManagementMessage) {
+    private static void removeGroupMember(ServerContext serverContext, ManagementMessage groupManagementMessage) {
         int adminGroup = groupManagementMessage.getFrom();
         int groupId = groupManagementMessage.getTo();
 
-        int oldMenberID =  (int) Float.parseFloat(groupManagementMessage.getParamAsType(KeyInMessage.MENBER_REMOVE_ID, String.class));
+        int oldMemberID =  (int) Float.parseFloat(groupManagementMessage.getParamAsType(KeyInMessage.MEMBER_REMOVE_ID, String.class));
 
         GroupInfo group = serverContext.getGroupRepository().findById(groupId);
-        UserInfo oldMenber = serverContext.getUserRepository().findById(oldMenberID);
+        UserInfo oldMember = serverContext.getUserRepository().findById(oldMemberID);
         if (group == null) {
-            LOG.warning(String.format("Group %d not found while trying to remove menber", groupId));
+            LOG.warning(String.format("Group %d not found while trying to remove member", groupId));
             return;
         }
 
@@ -92,46 +92,46 @@ public class GroupMessageHandler extends  ServerPacketHandler {
             return;
         }
 
-        if (oldMenber == null) {
-            LOG.warning(String.format("User %d provided invalid menberId to remove , [%d] not found", adminGroup, oldMenberID));
-            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_EXISTING", "Cannot remove non-existing user as menber.");
+        if (oldMember == null) {
+            LOG.warning(String.format("User %d provided invalid memberId to remove , [%d] not found", adminGroup, oldMemberID));
+            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MEMBER_NOT_EXISTING", "Cannot remove non-existing user as member.");
             return;
         }
 
-        if (! group.hasMenber(oldMenberID)) {
-            LOG.warning(String.format("User %d provided invalid menberId to remove , [%d] not in group", adminGroup, oldMenberID));
-            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_INSIDE", "Cannot remove user who is not a menber.");
+        if (! group.hasMember(oldMemberID)) {
+            LOG.warning(String.format("User %d provided invalid memberId to remove , [%d] not in group", adminGroup, oldMemberID));
+            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MEMBER_NOT_INSIDE", "Cannot remove user who is not a member.");
             return;
         }
 
-        // Deleted menber is still in the group, when he will receive the message, need to leave the group by comparing his ID and the removed one
+        // Deleted member is still in the group, when he will receive the message, need to leave the group by comparing his ID and the removed one
 
-        for (int menberId : group.getMenbers()) {
-            if (serverContext.isClientConnected(menberId)) {
-                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.REMOVE_GROUP_MEMBER, groupId, menberId))
+        for (int memberId : group.getMembers()) {
+            if (serverContext.isClientConnected(memberId)) {
+                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.REMOVE_GROUP_MEMBER, groupId, memberId))
                         .addParam(KeyInMessage.GROUP_ID, groupId)
-                        .addParam(KeyInMessage.MENBER_REMOVE_ID, oldMenberID)
+                        .addParam(KeyInMessage.MEMBER_REMOVE_ID, oldMemberID)
                         .toPacket()
                 );
             }
         }
         
-        group.removeMenber(oldMenberID);
+        group.removeMember(oldMemberID);
         serverContext.getGroupRepository().update(group.getId(), group);
-        LOG.info(String.format("Group %d remove menber %d", groupId, oldMenberID));
+        LOG.info(String.format("Group %d remove member %d", groupId, oldMemberID));
 
         AckHelper.sendSentAck(serverContext, groupManagementMessage);
     }
 
-    private static void addGroupMenber(ServerContext serverContext, ManagementMessage groupManagementMessage) {
+    private static void addGroupMember(ServerContext serverContext, ManagementMessage groupManagementMessage) {
         int adminGroup = groupManagementMessage.getFrom();
         int groupId = groupManagementMessage.getTo();
-        int newMenberID = (int) Float.parseFloat(groupManagementMessage.getParamAsType(KeyInMessage.MENBER_ADD_ID, String.class));
+        int newMemberID = (int) Float.parseFloat(groupManagementMessage.getParamAsType(KeyInMessage.MEMBER_ADD_ID, String.class));
 
         GroupInfo group = serverContext.getGroupRepository().findById(groupId);
-        UserInfo newMenber = serverContext.getUserRepository().findById(newMenberID);
+        UserInfo newMember = serverContext.getUserRepository().findById(newMemberID);
         if (group == null) {
-            LOG.warning(String.format("Group %d not found while trying to add menber", groupId));
+            LOG.warning(String.format("Group %d not found while trying to add member", groupId));
             AckHelper.sendFailedAck(serverContext, groupManagementMessage, "Group not found");
             return;
         }
@@ -142,44 +142,44 @@ public class GroupMessageHandler extends  ServerPacketHandler {
             return;
         }
 
-        if (newMenber == null) {
-            LOG.warning(String.format("User %d provided invalid menberId to add , [%d] not found", adminGroup, newMenberID));
+        if (newMember == null) {
+            LOG.warning(String.format("User %d provided invalid memberId to add , [%d] not found", adminGroup, newMemberID));
             AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User to add don't exists");
-            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_EXISTING", "Cannot add non-existing user as menber.");
+            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MEMBER_NOT_EXISTING", "Cannot add non-existing user as member.");
             return;
         }
-        if (newMenberID == adminGroup) {
-            LOG.warning(String.format("User %d provided invalid menberId to add , [%d] add himself", adminGroup, newMenberID));
+        if (newMemberID == adminGroup) {
+            LOG.warning(String.format("User %d provided invalid memberId to add , [%d] add himself", adminGroup, newMemberID));
             AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User add himself");
-            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_EXISTING", "Cannot add already inside user as menber.");
+            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MEMBER_NOT_EXISTING", "Cannot add already inside user as member.");
             return;
         }
 
 
-        for (int menberId : group.getMenbers()) {
-            if (serverContext.isClientConnected(menberId)) {
-                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, menberId))
+        for (int memberId : group.getMembers()) {
+            if (serverContext.isClientConnected(memberId)) {
+                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, memberId))
                         .addParam(KeyInMessage.GROUP_ID, groupId)
-                        .addParam(KeyInMessage.MENBER_ADD_ID, newMenberID)
+                        .addParam(KeyInMessage.MEMBER_ADD_ID, newMemberID)
                         .toPacket()
                 );
             }
         }
 
-        group.addMenber(newMenberID);
+        group.addMember(newMemberID);
         serverContext.getGroupRepository().update(group.getId(), group);
-        LOG.info(String.format("Group %d add menber %d", groupId, newMenberID));
-        ManagementMessage message  = (ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, newMenberID);
-        message.addParam(KeyInMessage.MENBER_ADD_ID, newMenberID)
+        LOG.info(String.format("Group %d add member %d", groupId, newMemberID));
+        ManagementMessage message  = (ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, newMemberID);
+        message.addParam(KeyInMessage.MEMBER_ADD_ID, newMemberID)
                 .addParam(KeyInMessage.GROUP_ID, groupId)
                 .addParam(KeyInMessage.GROUP_ADMIN_ID, adminGroup)
                 .addParam(KeyInMessage.GROUP_NAME, group.getGroupName());
         int i = 0;
-        for ( int user : group.getMenbers()){
-            message.addParam(KeyInMessage.GROUP_MENBER_ID + i, user);
+        for ( int user : group.getMembers()){
+            message.addParam(KeyInMessage.GROUP_MEMBER_ID + i, user);
             i++;
         }
-                //.addParam("groupMenbers", group.getMenbers())
+                //.addParam("groupMembers", group.getMembers())
         serverContext.sendPacketToClient(message.toPacket());
 
         AckHelper.sendSentAck(serverContext, groupManagementMessage);
@@ -187,42 +187,42 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
 
     private static void leaveGroup(ServerContext serverContext, ManagementMessage groupManagementMessage) {
-        int groupMenber = groupManagementMessage.getFrom();
+        int groupMember = groupManagementMessage.getFrom();
         int groupId = groupManagementMessage.getTo();
 
         GroupInfo group = serverContext.getGroupRepository().findById(groupId);
-        UserInfo newMenber = serverContext.getUserRepository().findById(groupMenber);
+        UserInfo newMember = serverContext.getUserRepository().findById(groupMember);
         if (group == null) {
-            LOG.warning(String.format("Group %d not found while a menber trying to leave", groupId));
+            LOG.warning(String.format("Group %d not found while a member trying to leave", groupId));
             return;
         }
 
-        if (! group.hasMenber(groupMenber)){
-            LOG.warning(String.format("User %d is not in the group %d but try to leave i", groupMenber, groupId));
+        if (! group.hasMember(groupMember)){
+            LOG.warning(String.format("User %d is not in the group %d but try to leave i", groupMember, groupId));
             return;
         }
 
-        if (newMenber == null) {
-            LOG.warning(String.format("User %d provided invalid menberId to leave , [%d] not found", groupMenber, groupMenber));
-            serverContext.sendErrorMessage(0, groupMenber, ErrorMessage.ErrorLevel.WARNING, "MENBER_NOT_EXISTING", "Cannot add non-existing user as menber.");
+        if (newMember == null) {
+            LOG.warning(String.format("User %d provided invalid memberId to leave , [%d] not found", groupMember, groupMember));
+            serverContext.sendErrorMessage(0, groupMember, ErrorMessage.ErrorLevel.WARNING, "MEMBER_NOT_EXISTING", "Cannot add non-existing user as member.");
             return;
         }
 
 
-        for (int menberId : group.getMenbers()) {
-            if (serverContext.isClientConnected(menberId)) {
-                LOG.info(String.format("menber %d leave group %d Send this info to %d", groupMenber, groupId, menberId));
-                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.LEAVE_GROUP, groupId, menberId))
+        for (int memberId : group.getMembers()) {
+            if (serverContext.isClientConnected(memberId)) {
+                LOG.info(String.format("member %d leave group %d Send this info to %d", groupMember, groupId, memberId));
+                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.LEAVE_GROUP, groupId, memberId))
                         .addParam(KeyInMessage.GROUP_ID, groupId)
-                        .addParam(KeyInMessage.MENBER_REMOVE_ID, groupMenber )
+                        .addParam(KeyInMessage.MEMBER_REMOVE_ID, groupMember )
                         .toPacket()
                 );
             }
         }
 
-        group.removeMenber(groupMenber);
+        group.removeMember(groupMember);
         serverContext.getGroupRepository().update(group.getId(), group);
-        LOG.info(String.format("menber %d leave group %d", groupMenber, groupId));
+        LOG.info(String.format("member %d leave group %d", groupMember, groupId));
 
         AckHelper.sendSentAck(serverContext, groupManagementMessage);
     }
@@ -233,9 +233,9 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         String newGroupName= groupManagementMessage.getParamAsType(KeyInMessage.GROUP_NAME, String.class);
         int groupID = serverContext.generateClientId();
         GroupInfo group = new GroupInfo(groupID, adminGroup, newGroupName);
-        group.addMenber(adminGroup);
+        group.addMember(adminGroup);
         serverContext.getGroupRepository().add(group);
-        LOG.info(String.format("Group %d with name %s now exist and admin is menber %d", groupID, newGroupName, adminGroup));
+        LOG.info(String.format("Group %d with name %s now exist and admin is member %d", groupID, newGroupName, adminGroup));
         serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.CREATE_GROUP, groupID, adminGroup))
                 .addParam(KeyInMessage.GROUP_ID, groupID)
                 .addParam(KeyInMessage.GROUP_NAME, newGroupName)
