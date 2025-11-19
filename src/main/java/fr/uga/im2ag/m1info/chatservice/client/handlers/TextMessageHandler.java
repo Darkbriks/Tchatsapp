@@ -1,6 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.client.ClientContext;
+import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
@@ -11,6 +12,8 @@ public class TextMessageHandler extends ClientPacketHandler {
         if (!(message instanceof TextMessage textMsg)) {
             throw new IllegalArgumentException("Invalid message type for TextMessageHandler");
         }
+        ConversationClient conv = context.getConversationRepository().findById(Integer.toString(message.getFrom()));
+        conv.addMessage(textMsg);
 
         // TODO: Add the message to ConversationRepository and notify observers
         System.out.println("[Message received]");

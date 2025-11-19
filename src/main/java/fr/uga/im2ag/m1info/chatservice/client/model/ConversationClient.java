@@ -3,6 +3,8 @@ package fr.uga.im2ag.m1info.chatservice.client.model;
 import java.time.Instant;
 import java.util.*;
 
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+
 public class ConversationClient {
     private final String conversationId;
     private String conversationName;
@@ -39,6 +41,17 @@ public class ConversationClient {
     public void addMessage(Message message) {
         messages.put(message.getMessageId(), message);
         messageOrder.put(message.getTimestamp(), message.getMessageId());
+    }
+
+    public void addMessage(TextMessage message){
+        Message msg = new Message (message.getMessageId(),
+                                           message.getFrom(), 
+                                           message.getTo(), 
+                                           message.getContent(), 
+                                           Instant.ofEpochMilli(message.getTimestamp()), 
+                                           null);
+
+        this.addMessage(msg);
     }
 
     public void removeMessage(String messageId) {
@@ -87,4 +100,14 @@ public class ConversationClient {
     public boolean isGroupConversation() {
         return isGroupConversation;
     }
+
+    public Message getLastMessage() {
+        if (messageOrder.isEmpty()) {
+            return null;
+        }
+        Instant lastKey = messageOrder.lastKey();
+        String lastMessageId = messageOrder.get(lastKey);
+        return messages.get(lastMessageId);
+    }
+
 }
