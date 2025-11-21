@@ -7,56 +7,77 @@ import java.awt.event.ActionListener;
 
 /**
  * A reusable login panel for COO TchatApp.
- *
+ * <p>
  * Responsibilities:
  *  - Renders username + password fields and a "Login" button
  *  - Exposes getters for fields
  *  - No logic inside
  */
+// TODO: Avoir une vraie distinction entre la création de compte et la connexion
 public class LoginPanel extends JPanel {
 
-    private final JTextField usernameField = new JTextField();
-    private final JPasswordField passwordField = new JPasswordField();
-    private final JButton loginButton = new JButton("Se connecter");
-    private final JLabel errorLabel = new JLabel(" ");
-    
+    private final JTextField usernameField;
+    private final JPasswordField passwordField;
+    private final JButton loginButton;
+    private final JLabel errorLabel;
+
     public LoginPanel() {
-
         super(new GridBagLayout());
-        setBorder(new EmptyBorder(24, 24, 24, 24)); //Padding
+        setBorder(new EmptyBorder(24, 24, 24, 24));
 
+        this.usernameField = new JTextField();
+        this.passwordField = new JPasswordField();
+        this.loginButton = new JButton("Se connecter");
+        this.errorLabel = new JLabel(" ");
+
+        setupLayout();
+    }
+
+    private void setupLayout() {
         GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(8, 8, 8, 8); //marge autour des composants
-        c.fill = GridBagConstraints.HORIZONTAL; //Composants s'étirent horizontalement
+        c.insets = new Insets(8, 8, 8, 8);
+        c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 1.0;
 
+        // Title
         JLabel title = new JLabel("Connexion");
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 20f)); //police plus grande plus gras
-        c.gridx = 0; 
-        c.gridy = 0; 
-        c.gridwidth = 2; 
-        c.fill = GridBagConstraints.NONE; //pas besoin d'étirer les comp au max
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
+        c.gridx = 0;
+        c.gridy = 0;
+        c.gridwidth = 2;
+        c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.CENTER;
         add(title, c);
 
-        c.gridy++; c.gridwidth = 2; c.fill = GridBagConstraints.HORIZONTAL;
-        add(new JLabel("id ? 0 pour créer un nouveau compte"), c);
+        // Username label
+        c.gridy++;
+        c.gridwidth = 2;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        add(new JLabel("Identifiant (0 pour créer un nouveau compte)"), c);
 
+        // Username field
         c.gridy++;
         usernameField.setColumns(18);
         add(usernameField, c);
 
+        // Password label
         c.gridy++;
         add(new JLabel("Mot de passe"), c);
 
+        // Password field
         c.gridy++;
         passwordField.setColumns(18);
+        passwordField.setEnabled(false);
         add(passwordField, c);
 
-        c.gridy++; c.gridwidth = 2; c.fill = GridBagConstraints.NONE;
+        // Login button
+        c.gridy++;
+        c.gridwidth = 2;
+        c.fill = GridBagConstraints.NONE;
         loginButton.setPreferredSize(new Dimension(180, 36));
         add(loginButton, c);
 
+        // Error label
         c.gridy++;
         c.gridwidth = 2;
         c.fill = GridBagConstraints.HORIZONTAL;
@@ -64,15 +85,19 @@ public class LoginPanel extends JPanel {
         add(errorLabel, c);
     }
 
-    // Public API
+    // ----------------------- Public API -----------------------
 
-    public String getUsername() { return usernameField.getText(); }
+    public String getUsername() {
+        return usernameField.getText();
+    }
 
-    public char[] getPassword() { return passwordField.getPassword(); }
+    public char[] getPassword() {
+        return passwordField.getPassword();
+    }
 
-    public JButton getLoginButton() { return loginButton; }
-    
-    public JLabel getErrorLabel() { return errorLabel; }
+    public JButton getLoginButton() {
+        return loginButton;
+    }
 
     public void showError(String msg) {
         errorLabel.setText(msg);
@@ -82,22 +107,13 @@ public class LoginPanel extends JPanel {
         errorLabel.setText(" ");
     }
 
-    public void addSubmitListener(ActionListener l) {
-        loginButton.addActionListener(l);
-        passwordField.addActionListener(l); // Enter dans le champ mdp
-    }
-
-    public static void main(String[] args){
-        SwingUtilities.invokeLater(() -> {
-            JFrame loginFrame = new JFrame("Connexion");
-            LoginPanel loginPanel = new LoginPanel();
-
-            loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            loginFrame.setContentPane(loginPanel);
-            loginFrame.pack();
-            loginFrame.setLocationRelativeTo(null);
-            loginFrame.setVisible(true);
-        });
-
+    /**
+     * Add a listener for the submit action (button click or Enter in password field).
+     *
+     * @param listener the action listener
+     */
+    public void addSubmitListener(ActionListener listener) {
+        loginButton.addActionListener(listener);
+        usernameField.addActionListener(listener);
     }
 }

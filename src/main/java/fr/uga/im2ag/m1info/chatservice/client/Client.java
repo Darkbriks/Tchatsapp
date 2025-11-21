@@ -69,9 +69,9 @@ public class Client {
      * @param port the server port
      * @param username the username to use for the connection (only used if clientId is 0)
      * @return true if the connection socket was established, false otherwise
-     * @throws IOException if a network error occurs
+     * @throws Exception if a network error occurs
      */
-    public boolean connect(String host, int port, String username) throws IOException {
+    public boolean connect(String host, int port, String username) throws Exception {
         if (cnx != null && cnx.isConnected()) {
             return false;
         }
