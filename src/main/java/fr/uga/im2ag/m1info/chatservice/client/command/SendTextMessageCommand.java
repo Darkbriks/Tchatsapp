@@ -3,8 +3,8 @@ package fr.uga.im2ag.m1info.chatservice.client.command;
 import fr.uga.im2ag.m1info.chatservice.client.event.system.EventBus;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.MessageStatusChangedEvent;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
-import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
+import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 
 /**
  * Command for tracking a pending text message.

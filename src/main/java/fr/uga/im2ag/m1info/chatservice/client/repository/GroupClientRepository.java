@@ -1,9 +1,9 @@
 package fr.uga.im2ag.m1info.chatservice.client.repository;
 
-import java.util.Map;
-
 import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
 import fr.uga.im2ag.m1info.chatservice.common.repository.AbstractRepository;
+
+import java.util.Map;
 
 public class GroupClientRepository extends AbstractRepository<Integer, GroupClient> {
 

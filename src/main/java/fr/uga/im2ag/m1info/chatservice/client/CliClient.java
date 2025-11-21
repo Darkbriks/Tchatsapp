@@ -2,21 +2,11 @@ package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.client.event.types.*;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
-import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
-import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
-import fr.uga.im2ag.m1info.chatservice.common.ShaIdGenerator;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
-import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
-import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
-import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
-import fr.uga.im2ag.m1info.chatservice.client.model.Message;
+import fr.uga.im2ag.m1info.chatservice.client.model.*;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 
-import java.time.ZoneId;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.NoSuchElementException;
 import java.util.Scanner;

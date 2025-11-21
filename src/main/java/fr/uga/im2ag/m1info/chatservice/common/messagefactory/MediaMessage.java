@@ -1,6 +1,5 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
-import fr.uga.im2ag.m1info.chatservice.common.MessageIdGenerator;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 

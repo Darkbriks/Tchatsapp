@@ -1,14 +1,14 @@
 package fr.uga.im2ag.m1info.chatservice.client.repository;
 
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
+import fr.uga.im2ag.m1info.chatservice.common.repository.AbstractRepository;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
-import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
-import fr.uga.im2ag.m1info.chatservice.common.repository.AbstractRepository;
 
 public class ContactClientRepository extends AbstractRepository<Integer, ContactClient> {
 

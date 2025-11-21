@@ -9,6 +9,8 @@ CONFIG_FILE="./config.local.sh"
 PROJECT_DIR="$(pwd)"
 SERVER_CLASS="fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer"
 CLIENT_CLASS="fr.uga.im2ag.m1info.chatservice.client.CliClient"
+CLI_CLIENT_CLASS="fr.uga.im2ag.m1info.chatservice.client.CliClient"
+GUI_CLIENT_CLASS="fr.uga.im2ag.m1info.chatservice.gui.MainFrame"
 
 # === CRÉATION DU FICHIER DE CONFIG SI INEXISTANT ===
 if [ ! -f "$CONFIG_FILE" ]; then
@@ -53,20 +55,37 @@ source "$CONFIG_FILE"
 
 # === INTERPRÉTATION DES ARGUMENTS ===
 MODE="all"
-if [[ "$1" =~ ^[0-9]+$ ]]; then
-    NUM_CLIENTS="$1"
-elif [[ "$1" == "--server-only" ]]; then
-    MODE="server"
-elif [[ "$1" == "--clients-only" ]]; then
-    MODE="clients"
-elif [[ -n "$1" ]]; then
-    echo "Argument non reconnu : $1"
-    echo "Usage :"
-    echo "  ./run_chat.sh [nombre_clients]"
-    echo "  ./run_chat.sh --server-only"
-    echo "  ./run_chat.sh --clients-only"
-    exit 1
-fi
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --server-only|-s)
+            MODE="server"
+            shift
+            ;;
+        --clients-only|-c)
+            MODE="clients"
+            shift
+            ;;
+        --nb-clients|-n)
+            NUM_CLIENTS="$2"
+            shift 2
+            ;;
+        --gui-clients|-g)
+            CLIENT_CLASS="$GUI_CLIENT_CLASS"
+            shift
+            ;;
+        --cli-clients|-l)
+            CLIENT_CLASS="$CLI_CLIENT_CLASS"
+            shift
+            ;;
+        *)
+            echo "Argument non reconnu : $1"
+            echo "Usage :"
+            echo "  ./run_chat.sh [--nb-clients N] [--gui-clients|--cli-clients] [--server-only|--clients-only]"
+            exit 1
+            ;;
+    esac
+done
 
 echo "Configuration chargée :"
 echo "   ➤ Terminal = $TERMINAL"

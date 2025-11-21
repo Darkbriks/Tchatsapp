@@ -1,5 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.client.model;
 
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.*;
@@ -40,6 +42,17 @@ public class ConversationClient implements Serializable{
     public void addMessage(Message message) {
         messages.put(message.getMessageId(), message);
         messageOrder.put(message.getTimestamp(), message.getMessageId());
+    }
+
+    public void addMessage(TextMessage message){
+        Message msg = new Message (message.getMessageId(),
+                                           message.getFrom(),
+                                           message.getTo(),
+                                           message.getContent(),
+                                           message.getTimestamp(),
+                                           null);
+
+        this.addMessage(msg);
     }
 
     public void removeMessage(String messageId) {
@@ -88,4 +101,15 @@ public class ConversationClient implements Serializable{
     public boolean isGroupConversation() {
         return isGroupConversation;
     }
+
+    public Message getLastMessage() {
+        // TODO: Use getMessagesFrom ?
+        if (messageOrder.isEmpty()) {
+            return null;
+        }
+        Instant lastKey = messageOrder.lastKey();
+        String lastMessageId = messageOrder.get(lastKey);
+        return messages.get(lastMessageId);
+    }
+
 }

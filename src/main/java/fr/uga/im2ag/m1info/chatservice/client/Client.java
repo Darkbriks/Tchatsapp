@@ -12,15 +12,13 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.client.command.PendingCommandManager;
-import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
-import fr.uga.im2ag.m1info.chatservice.common.*;
+import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
+import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.Packet;
+import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.Socket;
 
 /**

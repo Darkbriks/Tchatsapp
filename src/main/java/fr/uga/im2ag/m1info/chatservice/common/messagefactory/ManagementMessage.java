@@ -1,10 +1,9 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
-import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
-
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.Packet;
 import fr.uga.im2ag.m1info.chatservice.common.TypeConverter;
 
 import java.lang.reflect.Type;

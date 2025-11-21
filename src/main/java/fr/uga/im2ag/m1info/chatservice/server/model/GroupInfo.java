@@ -12,7 +12,6 @@ public class GroupInfo implements Serializable {
     private final int adminId;
     private String groupName;
     private final Set<Integer> members;
-    private long lastLogin;
 
     /**
      * Constructs a GroupInfo instance with all fields specified.
@@ -28,7 +27,6 @@ public class GroupInfo implements Serializable {
         this.adminId = adminID;
         this.groupName = groupName;
         this.members = members;
-        this.lastLogin = lastLogin;
     }
 
     /**
@@ -99,15 +97,6 @@ public class GroupInfo implements Serializable {
         return members;
     }
 
-    /**
-     * Gets the timestamp of the last login.
-     *
-     * @return the last login timestamp
-     */
-    public long getLastLogin() {
-        return lastLogin;
-    }
-
     /** Sets the groupName.
      *
      * @param groupName the new groupName
@@ -130,10 +119,5 @@ public class GroupInfo implements Serializable {
      */
     public void removeMember(int memberId) {
         members.remove(memberId);
-    }
-
-    /** Updates the last login timestamp to the current time. */
-    public void updateLastLogin() {
-        this.lastLogin = System.currentTimeMillis();
     }
 }
