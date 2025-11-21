@@ -17,7 +17,7 @@ import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
-import fr.uga.im2ag.m1info.chatservice.server.handlers.*;
+import fr.uga.im2ag.m1info.chatservice.server.handlers.ServerHandlerContext;
 import fr.uga.im2ag.m1info.chatservice.server.repository.GroupRepository;
 import fr.uga.im2ag.m1info.chatservice.server.repository.UserRepository;
 
@@ -530,14 +530,14 @@ public class TchatsAppServer {
         int workers = Math.max(2, Runtime.getRuntime().availableProcessors());
         TchatsAppServer s = new TchatsAppServer(port, workers);
 
-        ServerPacketRouter router = new ServerPacketRouter(s.serverContext);
-        router.addHandler(new RelayMessageHandler());
-        router.addHandler(new UserManagementMessageHandler());
-        router.addHandler(new ContactRequestServerHandler());
-        router.addHandler(new AckMessageHandler());
-        router.addHandler(new GroupMessageHandler());
-        s.setPacketProcessor(router);
+        ServerHandlerContext handlerContext = ServerHandlerContext.builder().build();
 
+        ServerPacketRouter router = ServerPacketRouter.createWithServiceLoader(
+                s.serverContext,
+                handlerContext
+        );
+
+        s.setPacketProcessor(router);
         s.start();
     }
 }

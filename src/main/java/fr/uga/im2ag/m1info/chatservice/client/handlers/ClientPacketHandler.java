@@ -10,6 +10,18 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
  * Handlers receive a ClientController to interact with client functionality.
  */
 public abstract class ClientPacketHandler {
+
+    /**
+     * Initializes the handler with required dependencies.
+     * Called after construction by the ServiceLoader mechanism.
+     * Default implementation does nothing; override if dependencies are needed.
+     *
+     * @param context the context providing dependencies
+     */
+    public void initialize(ClientHandlerContext context) {
+        // Default: no initialization needed
+    }
+
     /**
      * Handles the given protocol message.
      *

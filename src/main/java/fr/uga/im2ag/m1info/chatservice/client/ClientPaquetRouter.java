@@ -1,6 +1,8 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
+import fr.uga.im2ag.m1info.chatservice.client.handlers.ClientHandlerContext;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.ClientPacketHandler;
+import fr.uga.im2ag.m1info.chatservice.client.handlers.ClientPacketHandlerFactory;
 import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 
@@ -22,7 +24,7 @@ public class ClientPaquetRouter implements PacketProcessor {
      * @param context the client context to pass to handlers
      */
     public ClientPaquetRouter(List<ClientPacketHandler> handlers, ClientController context) {
-        this.handlers = handlers;
+        this.handlers = new ArrayList<>(handlers);
         this.context = context;
     }
 
@@ -34,6 +36,18 @@ public class ClientPaquetRouter implements PacketProcessor {
     public ClientPaquetRouter(ClientController context) {
         this.handlers = new ArrayList<>();
         this.context = context;
+    }
+
+    /**
+     * Creates a ClientPaquetRouter loading handlers via ServiceLoader.
+     *
+     * @param context the client context to pass to handlers
+     * @param handlerContext the context for handler initialization
+     * @return a new ClientPaquetRouter with loaded handlers
+     */
+    public static ClientPaquetRouter createWithServiceLoader(ClientController context, ClientHandlerContext handlerContext) {
+        List<ClientPacketHandler> handlers = ClientPacketHandlerFactory.loadHandlers(handlerContext);
+        return new ClientPaquetRouter(handlers, context);
     }
 
     /**

@@ -1,7 +1,6 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.client.event.types.*;
-import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
 import fr.uga.im2ag.m1info.chatservice.client.model.*;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 
@@ -32,8 +31,8 @@ public class CliClient {
     CliClient(int clientId, Scanner scanner) {
         Client client = new Client(clientId);
         this.clientController = new ClientController(client);
+        this.clientController.initializeHandlers();
         this.scanner = scanner;
-        initializeHandlers(client);
         registerEventListeners();
     }
 
@@ -52,21 +51,6 @@ public class CliClient {
         }
 
         return new CliClient(clientId, scanner);
-    }
-
-    /**
-     * Initialize the client with packet handlers.
-     */
-    private void initializeHandlers(Client client) {
-        ClientPaquetRouter router = new ClientPaquetRouter(clientController);
-        router.addHandler(new AckConnectionHandler());
-        router.addHandler(new AckMessageHandler(client.getCommandManager()));
-        router.addHandler(new TextMessageHandler());
-        router.addHandler(new MediaMessageHandler());
-        router.addHandler(new ErrorMessageHandler());
-        router.addHandler(new ManagementMessageHandler());
-        router.addHandler(new ContactRequestHandler());
-        client.setPacketProcessor(router);
     }
 
     /**

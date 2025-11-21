@@ -10,10 +10,17 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
  * Handler for processing acknowledgment messages from the server.
  */
 public class AckMessageHandler extends ClientPacketHandler {
-    private final PendingCommandManager commandManager;
+    private PendingCommandManager commandManager;
 
     /**
-     * Constructor for AckMessageHandler.
+     * Default constructor for ServiceLoader instantiation.
+     */
+    public AckMessageHandler() {
+        this.commandManager = null;
+    }
+
+    /**
+     * Constructor for manual instantiation with dependency injection.
      *
      * @param commandManager the pending command manager
      */
@@ -22,9 +29,20 @@ public class AckMessageHandler extends ClientPacketHandler {
     }
 
     @Override
+    public void initialize(ClientHandlerContext context) {
+        if (this.commandManager == null) {
+            this.commandManager = context.getCommandManager();
+        }
+    }
+
+    @Override
     public void handle(ProtocolMessage message, ClientController context) {
         if (!(message instanceof AckMessage ackMsg)) {
             throw new IllegalArgumentException("Invalid message type for AckMessageHandler");
+        }
+
+        if (commandManager == null) {
+            throw new IllegalStateException("AckMessageHandler not initialized: commandManager is null");
         }
 
         commandManager.handleAck(ackMsg);

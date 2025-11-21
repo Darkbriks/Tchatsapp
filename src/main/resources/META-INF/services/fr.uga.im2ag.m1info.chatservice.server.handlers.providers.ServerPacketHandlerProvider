@@ -1,0 +1,5 @@
+fr.uga.im2ag.m1info.chatservice.server.handlers.providers.RelayMessageHandlerProvider
+fr.uga.im2ag.m1info.chatservice.server.handlers.providers.UserManagementMessageHandlerProvider
+fr.uga.im2ag.m1info.chatservice.server.handlers.providers.ContactRequestServerHandlerProvider
+fr.uga.im2ag.m1info.chatservice.server.handlers.providers.AckMessageHandlerProvider
+fr.uga.im2ag.m1info.chatservice.server.handlers.providers.GroupMessageHandlerProvider

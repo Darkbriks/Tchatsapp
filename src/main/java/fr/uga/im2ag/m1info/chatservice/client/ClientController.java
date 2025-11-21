@@ -2,6 +2,7 @@ package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.client.command.*;
 import fr.uga.im2ag.m1info.chatservice.client.event.system.*;
+import fr.uga.im2ag.m1info.chatservice.client.handlers.ClientHandlerContext;
 import fr.uga.im2ag.m1info.chatservice.client.model.*;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
@@ -88,6 +89,19 @@ public class ClientController {
      */
     public void disconnect() {
         client.disconnect();
+    }
+
+    public void initializeHandlers() {
+        ClientHandlerContext handlerContext = ClientHandlerContext.builder()
+                .commandManager(client.getCommandManager())
+                .build();
+
+        ClientPaquetRouter router = ClientPaquetRouter.createWithServiceLoader(
+                this,
+                handlerContext
+        );
+
+        client.setPacketProcessor(router);
     }
 
     /* ----------------------- Accessors ----------------------- */

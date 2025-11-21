@@ -2,8 +2,6 @@ package fr.uga.im2ag.m1info.chatservice.gui;
 
 import fr.uga.im2ag.m1info.chatservice.client.Client;
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
-import fr.uga.im2ag.m1info.chatservice.client.ClientPaquetRouter;
-import fr.uga.im2ag.m1info.chatservice.client.handlers.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
 
 import javax.swing.*;
@@ -147,19 +145,8 @@ public class MainFrame extends JFrame {
     }
 
     private void initializeClient(int clientId) {
-        Client client = new Client(clientId);
-        this.controller = new ClientController(client);
-
-        // Initialize packet handlers
-        ClientPaquetRouter router = new ClientPaquetRouter(controller);
-        router.addHandler(new AckConnectionHandler());
-        router.addHandler(new AckMessageHandler(client.getCommandManager()));
-        router.addHandler(new TextMessageHandler());
-        router.addHandler(new MediaMessageHandler());
-        router.addHandler(new ErrorMessageHandler());
-        router.addHandler(new ManagementMessageHandler());
-        router.addHandler(new ContactRequestHandler());
-        client.setPacketProcessor(router);
+        this.controller = new ClientController(new Client(clientId));
+        this.controller.initializeHandlers();
 
         // Initialize event handler
         this.eventHandler = new GuiEventHandler(controller);
