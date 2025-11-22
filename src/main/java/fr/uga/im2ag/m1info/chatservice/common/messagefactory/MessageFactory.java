@@ -28,7 +28,7 @@ public class MessageFactory {
                 if (registry.containsKey(type)) {
                     LOG.warning("Overriding existing message provider for type: " + type);
                 }
-                registry.put(type, provider::createInstance);
+                registry.put(type, () -> provider.createInstance(type));
                 LOG.info("Registered message provider for type: " + type);
             }
         }
