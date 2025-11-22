@@ -233,6 +233,7 @@ public class CliClient {
             case DELIVERED -> "📬";
             case READ -> "📖";
             case FAILED -> "❌";
+            case CRITICAL_FAILURE -> "⚠️";
         };
 
         String msgIdShort = event.getMessageId().substring(0, Math.min(8, event.getMessageId().length()));

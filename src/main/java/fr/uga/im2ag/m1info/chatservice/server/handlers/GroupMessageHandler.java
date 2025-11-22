@@ -2,7 +2,6 @@ package fr.uga.im2ag.m1info.chatservice.server.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
@@ -48,7 +47,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
         if (newGroupName == null || newGroupName.isEmpty()) {
             LOG.warning(String.format("User %d provided invalid new groupName for group %d", adminGroup, groupId));
-            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.ERROR, "INVALID_PSEUDO", "The new pseudo cannot be null or empty.");
+            AckHelper.sendFailedAck(serverContext, groupManagementMessage, "Invalid new group name (cannot be empty)");
             return;
         }
 
@@ -94,13 +93,13 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
         if (oldMember == null) {
             LOG.warning(String.format("User %d provided invalid memberId to remove , [%d] not found", adminGroup, oldMemberID));
-            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MEMBER_NOT_EXISTING", "Cannot remove non-existing user as member.");
+            AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User to remove don't exists");
             return;
         }
 
         if (! group.hasMember(oldMemberID)) {
             LOG.warning(String.format("User %d provided invalid memberId to remove , [%d] not in group", adminGroup, oldMemberID));
-            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MEMBER_NOT_INSIDE", "Cannot remove user who is not a member.");
+            AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User to remove is not in the group");
             return;
         }
 
@@ -145,13 +144,13 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         if (newMember == null) {
             LOG.warning(String.format("User %d provided invalid memberId to add , [%d] not found", adminGroup, newMemberID));
             AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User to add don't exists");
-            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MEMBER_NOT_EXISTING", "Cannot add non-existing user as member.");
+            AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User to add don't exists");
             return;
         }
         if (newMemberID == adminGroup) {
             LOG.warning(String.format("User %d provided invalid memberId to add , [%d] add himself", adminGroup, newMemberID));
             AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User add himself");
-            serverContext.sendErrorMessage(0, adminGroup, ErrorMessage.ErrorLevel.WARNING, "MEMBER_NOT_EXISTING", "Cannot add already inside user as member.");
+            AckHelper.sendFailedAck(serverContext, groupManagementMessage, "Cannot add already inside user as member.");
             return;
         }
 
@@ -204,7 +203,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
         if (newMember == null) {
             LOG.warning(String.format("User %d provided invalid memberId to leave , [%d] not found", groupMember, groupMember));
-            serverContext.sendErrorMessage(0, groupMember, ErrorMessage.ErrorLevel.WARNING, "MEMBER_NOT_EXISTING", "Cannot add non-existing user as member.");
+            AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User to leave don't exists");
             return;
         }
 

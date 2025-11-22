@@ -1,7 +1,6 @@
 package fr.uga.im2ag.m1info.chatservice.server.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
@@ -11,8 +10,6 @@ import fr.uga.im2ag.m1info.chatservice.server.util.AckHelper;
 
 /**
  * Handler for user management messages such as user creation, connection, and contact management.
- * TODO: Discuss if we keep handlers like this one, with multiple message types,
- * or if we create one handler per message type for clarity (but more classes).
  */
 public class UserManagementMessageHandler extends ValidatingServerPacketHandler {
     @Override
@@ -36,6 +33,12 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
                 || messageType == MessageType.CONNECT_USER
                 || messageType == MessageType.REMOVE_CONTACT
                 || messageType == MessageType.UPDATE_PSEUDO;
+    }
+
+    private void connectionFailed(TchatsAppServer.ServerContext serverContext, TchatsAppServer.ConnectionState state, int clientId, String reason) {
+        ServerPacketHandler.LOG.warning("Connection failed for client " + clientId + ": " + reason);
+        AckHelper.sendCriticalAck(serverContext, "-1", clientId, reason);
+        serverContext.closeConnection(state);
     }
 
     /**
@@ -63,9 +66,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
         serverContext.getUserRepository().add(newUser);
 
         if (!serverContext.registerConnection(state, newClientId)) {
-            ServerPacketHandler.LOG.warning("Failed to register connection for new user " + newClientId);
-            serverContext.sendErrorMessage(0, newClientId, ErrorMessage.ErrorLevel.ERROR, "CONNECTION_FAILED", "Failed to register connection");
-            serverContext.closeConnection(state);
+            connectionFailed(serverContext, state, newClientId, "Failed to register connection");
             return;
         }
 
@@ -98,17 +99,13 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
 
         // Check if already connected
         if (serverContext.isClientConnected(clientId)) {
-            ServerPacketHandler.LOG.warning("Client " + clientId + " is already connected");
-            serverContext.sendErrorMessage(0, clientId, ErrorMessage.ErrorLevel.ERROR, "ALREADY_CONNECTED", "This account is already connected from another location.");
-            serverContext.closeConnection(state);
+            connectionFailed(serverContext, state, clientId, "Client is already connected");
             return;
         }
 
         // Register the connection
         if (!serverContext.registerConnection(state, clientId)) {
-            ServerPacketHandler.LOG.warning("Failed to register connection for user " + clientId);
-            serverContext.sendErrorMessage(0, clientId, ErrorMessage.ErrorLevel.ERROR, "CONNECTION_FAILED", "Failed to register connection");
-            serverContext.closeConnection(state);
+            connectionFailed(serverContext, state, clientId, "Failed to register connection");
             return;
         }
 
@@ -132,8 +129,6 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
 
     /**
      * Handles removing a contact for a user.
-     * TODO: Discuss if both users should remove each other as contacts, or if one-sided is enough
-     * For now and for simplicity, both users must remove each other manually
      *
      * @param serverContext    the server context
      * @param managementMessage the management message containing the remove contact request

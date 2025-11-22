@@ -2,7 +2,7 @@ package fr.uga.im2ag.m1info.chatservice.gui;
 
 import fr.uga.im2ag.m1info.chatservice.client.Client;
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.ErrorEvent;
 
 import javax.swing.*;
 import java.awt.*;
@@ -78,7 +78,7 @@ public class MainFrame extends JFrame {
         });
 
         eventHandler.setOnError(event -> {
-            if (awaitingConnection && event.getErrorLevel() == ErrorMessage.ErrorLevel.CRITICAL) {
+            if (awaitingConnection && event.getErrorLevel() == ErrorEvent.ErrorLevel.CRITICAL) {
                 awaitingConnection = false;
                 onConnectionError(event.getErrorMessage());
             } else {

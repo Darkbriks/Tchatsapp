@@ -86,4 +86,20 @@ public class MessageFactory {
         msg.generateNewMessageId(messageIdGenerator);
         return msg;
     }
+
+    /** Create an empty ProtocolMessage of a given type.
+     *
+     * <p>Used by {@link EncryptedWrapper#unwrap} to reconstruct the original message after decryption.</p>
+     *
+     * @param type the MessageType of the message
+     * @return the constructed ProtocolMessage
+     * @throws IllegalArgumentException if the MessageType is unknown
+     */
+    public static ProtocolMessage createEmpty(MessageType type) {
+        Supplier<ProtocolMessage> supplier = registry.get(type);
+        if (supplier == null) {
+            throw new IllegalArgumentException("Unknown message type: " + type);
+        }
+        return supplier.get();
+    }
 }

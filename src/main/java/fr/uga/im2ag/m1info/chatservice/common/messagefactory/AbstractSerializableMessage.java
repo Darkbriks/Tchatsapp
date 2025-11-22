@@ -103,6 +103,7 @@ public abstract class AbstractSerializableMessage extends ProtocolMessage {
     /**
      * Return the expected number of parts when splitting the payload string using
      * String.split("\\|", getExpectedPartCount()).
+     * <p>Do not forget to count the common header parts (messageId and timestamp) in the total.</p>
      *
      * @return expected part count used for splitting the payload.
      */

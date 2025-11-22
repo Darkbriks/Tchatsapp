@@ -3,18 +3,15 @@ package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
 import fr.uga.im2ag.m1info.chatservice.common.TypeConverter;
 
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.Map;
 
 /**
  * Class representing a management message in the chat service protocol.
  */
-public class ManagementMessage extends ProtocolMessage {
+public class ManagementMessage extends AbstractSerializableMessage {
     private static final Gson gson = new Gson();
     private final Map<String, Object> params;
 
@@ -25,6 +22,8 @@ public class ManagementMessage extends ProtocolMessage {
         super(MessageType.NONE, -1, -1);
         params = new java.util.HashMap<>();
     }
+
+    // ========================= Getters/Setters =========================
 
     /** Get a parameter by key.
      *
@@ -67,41 +66,36 @@ public class ManagementMessage extends ProtocolMessage {
         return this;
     }
 
-    @Override
-    public Packet toPacket() {
-        StringBuilder payload = getStringBuilder();
-        payload.append(messageId).append("|");
-        payload.append(timestamp.toEpochMilli()).append("|");
-        payload.append(gson.toJson(params));
+    // ========================= Serialization Methods =========================
 
-        byte[] bytes = payload.toString().getBytes(StandardCharsets.UTF_8);
-        return new Packet.PacketBuilder(bytes.length)
-                .setMessageType(messageType)
-                .setFrom(from)
-                .setTo(to)
-                .setPayload(bytes)
-                .build();
+    @Override
+    protected void serializeContent(StringBuilder sb) {
+        sb.append(gson.toJson(params));
     }
 
     @Override
-    public ManagementMessage fromPacket(Packet packet) {
-        this.messageType = packet.messageType();
-        this.from = packet.from();
-        this.to = packet.to();
-
-        String payload = new String(packet.getModifiablePayload().array(), StandardCharsets.UTF_8);
-        String[] parts = payload.split("\\|", 3);
-
-        this.messageId = parts[0];
-        this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
-
-        if (parts.length > 2) {
+    protected void deserializeContent(String[] parts, int startIndex) {
+        if (parts.length > startIndex && !parts[startIndex].isEmpty()) {
             Type type = new TypeToken<Map<String, Object>>(){}.getType();
-            Map<String, Object> parsedParams = gson.fromJson(parts[2], type);
+            Map<String, Object> parsed = gson.fromJson(parts[startIndex], type);
             params.clear();
-            params.putAll(parsedParams);
+            params.putAll(parsed);
         }
+    }
 
-        return this;
+    @Override
+    protected int getExpectedPartCount() {
+        return 3;
+    }
+
+    @Override
+    public String toString() {
+        return "ManagementMessage{" +
+                "params=" + params +
+                ", messageType=" + messageType +
+                ", from=" + from +
+                ", to=" + to +
+                ", messageId='" + messageId + '\'' +
+                '}';
     }
 }

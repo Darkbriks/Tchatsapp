@@ -2,15 +2,12 @@ package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
-
-import java.nio.charset.StandardCharsets;
 
 /**
  * Message representing an acknowledgment for another message.
  * Used to track message delivery and read status.
  */
-public class AckMessage extends ProtocolMessage {
+public class AckMessage extends AbstractSerializableMessage {
     private String acknowledgedMessageId;
     private MessageStatus ackType;
     private String errorReason;
@@ -27,6 +24,8 @@ public class AckMessage extends ProtocolMessage {
         this.ackType = MessageStatus.SENT;
         this.errorReason = null;
     }
+
+    // ========================= Getters/Setters =========================
 
     /**
      * Get the ID of the message being acknowledged.
@@ -88,36 +87,30 @@ public class AckMessage extends ProtocolMessage {
         return this;
     }
 
+    // ========================= Serialization Methods =========================
+
     @Override
-    public Packet toPacket() {
-        StringBuilder payload = getStringBuilder();
-        payload.append(acknowledgedMessageId).append('|');
-        payload.append(ackType.toByte()).append('|');
-        if (ackType == MessageStatus.FAILED && errorReason != null) {
-            payload.append(errorReason);
-        }
-        return new Packet.PacketBuilder(payload.length())
-                .setMessageType(MessageType.MESSAGE_ACK)
-                .setFrom(getFrom())
-                .setTo(getTo())
-                .setPayload(payload.toString().getBytes(StandardCharsets.UTF_8))
-                .build();
+    protected void serializeContent(StringBuilder sb) {
+        joinFields(sb,
+                acknowledgedMessageId,
+                Byte.toString(ackType.toByte()),
+                ackType == MessageStatus.FAILED && errorReason != null ? errorReason : ""
+        );
     }
 
     @Override
-    public AckMessage fromPacket(Packet packet) {
-        this.messageType = packet.messageType();
-        this.from = packet.from();
-        this.to = packet.to();
-        String payload = new String(packet.getModifiablePayload().array());
-        String[] parts = payload.split("\\|", 3);
-        this.acknowledgedMessageId = parts[0];
-        this.ackType = MessageStatus.fromByte(Byte.parseByte(parts[1]));
-        if (ackType == MessageStatus.FAILED && parts.length > 2) {
-            this.errorReason = parts[2];
+    protected void deserializeContent(String[] parts, int startIndex) {
+        this.acknowledgedMessageId = parts[startIndex];
+        this.ackType = MessageStatus.fromByte(Byte.parseByte(parts[startIndex + 1]));
+        if (ackType == MessageStatus.FAILED && parts.length > startIndex + 2) {
+            this.errorReason = parts[startIndex + 2];
         } else {
             this.errorReason = null;
         }
-        return this;
+    }
+
+    @Override
+    protected int getExpectedPartCount() {
+        return 5;
     }
 }

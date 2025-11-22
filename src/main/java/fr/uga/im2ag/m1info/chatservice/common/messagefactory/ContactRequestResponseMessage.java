@@ -1,14 +1,11 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
-
-import java.time.Instant;
 
 /**
  * Message representing a contact response.
  */
-public class ContactRequestResponseMessage extends ProtocolMessage {
+public class ContactRequestResponseMessage extends AbstractSerializableMessage {
     private String requestId;
     private boolean accepted;
 
@@ -20,6 +17,8 @@ public class ContactRequestResponseMessage extends ProtocolMessage {
         this.requestId = null;
         this.accepted = false;
     }
+
+    // ========================= Getters/Setters =========================
 
     /**
      * Get the request ID.
@@ -61,37 +60,21 @@ public class ContactRequestResponseMessage extends ProtocolMessage {
         return this;
     }
 
-    @Override
-    public Packet toPacket() {
-        StringBuilder sb = getStringBuilder();
-        sb.append(messageId).append("|");
-        sb.append(timestamp.toEpochMilli()).append("|");
-        sb.append(requestId != null ? requestId : messageId).append("|");
-        sb.append(accepted ? "1" : "0");
+    // ========================= Serialization Methods =========================
 
-        byte[] payload = sb.toString().getBytes();
-        return new Packet.PacketBuilder(payload.length)
-                .setMessageType(messageType)
-                .setFrom(from)
-                .setTo(to)
-                .setPayload(payload)
-                .build();
+    @Override
+    protected void serializeContent(StringBuilder sb) {
+        joinFields(sb, requestId != null ? requestId : messageId, accepted ? "1" : "0");
     }
 
     @Override
-    public ContactRequestResponseMessage fromPacket(Packet packet) {
-        this.messageType = packet.messageType();
-        this.from = packet.from();
-        this.to = packet.to();
+    protected void deserializeContent(String[] parts, int startIndex) {
+        this.requestId = parts[startIndex];
+        this.accepted = "1".equals(parts[startIndex + 1]);
+    }
 
-        String payload = new String(packet.getModifiablePayload().array());
-        String[] parts = payload.split("\\|", 4);
-
-        this.messageId = parts[0];
-        this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
-        this.requestId = parts[2];
-        this.accepted = "1".equals(parts[3]);
-
-        return this;
+    @Override
+    protected int getExpectedPartCount() {
+        return 4;
     }
 }

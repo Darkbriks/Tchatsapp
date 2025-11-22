@@ -17,7 +17,10 @@ public enum MessageStatus {
     READ,
 
     /** Message failed to send or deliver */
-    FAILED;
+    FAILED,
+
+    /** A critical failure occurred */
+    CRITICAL_FAILURE;
 
     public static MessageStatus fromByte(byte b) {
         return switch (b) {
@@ -26,6 +29,7 @@ public enum MessageStatus {
             case 2 -> DELIVERED;
             case 3 -> READ;
             case 4 -> FAILED;
+            case 5 -> CRITICAL_FAILURE;
             default -> throw new IllegalArgumentException("Invalid AckType byte: " + b);
         };
     }
@@ -37,6 +41,7 @@ public enum MessageStatus {
             case DELIVERED -> 2;
             case READ -> 3;
             case FAILED -> 4;
+            case CRITICAL_FAILURE -> 5;
         };
     }
 }

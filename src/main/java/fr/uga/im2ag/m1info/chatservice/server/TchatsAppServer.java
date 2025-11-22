@@ -14,7 +14,6 @@ package fr.uga.im2ag.m1info.chatservice.server;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
 import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.ServerHandlerContext;
@@ -244,25 +243,6 @@ public class TchatsAppServer {
          */
         public ConnectionState getConnectionState(SocketChannel channel) {
             return activeConnections.get(channel);
-        }
-
-        /**
-         * Send an error message to a client.
-         *
-         * @param from the sender client ID
-         * @param to the recipient client ID
-         * @param level the error level
-         * @param type the error type
-         * @param message the error message
-         */
-        public void sendErrorMessage(int from, int to, ErrorMessage.ErrorLevel level, String type, String message) {
-            sendPacketToClient(
-                    ((ErrorMessage) MessageFactory.create(MessageType.ERROR, from, to))
-                            .setErrorLevel(level)
-                            .setErrorType(type)
-                            .setErrorMessage(message)
-                            .toPacket()
-            );
         }
     }
 

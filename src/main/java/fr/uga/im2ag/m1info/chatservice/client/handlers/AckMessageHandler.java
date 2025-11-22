@@ -2,6 +2,7 @@ package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
 import fr.uga.im2ag.m1info.chatservice.client.command.PendingCommandManager;
+import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.AckMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
@@ -39,6 +40,15 @@ public class AckMessageHandler extends ClientPacketHandler {
     public void handle(ProtocolMessage message, ClientController context) {
         if (!(message instanceof AckMessage ackMsg)) {
             throw new IllegalArgumentException("Invalid message type for AckMessageHandler");
+        }
+
+        if (ackMsg.getAckType() == MessageStatus.CRITICAL_FAILURE && ackMsg.getAcknowledgedMessageId() == "-1") {
+            System.err.println("[Client] Received critical failure ack from server. Disconnecting...");
+            context.disconnect();
+
+            context.setLastError(ackMsg.getErrorReason());
+
+            return;
         }
 
         if (commandManager == null) {
