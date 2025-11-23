@@ -3,6 +3,7 @@ package fr.uga.im2ag.m1info.chatservice.gui;
 import fr.uga.im2ag.m1info.chatservice.client.Client;
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.ContactRequestResponseEvent;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
@@ -118,11 +119,17 @@ public class MainFrame extends JFrame {
                 for (Integer participantId : pendingGroupParticipants.get(groupName)){
                     controller.addMemberToGroup(groupId, participantId);
                 }
-                ConversationClient conv = controller.getOrCreateGroupConversation(groupId, pendingGroupParticipants.get(groupName));
+                controller.getOrCreateGroupConversation(groupId, pendingGroupParticipants.get(groupName));
                 pendingGroupParticipants.remove(groupName);
             }
             
             refreshHomeConversations();
+        });
+
+        eventHandler.setOnGroupMemberChanged(event -> {
+            int groupId = event.getGroupId();
+            if (controller.getGroupRepository().findById(groupId) != null) 
+                controller.getGroupRepository().findById(groupId).addMember(event.getMember());
         });
 
         eventHandler.setOnContactRequestResponse(event -> {
@@ -132,6 +139,19 @@ public class MainFrame extends JFrame {
         eventHandler.setOnContactRequestReceived(event -> {
             boolean choice = showContactRequestReceivedDialog(event.getSenderId());
             controller.respondToContactRequest(event.getSenderId(), choice);   
+        });
+
+        eventHandler.setOnUserPseudoUpdated(event -> {
+            String newPseudo = event.getNewPseudo();
+            setTitle("TchatApp - " + newPseudo);
+        });
+
+        eventHandler.setOnContactUpdated(event -> {
+            refreshHomeConversations();
+        });
+
+        eventHandler.setOnTextMessageReceived(event -> {
+            refreshHomeConversations();
         });
     }
 
@@ -302,7 +322,9 @@ public class MainFrame extends JFrame {
         }
         else {
             int otherParticipantId = res.getParticipantIds().iterator().next();
-            controller.getOrCreatePrivateConversation(otherParticipantId);
+            ConversationClient conv = controller.getOrCreatePrivateConversation(otherParticipantId);
+            ContactClient contact = controller.getContactRepository().findById(otherParticipantId);
+            conv.setConversationName(contact.getPseudo());
         }
         // MaJ HP
         refreshHomeConversations();
@@ -367,22 +389,34 @@ public class MainFrame extends JFrame {
         CardLayout cl = (CardLayout) cards.getLayout();
         ConversationClient conv = controller.getConversationRepository()
                                          .findById(conversation.getId());
-        conversationPanel.setConversationTitle(conv.getConversationName());
+
+        currentConversationId = conv.getConversationId();
+        if (conv.isGroupConversation()) 
+            conversationPanel.setConversationTitle(conv.getConversationName());
         List<ConversationPanel.MessageItem> messageItems = loadMessages(conv);
         conversationPanel.setMessages(messageItems);
-        conversationPanel.setOnSend(text -> {                   
-                        TextMessage textMsg = (TextMessage) MessageFactory.create(MessageType.TEXT, controller.getClientId(), 0);
-                        textMsg.setContent(text);
-                        controller.sendPacket(textMsg.toPacket());
-                        Message msg = new Message (textMsg.getMessageId(),
-                                           controller.getClientId(),
-                                           Integer.parseInt(conv.getConversationId()), 
-                                           text, 
-                                           textMsg.getTimestamp(),
-                                           text);                              
-                        conversationPanel.appendMessage(new MessageItem(true, null, text));
-                        
+        conversationPanel.setOnSend(text -> {
+            if (text == null || text.trim().isEmpty()) {
+                return;
+            }
+            String trimmed = text.trim();
+
+            if (conv.isGroupConversation()) {
+                controller.sendGroupTextMessage(trimmed, conv);
+            } else {
+                int selfId = controller.getClientId();
+                int toUserId = conv.getParticipantIds()
+                                .stream()
+                                .filter(id -> id != selfId)
+                                .findFirst()
+                                .orElseThrow();
+                controller.sendTextMessage(trimmed, toUserId);
+            }
+
+            // Feedback immédiat dans l’UI
+            conversationPanel.appendMessage(new MessageItem(true, null, trimmed));
         });
+
         conversationPanel.setOnBack(e -> cl.show(cards, "home"));
         cl.show(cards, "conversation");
         setLocationRelativeTo(null);

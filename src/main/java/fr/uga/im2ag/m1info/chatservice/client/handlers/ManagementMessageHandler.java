@@ -126,7 +126,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
                 int adminId = getIntInParam(message, KeyInMessage.GROUP_ADMIN_ID);
                 GroupClient group = new GroupClient(groupId, groupName, adminId);
                 int i = 0;
-                while ( true){
+                while (true){
                     try{
                         int member = getIntInParam(message, KeyInMessage.GROUP_MEMBER_ID + i);
                         group.addMember(member);

@@ -473,6 +473,41 @@ public class ClientController {
     }
 
     /**
+     * Send a text message to a group using the ACK system.
+     *
+     * @param content the message content
+     * @param toUserId the group ID
+     * @return the message ID, or null if failed
+     */
+    public String sendGroupTextMessage(String content, ConversationClient conversation) {
+        String convId = conversation.getConversationId();      // "group_42"
+        int groupId = Integer.parseInt(convId.substring("group_".length()));
+
+        TextMessage textMsg = (TextMessage) MessageFactory.create(
+                MessageType.TEXT,
+                getClientId(),
+                groupId
+        );
+        textMsg.setContent(content);
+
+        Message msg = new Message(
+                textMsg.getMessageId(),
+                getClientId(),
+                groupId,
+                content,
+                textMsg.getTimestamp(),
+                null
+        );
+
+        conversation.addMessage(msg);
+        client.getCommandManager().addPendingCommand(new SendTextMessageCommand(textMsg.getMessageId(), msg, conversationRepository));
+
+        sendPacket(textMsg.toPacket());
+        return textMsg.getMessageId();
+    }
+
+
+    /**
      * Send a management message using the ACK system.
      *
      * @param messageType the type of management message
