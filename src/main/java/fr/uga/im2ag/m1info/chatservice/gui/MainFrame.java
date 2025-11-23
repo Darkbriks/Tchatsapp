@@ -5,6 +5,7 @@ import fr.uga.im2ag.m1info.chatservice.client.ClientController;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.ContactRequestResponseEvent;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
@@ -144,14 +145,19 @@ public class MainFrame extends JFrame {
         eventHandler.setOnUserPseudoUpdated(event -> {
             String newPseudo = event.getNewPseudo();
             setTitle("TchatApp - " + newPseudo);
+            homePanel.repaint();
+
         });
 
         eventHandler.setOnContactUpdated(event -> {
             refreshHomeConversations();
+            homePanel.repaint();
         });
 
         eventHandler.setOnTextMessageReceived(event -> {
             refreshHomeConversations();
+            refreshMessages(controller.getConversationRepository().findById(event.getConversationId()));
+            conversationPanel.repaint();
         });
     }
 
@@ -385,6 +391,10 @@ public class MainFrame extends JFrame {
 
     }
 
+
+    // ----------------------- Conversation Panel Actions -----------------------
+
+
     public void handleConversationSelection(HomePanel.ConversationItem conversation) {
         CardLayout cl = (CardLayout) cards.getLayout();
         ConversationClient conv = controller.getConversationRepository()
@@ -393,8 +403,10 @@ public class MainFrame extends JFrame {
         currentConversationId = conv.getConversationId();
         if (conv.isGroupConversation()) 
             conversationPanel.setConversationTitle(conv.getConversationName());
-        List<ConversationPanel.MessageItem> messageItems = loadMessages(conv);
-        conversationPanel.setMessages(messageItems);
+
+
+        refreshMessages(conv);
+ 
         conversationPanel.setOnSend(text -> {
             if (text == null || text.trim().isEmpty()) {
                 return;
@@ -402,7 +414,8 @@ public class MainFrame extends JFrame {
             String trimmed = text.trim();
 
             if (conv.isGroupConversation()) {
-                controller.sendGroupTextMessage(trimmed, conv);
+                int toUserId = Integer.parseInt(conv.getConversationId().substring("group_".length()));
+                controller.sendTextMessage(trimmed, toUserId);
             } else {
                 int selfId = controller.getClientId();
                 int toUserId = conv.getParticipantIds()
@@ -412,9 +425,6 @@ public class MainFrame extends JFrame {
                                 .orElseThrow();
                 controller.sendTextMessage(trimmed, toUserId);
             }
-
-            // Feedback immédiat dans l’UI
-            conversationPanel.appendMessage(new MessageItem(true, null, trimmed));
         });
 
         conversationPanel.setOnBack(e -> cl.show(cards, "home"));
@@ -435,9 +445,6 @@ public class MainFrame extends JFrame {
         }
         return messageItems;
     }
-
-    // ----------------------- Conversation Panel Actions -----------------------
-    // TODO
 
     // ----------------------- Application Lifecycle -----------------------
 
@@ -505,6 +512,11 @@ public class MainFrame extends JFrame {
         );
         boolean choice = (selection == 0);
         return choice;
+    }
+
+    private void refreshMessages(ConversationClient conv) {
+        List<ConversationPanel.MessageItem> messageItems = loadMessages(conv);
+        conversationPanel.setMessages(messageItems);
     }
 
     // ----------------------- Entry Point -----------------------
