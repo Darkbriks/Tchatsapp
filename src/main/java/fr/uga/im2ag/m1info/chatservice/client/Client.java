@@ -63,6 +63,15 @@ public class Client {
     }
 
     /**
+     * Get the PacketProcessor.
+     *
+     * @return the PacketProcessor
+     */
+    public PacketProcessor getPacketProcessor() {
+        return processor;
+    }
+
+    /**
      * Attempts to connect to the server.
      *
      * @param host the server hostname or IP address

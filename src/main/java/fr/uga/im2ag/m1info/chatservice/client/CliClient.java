@@ -31,6 +31,7 @@ public class CliClient {
     CliClient(int clientId, Scanner scanner) {
         Client client = new Client(clientId);
         this.clientController = new ClientController(client);
+        this.clientController.initializeEncryption();
         this.clientController.initializeHandlers();
         this.scanner = scanner;
         registerEventListeners();

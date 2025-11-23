@@ -152,4 +152,26 @@ public interface EncryptionStrategy {
     default String getName() {
         return getClass().getSimpleName();
     }
+
+    /**
+     * Clears all encryption contexts/sessions.
+     * <p>
+     * Default implementation is a no-op.
+     * Implementations with session management should override this.
+     */
+    default void clearAllContexts() {
+        // Default no-op
+    }
+
+    /**
+     * Invalidates the encryption context for a specific peer.
+     * <p>
+     * Default implementation is a no-op.
+     * Implementations with session management should override this.
+     *
+     * @param peerId the peer ID whose context to invalidate
+     */
+    default void invalidateContext(int peerId) {
+        // Default no-op
+    }
 }

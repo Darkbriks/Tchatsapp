@@ -93,6 +93,7 @@ public class ContactRequestHandler extends ClientPacketHandler {
 
         if (accepted) {
             addContact(context, responderId, repo);
+            context.initiateSecureConversation(responderId);
         }
 
         publishEvent(new ContactRequestResponseEvent(this, requestId, responderId, accepted, true), context);
