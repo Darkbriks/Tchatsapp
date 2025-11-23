@@ -20,6 +20,7 @@ import java.awt.event.WindowEvent;
 import java.time.Instant;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Set;
 
 public class MainFrame extends JFrame {
@@ -43,6 +44,7 @@ public class MainFrame extends JFrame {
     // State
     private String currentConversationId;
     private volatile boolean awaitingConnection;
+    private HashMap <String, Set<Integer>> pendingGroupParticipants;
 
     public MainFrame() {
         super("TchatApp");
@@ -107,6 +109,20 @@ public class MainFrame extends JFrame {
             } else {
                 showErrorDialog(event.getErrorLevel().toString(), event.getErrorMessage());
             }
+        });
+
+        eventHandler.setOnGroupCreated(event -> {
+            int groupId = event.getGroupId();
+            String groupName = event.getGroupName();
+            if (pendingGroupParticipants.containsKey(groupName)) {
+                for (Integer participantId : pendingGroupParticipants.get(groupName)){
+                    controller.addMemberToGroup(groupId, participantId);
+                }
+                ConversationClient conv = controller.getOrCreateGroupConversation(groupId, pendingGroupParticipants.get(groupName));
+                pendingGroupParticipants.remove(groupName);
+            }
+            
+            refreshHomeConversations();
         });
 
         eventHandler.setOnContactRequestResponse(event -> {
@@ -184,6 +200,9 @@ public class MainFrame extends JFrame {
         this.eventHandler = new GuiEventHandler(controller);
         setupEventHandlerCallbacks();
         eventHandler.registerSubscriptions();
+
+        // Initialize group member pending for a group created on the request of the user
+        this.pendingGroupParticipants = new HashMap<String, Set<Integer>>();
     }
 
     private void onConnectionSuccess(int clientId, String pseudo, boolean isNewUser) {
@@ -277,7 +296,9 @@ public class MainFrame extends JFrame {
         if (res.isGroup()) {
             res.getParticipantIds().add(currentUserId);
             controller.createGroup(res.getConversationName());
-            controller.getOrCreateGroupConversation(currentUserId, res.getParticipantIds());
+
+            pendingGroupParticipants.put(res.getConversationName(), res.getParticipantIds());
+            
         }
         else {
             int otherParticipantId = res.getParticipantIds().iterator().next();

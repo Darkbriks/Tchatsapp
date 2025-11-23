@@ -74,7 +74,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             System.out.println("[Client] Your Group has been created : " + newGroupe + " his ID is " + groupId);
             GroupClient group = new GroupClient(groupId, newGroupe, context.getClientId());
             context.getGroupRepository().add(group);
-            publishEvent(new GroupCreateEvent(this, groupId), context);
+            publishEvent(new GroupCreateEvent(this, groupId, newGroupe), context);
         }
     }
 

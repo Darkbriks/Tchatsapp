@@ -19,7 +19,7 @@ public class CreateGroupCommand extends SendManagementMessageCommand {
 
     @Override
     public boolean onAckReceived(MessageStatus ackType) {
-        EventBus.getInstance().publish(new GroupCreateEvent(this, -1));
+        EventBus.getInstance().publish(new GroupCreateEvent(this, -1, groupName));
         System.out.printf("[CLIENT ] Groupe %s bien crée \n", groupName);
         // userClient.setPseudo(newPseudo);
         return true;

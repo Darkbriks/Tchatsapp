@@ -30,7 +30,7 @@ public class CreateConversationDialog extends JDialog {
         public boolean isGroup() { return isGroup; }
     }
 
-    // Petit POJO interne pour afficher les contacts dans la JList
+    // Pojo to add contacts in JLsit
     private static final class ContactItem {
         final int id;
         final String pseudo;
@@ -38,8 +38,8 @@ public class CreateConversationDialog extends JDialog {
             this.id = id; this.pseudo = pseudo;
         }
         
-        public int getId() {return id;}
-        public String getPseudo() {return pseudo;}
+        public int getId() { return id; }
+        public String getPseudo() { return pseudo; }
 
         @Override
         public String toString() { return pseudo + ", id = " + id; }
@@ -178,7 +178,7 @@ public class CreateConversationDialog extends JDialog {
         if (name.isEmpty()) {
             if (!isGroup) {
                 // default name of priv conv = pseudo of contact
-                name = selected.get(0).pseudo;
+                name = selected.get(0).getPseudo();
             } else {
                 // Group : if no name provided, some pseudos, and "..." if > 3
                 StringBuilder sb = new StringBuilder("Group : ");
