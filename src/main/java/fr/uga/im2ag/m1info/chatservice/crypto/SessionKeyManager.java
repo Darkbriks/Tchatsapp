@@ -1,7 +1,6 @@
 package fr.uga.im2ag.m1info.chatservice.crypto;
- 
-import javax.crypto.SecretKey;
 
+import javax.crypto.SecretKey;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
@@ -35,7 +34,7 @@ public class SessionKeyManager {
         SessionInfo(SecretKey key) {
             this.key = key;
             this.sendSequence = new AtomicLong(0);
-            this.receiveSequence = new AtomicLong(0);
+            this.receiveSequence = new AtomicLong(-1);
             this.createdAt = Instant.now();
             this.messagesSent = new AtomicLong(0);
             this.messagesReceived = new AtomicLong(0);

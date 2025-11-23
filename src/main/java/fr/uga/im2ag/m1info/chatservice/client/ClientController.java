@@ -144,7 +144,6 @@ public class ClientController {
         }
 
         PacketProcessor processor = createPacketProcessor(router);
-
         client.setPacketProcessor(processor);
     }
 
@@ -156,6 +155,34 @@ public class ClientController {
         } else {
             return router;
         }
+    }
+
+    public void reinitializePacketProcessor() {
+        if (client == null) {
+            return;
+        }
+
+        ClientHandlerContext handlerContext = ClientHandlerContext.builder()
+                .commandManager(client.getCommandManager())
+                .build();
+
+        ClientPaquetRouter router = ClientPaquetRouter.createWithServiceLoader(
+                this,
+                handlerContext
+        );
+
+        if (encryptionService != null) {
+            if (keyExchangeHandler == null) {
+                keyExchangeHandler = new KeyExchangeHandler();
+            }
+            keyExchangeHandler.setEncryptionService(encryptionService);
+            router.addHandler(keyExchangeHandler);
+        }
+
+        PacketProcessor processor = createPacketProcessor(router);
+        client.setPacketProcessor(processor);
+
+        System.out.println("[Client] PacketProcessor reinitialized");
     }
 
     /* ----------------------- Accessors ----------------------- */
@@ -285,6 +312,8 @@ public class ClientController {
             if (keyExchangeHandler != null) {
                 keyExchangeHandler.setEncryptionService(encryptionService);
             }
+
+            reinitializePacketProcessor();
         }
     }
 
