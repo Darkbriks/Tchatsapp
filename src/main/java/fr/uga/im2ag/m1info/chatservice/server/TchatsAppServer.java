@@ -148,6 +148,16 @@ public class TchatsAppServer {
         }
 
         /**
+         * Send a packet to a specific client.
+         *
+         * @param pkt the packet to send
+         * @param clientId the client ID to send to
+         */
+        public void sendPacketToClient(Packet pkt, int clientId) {
+            TchatsAppServer.this.sendPacketToClient(pkt, clientId);
+        }
+
+        /**
          * Generate a new unique client ID.
          *
          * @return a new client ID
@@ -439,14 +449,26 @@ public class TchatsAppServer {
      * Envoie un Packet vers la queue du destinataire
      */
     public void sendPacket(Packet pkt) {
-        int to = pkt.to();
-        Queue<ByteBuffer> q = clientQueues.get(to);
+        sendPacketToClient(pkt, pkt.to());
+    }
+
+    /**
+     * Envoie un Packet vers la queue du client spécifié
+     * <p>
+     * Attention : Aucun contrôle n'est effectué pour vérifier que le clientId
+     * correspond bien au destinataire du Packet.
+     * <p>
+     * Utile pour l'envoi de messages de groupe, où l'id du destinataire
+     * dans le Packet est celui du groupe.
+     */
+    public void sendPacketToClient(Packet pkt, int clientId) {
+        Queue<ByteBuffer> q = clientQueues.get(clientId);
         if (q != null) {
             q.offer(pkt.asByteBuffer());
-            ConnectionState cs = connectedClients.get(to);
+            ConnectionState cs = connectedClients.get(clientId);
             if (cs != null) wakeupSendQueue(cs.channel);
         } else {
-            LOG.info("No queue for " + to + ", packet ignored");
+            LOG.info("No queue for " + clientId + ", packet ignored");
         }
     }
 

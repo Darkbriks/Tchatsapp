@@ -31,7 +31,7 @@ public class CliClient {
     CliClient(int clientId, Scanner scanner) {
         Client client = new Client(clientId);
         this.clientController = new ClientController(client);
-        this.clientController.initializeEncryption();
+        //this.clientController.initializeEncryption();
         this.clientController.initializeHandlers();
         this.scanner = scanner;
         registerEventListeners();
@@ -285,9 +285,9 @@ public class CliClient {
         System.out.println("║              TCHATSAPP MAIN MENU               ║");
         System.out.println("╠════════════════════════════════════════════════╣");
         System.out.println("║ 1. Create a group                              ║");
-        System.out.println("║ 2. Leavea a group                              ║");
+        System.out.println("║ 2. Leave a group                               ║");
         System.out.println("║ 3. Add member ( admin only )                   ║");
-        System.out.println("║ 4. Remove member ('admin only )                ║");
+        System.out.println("║ 4. Remove member ( admin only )                ║");
         System.out.println("║ 0. Back to Main menu                           ║");
         System.out.println("╚════════════════════════════════════════════════╝");
         System.out.print("Your choice: ");

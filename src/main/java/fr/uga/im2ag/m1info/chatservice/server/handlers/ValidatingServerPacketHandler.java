@@ -57,7 +57,7 @@ public abstract class ValidatingServerPacketHandler extends ServerPacketHandler 
         if (isGroupId(message.getTo(), ctx)) {
             for (int memberId : ctx.getGroupRepository().findById(message.getTo()).getMembers()) {
                 if (memberId != message.getFrom()) {
-                    ctx.sendPacketToClient(message.toPacket());
+                    ctx.sendPacketToClient(message.toPacket(), memberId);
                 }
             }
         } else {
