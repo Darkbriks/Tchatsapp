@@ -213,6 +213,7 @@ public class MainFrame extends JFrame {
 
     private void initializeClient(int clientId) {
         this.controller = new ClientController(new Client(clientId));
+        this.controller.initializeEncryption();
         this.controller.initializeHandlers();
 
         // Initialize event handler
