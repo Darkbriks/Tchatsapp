@@ -4,6 +4,7 @@ import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 import fr.uga.im2ag.m1info.chatservice.common.repository.GroupRepository;
 import fr.uga.im2ag.m1info.chatservice.crypto.KeyExchange;
 import fr.uga.im2ag.m1info.chatservice.crypto.SessionKeyManager;
+import fr.uga.im2ag.m1info.chatservice.crypto.SymmetricCipher;
 import fr.uga.im2ag.m1info.chatservice.storage.KeyStore;
 
 import javax.crypto.KeyGenerator;
@@ -45,6 +46,7 @@ public class GroupKeyExchangeManager implements IKeyExchangeManager {
     private final GroupRepository groupRepository;
     private final KeyStore keyStore;
     private final KeyExchange keyExchange;
+    private final SymmetricCipher cipher;
 
     // Reference to private manager for establishing sessions
     private PrivateKeyExchangeManager privateManager;
@@ -80,6 +82,7 @@ public class GroupKeyExchangeManager implements IKeyExchangeManager {
         this.groupRepository = groupRepository;
         this.keyStore = keyStore;
         this.keyExchange = new KeyExchange();
+        this.cipher = new SymmetricCipher();
 
         this.pendingDistributions = new ConcurrentHashMap<>();
         this.listeners = new CopyOnWriteArrayList<>();
@@ -494,21 +497,61 @@ public class GroupKeyExchangeManager implements IKeyExchangeManager {
         sendKeyExchangeResponseMessage(adminId, data);
     }
 
+    /**
+     * Encrypts a group key using AES-GCM with the member's session key.
+     * <p>
+     * Uses a fresh random nonce for each encryption. The nonce is prepended
+     * to the ciphertext for transmission.
+     *
+     * @param groupKey    the group key bytes to encrypt
+     * @param sessionKey  the member's session key
+     * @return nonce + ciphertext (12 bytes nonce + encrypted data with auth tag)
+     * @throws GeneralSecurityException if encryption fails
+     */
     private byte[] encryptGroupKey(byte[] groupKey, SecretKey sessionKey) throws GeneralSecurityException {
-        // TODO: Replace with proper AES-GCM encryption
-        byte[] encrypted = new byte[groupKey.length];
-        byte[] keyBytes = sessionKey.getEncoded();
+        // Generate fresh nonce for this encryption
+        byte[] nonce = cipher.generateNonce();
 
-        for (int i = 0; i < groupKey.length; i++) {
-            encrypted[i] = (byte) (groupKey[i] ^ keyBytes[i % keyBytes.length]);
-        }
+        // Encrypt the group key with AES-GCM (includes authentication tag)
+        byte[] ciphertext = cipher.encrypt(groupKey, sessionKey, nonce, null);
 
-        return encrypted;
+        // Prepend nonce to ciphertext for transmission
+        byte[] result = new byte[nonce.length + ciphertext.length];
+        System.arraycopy(nonce, 0, result, 0, nonce.length);
+        System.arraycopy(ciphertext, 0, result, nonce.length, ciphertext.length);
+
+        return result;
     }
 
-    private byte[] decryptGroupKey(byte[] encrypted, SecretKey sessionKey)
+    /**
+     * Decrypts a group key using AES-GCM with the admin's session key.
+     * <p>
+     * Expects the data to be: nonce (12 bytes) + ciphertext (with auth tag).
+     *
+     * @param encryptedData  nonce + ciphertext received from admin
+     * @param sessionKey     the admin's session key
+     * @return the decrypted group key bytes
+     * @throws GeneralSecurityException if decryption or authentication fails
+     */
+    private byte[] decryptGroupKey(byte[] encryptedData, SecretKey sessionKey)
             throws GeneralSecurityException {
-        return encryptGroupKey(encrypted, sessionKey);
+
+        int nonceLength = cipher.getNonceLength();
+
+        if (encryptedData.length < nonceLength) {
+            throw new GeneralSecurityException("Encrypted data too short - missing nonce");
+        }
+
+        // Extract nonce from the beginning
+        byte[] nonce = new byte[nonceLength];
+        System.arraycopy(encryptedData, 0, nonce, 0, nonceLength);
+
+        // Extract ciphertext (everything after nonce)
+        byte[] ciphertext = new byte[encryptedData.length - nonceLength];
+        System.arraycopy(encryptedData, nonceLength, ciphertext, 0, ciphertext.length);
+
+        // Decrypt and verify authentication tag
+        return cipher.decrypt(ciphertext, sessionKey, nonce, null);
     }
 
     private SecretKey generateGroupKey() {
