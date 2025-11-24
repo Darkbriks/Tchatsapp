@@ -1,8 +1,12 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.client.event.types.*;
-import fr.uga.im2ag.m1info.chatservice.client.model.*;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
+import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
+import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 
 import java.io.IOException;
 import java.time.ZoneId;
@@ -31,7 +35,7 @@ public class CliClient {
     CliClient(int clientId, Scanner scanner) {
         Client client = new Client(clientId);
         this.clientController = new ClientController(client);
-        //this.clientController.initializeEncryption();
+        this.clientController.initializeEncryption();
         this.clientController.initializeHandlers();
         this.scanner = scanner;
         registerEventListeners();
@@ -505,9 +509,9 @@ public class CliClient {
         System.out.println("║                 YOUR GROUPS                    ║");
         System.out.println("╠════════════════════════════════════════════════╣");
 
-        for (GroupClient group : groups) {
+        for (GroupInfo group : groups) {
             System.out.println("║ ID: " + group.getGroupId());
-            System.out.println("║ NAME: " + group.getName());
+            System.out.println("║ NAME: " + group.getGroupName());
             for ( int member : group.getMembers()){
                 if (clientController.getContactRepository().isContact(member)){
                     System.out.println("║ MENBER_NAME: " + clientController.getContactRepository().findById(member).getPseudo());

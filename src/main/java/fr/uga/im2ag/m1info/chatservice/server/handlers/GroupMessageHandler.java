@@ -5,9 +5,9 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
+import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer.ServerContext;
-import fr.uga.im2ag.m1info.chatservice.server.model.GroupInfo;
 import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
 import fr.uga.im2ag.m1info.chatservice.server.util.AckHelper;
 
@@ -52,7 +52,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         }
 
         group.setGroupName(newGroupName);
-        serverContext.getGroupRepository().update(group.getId(), group);
+        serverContext.getGroupRepository().update(group.getGroupId(), group);
         LOG.info(String.format("Group %d updated name to %s", groupId, newGroupName));
 
         for (int memberId : group.getMembers()) {
@@ -116,7 +116,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         }
         
         group.removeMember(oldMemberID);
-        serverContext.getGroupRepository().update(group.getId(), group);
+        serverContext.getGroupRepository().update(group.getGroupId(), group);
         LOG.info(String.format("Group %d remove member %d", groupId, oldMemberID));
 
         AckHelper.sendSentAck(serverContext, groupManagementMessage);
@@ -166,7 +166,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         }
 
         group.addMember(newMemberID);
-        serverContext.getGroupRepository().update(group.getId(), group);
+        serverContext.getGroupRepository().update(group.getGroupId(), group);
         LOG.info(String.format("Group %d add member %d", groupId, newMemberID));
         ManagementMessage message  = (ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, newMemberID);
         message.addParam(KeyInMessage.MEMBER_ADD_ID, newMemberID)
@@ -220,7 +220,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         }
 
         group.removeMember(groupMember);
-        serverContext.getGroupRepository().update(group.getId(), group);
+        serverContext.getGroupRepository().update(group.getGroupId(), group);
         LOG.info(String.format("member %d leave group %d", groupMember, groupId));
 
         AckHelper.sendSentAck(serverContext, groupManagementMessage);

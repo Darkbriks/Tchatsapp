@@ -202,6 +202,21 @@ public class FileKeyStore implements KeyStore {
         }
     }
 
+    @Override
+    public Map<String, SecretKey> loadAllSessionKeys() throws IOException {
+        Map<String, SecretKey> sessionKeys = new HashMap<>();
+
+        Set<String> conversationIds = listConversationIds();
+        for (String convId : conversationIds) {
+            SecretKey key = loadSessionKey(convId);
+            if (key != null) {
+                sessionKeys.put(convId, key);
+            }
+        }
+
+        return sessionKeys;
+    }
+
     // ========================= Identity Keypair Operations =========================
 
     /**

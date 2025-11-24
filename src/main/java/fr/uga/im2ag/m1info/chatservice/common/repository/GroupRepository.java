@@ -1,7 +1,6 @@
-package fr.uga.im2ag.m1info.chatservice.server.repository;
+package fr.uga.im2ag.m1info.chatservice.common.repository;
 
-import fr.uga.im2ag.m1info.chatservice.common.repository.AbstractRepository;
-import fr.uga.im2ag.m1info.chatservice.server.model.GroupInfo;
+import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 
 import java.util.Map;
 
@@ -16,7 +15,7 @@ public class GroupRepository extends AbstractRepository<Integer, GroupInfo> {
 
     @Override
     protected Integer getKey(GroupInfo entity) {
-        return entity.getId();
+        return entity.getGroupId();
     }
 }
 

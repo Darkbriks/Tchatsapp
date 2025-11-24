@@ -16,8 +16,8 @@ import fr.uga.im2ag.m1info.chatservice.common.Packet;
 import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
+import fr.uga.im2ag.m1info.chatservice.common.repository.GroupRepository;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.ServerHandlerContext;
-import fr.uga.im2ag.m1info.chatservice.server.repository.GroupRepository;
 import fr.uga.im2ag.m1info.chatservice.server.repository.UserRepository;
 
 import java.io.IOException;

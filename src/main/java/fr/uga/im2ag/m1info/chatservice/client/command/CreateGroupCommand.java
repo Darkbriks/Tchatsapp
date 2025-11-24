@@ -1,16 +1,14 @@
 package fr.uga.im2ag.m1info.chatservice.client.command;
 
-import fr.uga.im2ag.m1info.chatservice.client.event.system.EventBus;
-import fr.uga.im2ag.m1info.chatservice.client.event.types.GroupCreateEvent;
-import fr.uga.im2ag.m1info.chatservice.client.repository.GroupClientRepository;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.repository.GroupRepository;
 
 public class CreateGroupCommand extends SendManagementMessageCommand {
     private final String groupName;
-    private final GroupClientRepository repo;
+    private final GroupRepository repo;
 
-    public CreateGroupCommand(String commandId, String groupName, GroupClientRepository repo) {
+    public CreateGroupCommand(String commandId, String groupName, GroupRepository repo) {
 
         super(commandId, MessageType.CREATE_GROUP);
         this.groupName = groupName;
@@ -19,9 +17,8 @@ public class CreateGroupCommand extends SendManagementMessageCommand {
 
     @Override
     public boolean onAckReceived(MessageStatus ackType) {
-        EventBus.getInstance().publish(new GroupCreateEvent(this, -1));
+        //EventBus.getInstance().publish(new GroupCreateEvent(this, -1));
         System.out.printf("[CLIENT ] Groupe %s bien crée \n", groupName);
-        // userClient.setPseudo(newPseudo);
         return true;
     }
     

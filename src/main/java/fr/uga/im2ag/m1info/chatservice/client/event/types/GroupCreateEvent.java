@@ -1,29 +1,30 @@
 package fr.uga.im2ag.m1info.chatservice.client.event.types;
 
 import fr.uga.im2ag.m1info.chatservice.client.event.system.Event;
+import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 
 /**
  * Event representing an update to the current user's pseudo.
  */
 public class GroupCreateEvent extends Event {
-    private final int groupId;
+    private final GroupInfo groupInfo;
 
     /** Constructor for the UserPseudoUpdatedEvent class.
      *
      * @param source The source object that generated the event.
-     * @param groupId The new pseudo/username.
+     * @param groupInfo The group information.
      */
-    public GroupCreateEvent(Object source, int groupID) {
+    public GroupCreateEvent(Object source, GroupInfo groupInfo) {
         super(source);
-        this.groupId = groupID;
+        this.groupInfo = groupInfo;
     }
 
-    /** Gets the new pseudo.
+    /** Gets the group information.
      *
-     * @return The new pseudo/username.
+     * @return The group information.
      */
-    public int getGroupId() {
-        return groupId;
+    public GroupInfo getGroupInfo() {
+        return groupInfo;
     }
 
     /** Gets the specific type of the event.

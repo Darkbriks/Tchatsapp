@@ -6,50 +6,26 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.crypto.SessionKeyManager;
 import fr.uga.im2ag.m1info.chatservice.crypto.SymmetricCipher;
 import fr.uga.im2ag.m1info.chatservice.crypto.context.ConversationEncryptionContext;
-import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.KeyExchangeManager;
+import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.CompositeKeyExchangeManager;
+import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.IKeyExchangeManager;
 
 import java.security.GeneralSecurityException;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * AES-256-GCM encryption strategy for end-to-end encrypted messaging.
+ * AES-256-GCM encryption strategy supporting both private and group conversations.
  * <p>
- * This strategy implements full E2EE using:
+ * This strategy encrypts messages using AES-256-GCM with:
  * <ul>
- *   <li>AES-256-GCM for symmetric encryption with authentication</li>
- *   <li>Per-conversation session keys managed by {@link SessionKeyManager}</li>
- *   <li>ECDH key exchange via {@link KeyExchangeManager}</li>
- *   <li>Sequence numbers for replay protection</li>
- *   <li>AAD for metadata authentication (from, to, sequence)</li>
+ *   <li>ECDH-derived keys for private conversations</li>
+ *   <li>Symmetric group keys for group conversations</li>
+ *   <li>Automatic context management and caching</li>
+ *   <li>Support for all message types requiring encryption</li>
  * </ul>
- * <p>
- * Thread Safety: This class is thread-safe. Context caching uses ConcurrentHashMap.
- * <p>
- * Usage:
- * <pre>{@code
- * AESEncryptionStrategy strategy = new AESEncryptionStrategy(
- *     localClientId, sessionManager, keyExchangeManager
- * );
- * 
- * // Encrypt before sending
- * if (strategy.shouldEncrypt(message.getMessageType(), message.getTo())) {
- *     message = strategy.encrypt(message);
- * }
- * 
- * // Decrypt after receiving
- * if (message instanceof EncryptedWrapper wrapper) {
- *     message = strategy.decrypt(wrapper);
- * }
- * }</pre>
- *
- * @see EncryptionStrategy
- * @see ConversationEncryptionContext
- * @see SessionKeyManager
  */
 public class AESEncryptionStrategy implements EncryptionStrategy {
 
@@ -69,31 +45,27 @@ public class AESEncryptionStrategy implements EncryptionStrategy {
 
     // ========================= Dependencies =========================
 
-    private volatile int localClientId;
+    private final int localClientId;
     private final SessionKeyManager sessionManager;
-    private final KeyExchangeManager keyExchangeManager;
+    private final IKeyExchangeManager keyExchangeManager;
     private final SymmetricCipher cipher;
 
-    /** Cache of encryption contexts per peer ID */
-    private final Map<Integer, ConversationEncryptionContext> contextCache;
+    // ========================= Context Cache =========================
+
+    private final Map<String, ConversationEncryptionContext> contextCache;
 
     // ========================= Constructor =========================
 
-    /**
-     * Creates a new AESEncryptionStrategy.
-     *
-     * @param localClientId      the local client's ID (can be 0 for new users, updated later)
-     * @param sessionManager     the session key manager
-     * @param keyExchangeManager the key exchange manager
-     * @throws NullPointerException if sessionManager or keyExchangeManager is null
-     */
-    public AESEncryptionStrategy(
-            int localClientId,
-            SessionKeyManager sessionManager,
-            KeyExchangeManager keyExchangeManager) {
-
-        Objects.requireNonNull(sessionManager, "Session manager cannot be null");
-        Objects.requireNonNull(keyExchangeManager, "Key exchange manager cannot be null");
+    public AESEncryptionStrategy(int localClientId, SessionKeyManager sessionManager, IKeyExchangeManager keyExchangeManager) {
+        if (localClientId <= 0) {
+            throw new IllegalArgumentException("Local client ID must be positive: " + localClientId);
+        }
+        if (sessionManager == null) {
+            throw new NullPointerException("Session manager cannot be null");
+        }
+        if (keyExchangeManager == null) {
+            throw new NullPointerException("Key exchange manager cannot be null");
+        }
 
         this.localClientId = localClientId;
         this.sessionManager = sessionManager;
@@ -102,140 +74,69 @@ public class AESEncryptionStrategy implements EncryptionStrategy {
         this.contextCache = new ConcurrentHashMap<>();
     }
 
-    // ========================= Client ID Management =========================
-
-    /**
-     * Updates the local client ID.
-     * <p>
-     * This is necessary when a new user is created and the server assigns an ID.
-     * Clears the context cache since contexts depend on the local client ID.
-     *
-     * @param newClientId the new client ID (must be positive)
-     * @throws IllegalArgumentException if newClientId is not positive
-     */
-    public void updateLocalClientId(int newClientId) {
-        if (newClientId <= 0) {
-            throw new IllegalArgumentException("Client ID must be positive: " + newClientId);
-        }
-
-        LOG.info("Updating local client ID from " + localClientId + " to " + newClientId);
-        this.localClientId = newClientId;
-
-        // Clear cached contexts as they contain the old client ID
-        contextCache.clear();
-    }
-
-    /**
-     * Gets the current local client ID.
-     *
-     * @return the local client ID
-     */
-    public int getLocalClientId() {
-        return localClientId;
-    }
-
     // ========================= EncryptionStrategy Implementation =========================
 
-    /**
-     * {@inheritDoc}
-     * <p>
-     * Wraps the message in an {@link EncryptedWrapper} using AES-256-GCM.
-     *
-     * @throws GeneralSecurityException if encryption fails
-     * @throws IllegalStateException    if no session key exists for the recipient
-     */
     @Override
     public ProtocolMessage encrypt(ProtocolMessage message) throws GeneralSecurityException {
-        Objects.requireNonNull(message, "Message cannot be null");
-
-        int recipientId = message.getTo();
-
-        if (!hasSessionKey(recipientId)) {
-            throw new IllegalStateException(
-                    "No session key for recipient " + recipientId +
-                            ". Initiate key exchange first."
-            );
+        if (message == null) {
+            throw new IllegalArgumentException("Message cannot be null");
         }
 
-        ConversationEncryptionContext context = getOrCreateContext(recipientId);
-
-        LOG.fine(() -> "Encrypting " + message.getMessageType() + " to " + recipientId);
-
-        EncryptedWrapper wrapper = EncryptedWrapper.wrap(message, context);
-
-        // Check if key rotation is needed
-        if (context.shouldRotateKey()) {
-            LOG.info("Key rotation recommended for peer " + recipientId);
-            // Could trigger async key rotation here
+        if (!shouldEncrypt(message.getMessageType(), message.getTo())) {
+            LOG.fine(String.format("Message to %d of type %s does not require encryption", message.getTo(), message.getMessageType()));
+            return message;
         }
-
-        return wrapper;
-    }
-
-    /**
-     * {@inheritDoc}
-     * <p>
-     * Extracts and decrypts the original message from the wrapper.
-     * Validates the sequence number to prevent replay attacks.
-     *
-     * @throws GeneralSecurityException if decryption fails or authentication fails
-     * @throws SecurityException        if replay attack detected
-     */
-    @Override
-    public ProtocolMessage decrypt(EncryptedWrapper wrapper) throws GeneralSecurityException {
-        Objects.requireNonNull(wrapper, "Wrapper cannot be null");
-
-        int senderId = wrapper.getFrom();
-
-        if (!hasSessionKey(senderId)) {
-            throw new IllegalStateException(
-                    "No session key for sender " + senderId +
-                            ". Key exchange may not have completed."
-            );
-        }
-
-        ConversationEncryptionContext context = getOrCreateContext(senderId);
-
-        LOG.fine(() -> "Decrypting " + wrapper.getOriginalType() + " from " + senderId);
 
         try {
-            return wrapper.unwrap(context);
-        } catch (SecurityException e) {
-            LOG.log(Level.SEVERE, "Potential replay attack from " + senderId, e);
-            throw e;
+            // Get or create encryption context
+            ConversationEncryptionContext context = getOrCreateContext(message.getTo());
+
+            if (context == null) {
+                LOG.warning(String.format("No encryption context available for recipient %d", message.getTo()));
+                return message;
+            }
+            LOG.fine(String.format("Encrypting %s message to %d", message.getMessageType(), message.getTo()));
+            return EncryptedWrapper.wrap(message, context);
+        } catch (Exception e) {
+            LOG.log(Level.SEVERE, "Failed to encrypt message", e);
+            throw new GeneralSecurityException("Encryption failed: " + e.getMessage(), e);
         }
     }
 
-    /**
-     * {@inheritDoc}
-     * <p>
-     * Returns true if:
-     * <ul>
-     *   <li>The message type is not in the excluded set</li>
-     *   <li>The recipient is not the server (ID 0)</li>
-     *   <li>A session key exists for the recipient</li>
-     *   <li>The local client ID is valid (> 0)</li>
-     * </ul>
-     */
     @Override
-    public boolean shouldEncrypt(MessageType type, int recipientId) {
-        // Never encrypt excluded types
-        if (isExcludedFromEncryption(type)) {
-            return false;
-        }
+    public ProtocolMessage decrypt(EncryptedWrapper wrapper) throws GeneralSecurityException {
+        try {
+            int senderId = wrapper.getFrom();
+            ConversationEncryptionContext context = getOrCreateContext(senderId);
 
-        // Don't encrypt messages to server
+            if (context == null) {
+                throw new GeneralSecurityException("No decryption context available for sender " + senderId);
+            }
+
+            ProtocolMessage decrypted = wrapper.unwrap(context);
+            LOG.fine(String.format("Successfully decrypted %s message from %d", decrypted.getMessageType(), senderId));
+            return decrypted;
+        } catch (Exception e) {
+            LOG.log(Level.SEVERE, "Failed to decrypt message", e);
+            throw new GeneralSecurityException("Decryption failed: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public boolean shouldEncrypt(MessageType messageType, int recipientId) {
+        // Don't encrypt system messages
+        // TODO: Encrypt
         if (recipientId == 0) {
             return false;
         }
 
-        // Can't encrypt if we don't have a valid client ID yet
-        if (localClientId <= 0) {
+        // Check for session key
+        if (!hasSessionKey(recipientId)) {
+            LOG.fine(String.format("No session key for recipient %d", recipientId));
             return false;
         }
 
-        // Only encrypt if we have a session key
-        return hasSessionKey(recipientId);
+        return !EXCLUDED_TYPES.contains(messageType);
     }
 
     /**
@@ -253,10 +154,7 @@ public class AESEncryptionStrategy implements EncryptionStrategy {
      */
     @Override
     public boolean hasSessionKey(int peerId) {
-        if (peerId <= 0 || localClientId <= 0) {
-            return false;
-        }
-        String conversationId = createConversationId(peerId);
+        String conversationId = getConversationId(peerId);
         return sessionManager.hasSession(conversationId);
     }
 
@@ -267,21 +165,9 @@ public class AESEncryptionStrategy implements EncryptionStrategy {
      */
     @Override
     public void ensureSessionExists(int peerId) throws GeneralSecurityException {
-        if (hasSessionKey(peerId)) {
-            return;
-        }
-
-        if (localClientId <= 0) {
-            throw new IllegalStateException(
-                    "Cannot initiate key exchange: local client ID not set"
-            );
-        }
-
-        try {
-            keyExchangeManager.initiateKeyExchange(peerId);
-            LOG.info("Initiated key exchange with peer " + peerId);
-        } catch (Exception e) {
-            throw new GeneralSecurityException("Failed to initiate key exchange", e);
+        String conversationId = getConversationId(peerId);
+        if (!sessionManager.hasSession(conversationId)) {
+            throw new GeneralSecurityException("No session key exists for conversation " + conversationId);
         }
     }
 
@@ -289,86 +175,62 @@ public class AESEncryptionStrategy implements EncryptionStrategy {
      * {@inheritDoc}
      */
     @Override
-    public Set<MessageType> getExcludedMessageTypes() {
-        return EXCLUDED_TYPES;
+    public void invalidateContext(int peerId) {
+        String conversationId = getConversationId(peerId);
+        ConversationEncryptionContext removed = contextCache.remove(conversationId);
+        if (removed != null) {
+            LOG.fine(String.format("Invalidated encryption context for %s", conversationId));
+        }
     }
 
     @Override
-    public String getName() {
-        return "AES-256-GCM E2EE";
+    public void clearAllContexts() {
+        int count = contextCache.size();
+        contextCache.clear();
+        LOG.info(String.format("Cleared %d encryption contexts", count));
     }
 
-    // ========================= Context Management =========================
+    // ========================= Private Helper Methods =========================
 
     /**
-     * Gets or creates an encryption context for a peer.
-     *
-     * @param peerId the peer ID
-     * @return the encryption context
+     * Gets the conversation ID for a peer or group.
      */
-    private ConversationEncryptionContext getOrCreateContext(int peerId) {
-        return contextCache.computeIfAbsent(peerId, this::createContext);
+    private String getConversationId(int targetId) {
+        if (keyExchangeManager instanceof CompositeKeyExchangeManager composite) {
+            if (composite.isGroup(targetId)) {
+                return "group_" + targetId;
+            }
+        }
+
+        return "private_" + targetId;
     }
 
     /**
-     * Creates a new encryption context for a peer.
-     *
-     * @param peerId the peer ID
-     * @return a new encryption context
+     * Gets or creates an encryption context for a conversation.
      */
-    private ConversationEncryptionContext createContext(int peerId) {
-        String conversationId = createConversationId(peerId);
-        return new ConversationEncryptionContext(
+    private ConversationEncryptionContext getOrCreateContext(int targetId) {
+        String conversationId = getConversationId(targetId);
+        ConversationEncryptionContext context = contextCache.get(conversationId);
+
+        if (context != null && context.hasSessionKey()) {
+            return context;
+        }
+
+        if (!sessionManager.hasSession(conversationId)) {
+            LOG.fine(String.format("No session key for conversation %s", conversationId));
+            return null;
+        }
+
+        context = new ConversationEncryptionContext(
                 conversationId,
                 sessionManager,
                 cipher,
                 localClientId,
-                peerId
+                targetId
         );
-    }
 
-    /**
-     * Creates a deterministic conversation ID for a peer.
-     * <p>
-     * The ID is symmetric: conversationId(A, B) == conversationId(B, A)
-     *
-     * @param peerId the peer ID
-     * @return the conversation ID
-     */
-    private String createConversationId(int peerId) {
-        int min = Math.min(localClientId, peerId);
-        int max = Math.max(localClientId, peerId);
-        return min + "_" + max;
-    }
-
-    /**
-     * Invalidates the cached context for a peer.
-     * <p>
-     * Should be called after key rotation.
-     *
-     * @param peerId the peer ID
-     */
-    public void invalidateContext(int peerId) {
-        contextCache.remove(peerId);
-        LOG.fine("Invalidated context cache for peer " + peerId);
-    }
-
-    /**
-     * Clears all cached contexts.
-     * <p>
-     * Useful when local client ID changes or on logout.
-     */
-    public void clearAllContexts() {
-        contextCache.clear();
-        LOG.fine("Cleared all context caches");
-    }
-
-    @Override
-    public String toString() {
-        return "AESEncryptionStrategy{" +
-                "localClientId=" + localClientId +
-                ", cachedContexts=" + contextCache.size() +
-                ", enabled=" + isEnabled() +
-                '}';
+        contextCache.put(conversationId, context);
+        LOG.fine(String.format("Created new encryption context for %s", conversationId));
+        return context;
     }
 }

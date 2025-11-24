@@ -2,7 +2,8 @@ package fr.uga.im2ag.m1info.chatservice.storage;
  
 import javax.crypto.SecretKey;
 import java.io.IOException;
- 
+import java.util.Map;
+
 /**
  * Handles secure storage of cryptographic keys.
  * Keys are encrypted at rest using a master key derived from the user's password.
@@ -31,4 +32,11 @@ public interface KeyStore {
      * @throws IOException if deletion fails
      */
     void deleteSessionKey(String conversationId) throws IOException;
+
+    /**
+     * Loads all session keys from storage.
+     * @return A map of conversation IDs to their corresponding session keys
+     * @throws IOException if loading fails
+     */
+    Map<String, SecretKey> loadAllSessionKeys() throws IOException;
 }

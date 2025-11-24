@@ -1,11 +1,11 @@
-package fr.uga.im2ag.m1info.chatservice.server.model;
+package fr.uga.im2ag.m1info.chatservice.common.model;
 
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Class representing group information used by the chat server.
+ * Class representing group information.
  */
 public class GroupInfo implements Serializable {
     private final int id;
@@ -20,25 +20,12 @@ public class GroupInfo implements Serializable {
      * @param adminID        the admin group ID
      * @param groupName  the groupName
      * @param members  the set of member IDs
-     * @param lastLogin the timestamp of the last login
      */
-    public GroupInfo(int id, int adminID, String groupName, Set<Integer> members, long lastLogin) {
+    public GroupInfo(int id, int adminID, String groupName, Set<Integer> members) {
         this.id = id;
         this.adminId = adminID;
         this.groupName = groupName;
         this.members = members;
-    }
-
-    /**
-     * Constructs a GroupInfo instance with current time as last login.
-     *
-     * @param id       the group ID
-     * @param adminID        the admin group ID
-     * @param groupName the groupName
-     * @param members the set of member IDs
-     */
-    public GroupInfo(int id, int adminID, String groupName, Set<Integer> members) {
-        this(id, adminID, groupName, members, System.currentTimeMillis());
     }
 
     /**
@@ -49,7 +36,7 @@ public class GroupInfo implements Serializable {
      * @param groupName the groupName
      */
     public GroupInfo(int id, int adminID, String groupName) {
-        this(id, adminID, groupName, new HashSet<>(), System.currentTimeMillis());
+        this(id, adminID, groupName, new HashSet<>());
     }
 
     /**
@@ -57,7 +44,7 @@ public class GroupInfo implements Serializable {
      *
      * @return the group ID
      */
-    public int getId() {
+    public int getGroupId() {
         return id;
     }
 
@@ -79,22 +66,12 @@ public class GroupInfo implements Serializable {
     }
 
     /**
-     * Checks if the group has a specific member ID.
-     *
-     * @param memberId the member ID to check
-     * @return true if the member ID exists, false otherwise
-     */
-    public boolean hasMember(int memberId) {
-        return members.contains(memberId);
-    }
-
-    /**
-     * Gets the set of member IDs.
+     * Gets a non-modifiable view of the member IDs.
      *
      * @return the set of member IDs
      */
     public Set<Integer> getMembers() {
-        return members;
+        return Set.copyOf(members);
     }
 
     /** Sets the groupName.
@@ -119,5 +96,25 @@ public class GroupInfo implements Serializable {
      */
     public void removeMember(int memberId) {
         members.remove(memberId);
+    }
+
+    /**
+     * Checks if the group has a specific member ID.
+     *
+     * @param memberId the member ID to check
+     * @return true if the member ID exists, false otherwise
+     */
+    public boolean hasMember(int memberId) {
+        return members.contains(memberId);
+    }
+
+    /**
+     * Checks if the user is the admin of the group.
+     *
+     * @param userId the user ID to check
+     * @return true if the user is the admin, false otherwise
+     */
+    public boolean isAdmin(int userId) {
+        return adminId == userId;
     }
 }

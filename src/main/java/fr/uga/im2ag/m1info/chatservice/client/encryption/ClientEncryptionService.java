@@ -1,10 +1,9 @@
 package fr.uga.im2ag.m1info.chatservice.client.encryption;
 
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
+import fr.uga.im2ag.m1info.chatservice.common.repository.GroupRepository;
 import fr.uga.im2ag.m1info.chatservice.crypto.SessionKeyManager;
-import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.KeyExchangeException;
-import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.KeyExchangeListener;
-import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.KeyExchangeManager;
+import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.*;
 import fr.uga.im2ag.m1info.chatservice.crypto.strategy.AESEncryptionStrategy;
 import fr.uga.im2ag.m1info.chatservice.crypto.strategy.EncryptionStrategy;
 import fr.uga.im2ag.m1info.chatservice.crypto.strategy.NoOpEncryptionStrategy;
@@ -23,61 +22,20 @@ import java.util.logging.Logger;
 /**
  * High-level facade for client-side encryption operations.
  * <p>
- * This service encapsulates:
+ * This service handles both private and group conversations through
+ * a unified interface, managing:
  * <ul>
- *   <li>{@link SessionKeyManager} - Session key storage and sequence management</li>
- *   <li>{@link KeyExchangeManager} - ECDH key exchange protocol</li>
- *   <li>{@link EncryptionStrategy} - Message encryption/decryption</li>
+ *   <li>Private peer-to-peer ECDH key exchanges</li>
+ *   <li>Group symmetric key distribution and rotation</li>
+ *   <li>Automatic key rotation on member changes</li>
+ *   <li>Message encryption/decryption for all conversation types</li>
  * </ul>
  * <p>
- * The facade provides simple, high-level methods for:
- * <ul>
- *   <li>Initializing secure conversations with peers</li>
- *   <li>Encrypting outgoing messages</li>
- *   <li>Checking encryption readiness</li>
- *   <li>Managing encryption lifecycle</li>
- * </ul>
- * <p>
- * Thread Safety: This class is thread-safe. All underlying components use
- * concurrent data structures.
- * <p>
- * Initialization Flow:
- * <pre>
- * 1. Create service with initial client ID (can be 0 for new users)
- * 2. Call setMessageSender() to configure outgoing message transport
- * 3. Call start() to begin accepting key exchanges
- * 4. After connection established, call updateClientId() if needed
- * 5. Use initiateSecureConversation() before sending to new peers
- * 6. Use prepareForSending() to encrypt messages
- * 7. Call shutdown() on disconnect
- * </pre>
- * <p>
- * Usage:
- * <pre>{@code
- * // Initialize
- * ClientEncryptionService encryption = new ClientEncryptionService(clientId);
- * encryption.setMessageSender(packet -> client.sendPacket(packet));
- * encryption.start();
- * 
- * // Before first message to a peer
- * encryption.initiateSecureConversation(peerId)
- *     .thenAccept(success -> {
- *         if (success) {
- *             // Now we can send encrypted messages
- *         }
- *     });
- * 
- * // Send encrypted message
- * ProtocolMessage encrypted = encryption.prepareForSending(message);
- * client.sendPacket(encrypted.toPacket());
- * 
- * // Cleanup
- * encryption.shutdown();
- * }</pre>
+ * Thread Safety: This class is thread-safe.
  *
- * @see SessionKeyManager
- * @see KeyExchangeManager
- * @see EncryptionStrategy
+ * @see CompositeKeyExchangeManager
+ * @see PrivateKeyExchangeManager
+ * @see GroupKeyExchangeManager
  */
 public class ClientEncryptionService {
 
@@ -93,7 +51,8 @@ public class ClientEncryptionService {
     private volatile int localClientId;
     private final KeyStore keyStore;
     private final SessionKeyManager sessionManager;
-    private KeyExchangeManager keyExchangeManager;
+    private final GroupRepository groupRepository;
+    private IKeyExchangeManager keyExchangeManager;
     private EncryptionStrategy encryptionStrategy;
 
     // ========================= State =========================
@@ -110,22 +69,25 @@ public class ClientEncryptionService {
     // ========================= Constructors =========================
 
     /**
-     * Creates a new ClientEncryptionService with in-memory key storage.
+     * Creates a new ClientEncryptionService with group support.
      *
-     * @param localClientId the local client's ID (can be 0 for new users)
+     * @param localClientId   the local client's ID (can be 0 for new users)
+     * @param groupRepository the group repository for group management
      */
-    public ClientEncryptionService(int localClientId) {
-        this(localClientId, null);
+    public ClientEncryptionService(int localClientId, GroupRepository groupRepository) {
+        this(localClientId, groupRepository, null);
     }
 
     /**
-     * Creates a new ClientEncryptionService with optional persistent key storage.
+     * Creates a new ClientEncryptionService with group support and persistent storage.
      *
-     * @param localClientId the local client's ID (can be 0 for new users)
-     * @param keyStore      the persistent key store (can be null for in-memory only)
+     * @param localClientId   the local client's ID (can be 0 for new users)
+     * @param groupRepository the group repository
+     * @param keyStore        the persistent key store (can be null)
      */
-    public ClientEncryptionService(int localClientId, KeyStore keyStore) {
+    public ClientEncryptionService(int localClientId, GroupRepository groupRepository, KeyStore keyStore) {
         this.localClientId = localClientId;
+        this.groupRepository = groupRepository;
         this.keyStore = keyStore;
         this.sessionManager = new SessionKeyManager();
         this.pendingExchanges = new ConcurrentHashMap<>();
@@ -139,7 +101,10 @@ public class ClientEncryptionService {
         if (localClientId == 0) {
             return; // Cannot initialize components with ID 0
         }
-        this.keyExchangeManager = new KeyExchangeManager(localClientId, sessionManager, keyStore);
+
+        PrivateKeyExchangeManager privateManager = new PrivateKeyExchangeManager(localClientId, sessionManager, keyStore);
+        GroupKeyExchangeManager groupManager = new GroupKeyExchangeManager(localClientId, sessionManager, groupRepository, keyStore);
+        this.keyExchangeManager = new CompositeKeyExchangeManager(privateManager, groupManager, groupRepository);
         this.encryptionStrategy = new AESEncryptionStrategy(localClientId, sessionManager, keyExchangeManager);
         setupKeyExchangeListener();
     }
@@ -227,7 +192,6 @@ public class ClientEncryptionService {
 
         LOG.info("Updating client ID from " + localClientId + " to " + newClientId);
 
-        int oldId = this.localClientId;
         this.localClientId = newClientId;
 
         // Re-initialize components with new ID
@@ -254,7 +218,7 @@ public class ClientEncryptionService {
      *
      * @param sender the consumer that sends key exchange message data
      */
-    public void setMessageSender(Consumer<KeyExchangeManager.KeyExchangeMessageData> sender) {
+    public void setMessageSender(Consumer<KeyExchangeMessageData> sender) {
         if (keyExchangeManager != null) {
             keyExchangeManager.setMessageSender(sender);
         } else {
@@ -283,59 +247,51 @@ public class ClientEncryptionService {
         return encryptionEnabled;
     }
 
-    // ========================= High-Level Operations =========================
+    // ========================= Key Exchange Operations =========================
 
     /**
-     * Initiates a secure conversation with a peer.
-     * <p>
-     * Performs ECDH key exchange if no session exists.
-     * Returns a future that completes when the session is established.
+     * Initiates a secure conversation with a target (peer or group).
      *
-     * @param peerId the peer ID
-     * @return a future that completes with true if successful, false otherwise
+     * @param targetId the target ID (peer ID for private, group ID for groups)
+     * @return a future that completes when the exchange is done
      */
-    public CompletableFuture<Boolean> initiateSecureConversation(int peerId) {
+    public CompletableFuture<Boolean> initiateSecureConversation(int targetId) {
         if (!encryptionEnabled) {
-            return CompletableFuture.completedFuture(true);
-        }
-
-        if (hasSecureSession(peerId)) {
-            return CompletableFuture.completedFuture(true);
+            return CompletableFuture.completedFuture(false);
         }
 
         if (keyExchangeManager == null) {
-            return CompletableFuture.failedFuture(
-                    new IllegalStateException("Encryption not initialized (client ID = 0)")
-            );
+            LOG.warning("Key exchange manager not initialized");
+            return CompletableFuture.completedFuture(false);
         }
 
-        // Check for existing pending exchange
-        CompletableFuture<Boolean> existing = pendingExchanges.get(peerId);
+        // Check if we already have a session
+        if (keyExchangeManager.hasSessionWith(targetId)) {
+            LOG.fine("Session already exists with " + targetId);
+            return CompletableFuture.completedFuture(true);
+        }
+
+        // Check for pending exchange
+        CompletableFuture<Boolean> existing = pendingExchanges.get(targetId);
         if (existing != null && !existing.isDone()) {
+            LOG.fine("Reusing pending exchange with " + targetId);
             return existing;
         }
 
-        // Create new pending exchange
+        // Create new exchange future
         CompletableFuture<Boolean> future = new CompletableFuture<>();
-        pendingExchanges.put(peerId, future);
+        pendingExchanges.put(targetId, future);
 
+        // Set timeout
+        future.orTimeout(KEY_EXCHANGE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+        // Initiate exchange
         try {
-            keyExchangeManager.initiateKeyExchange(peerId);
-
-            // Set timeout
-            CompletableFuture.delayedExecutor(KEY_EXCHANGE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .execute(() -> {
-                        if (!future.isDone()) {
-                            future.complete(false);
-                            pendingExchanges.remove(peerId);
-                            LOG.warning("Key exchange with peer " + peerId + " timed out");
-                        }
-                    });
-
+            keyExchangeManager.initiateKeyExchange(targetId);
         } catch (KeyExchangeException e) {
             future.completeExceptionally(e);
-            pendingExchanges.remove(peerId);
-            LOG.log(Level.SEVERE, "Failed to initiate key exchange with peer " + peerId, e);
+            pendingExchanges.remove(targetId);
+            LOG.log(Level.SEVERE, "Failed to initiate key exchange with " + targetId, e);
         }
 
         return future;
@@ -371,19 +327,14 @@ public class ClientEncryptionService {
      * @return true if the message should be encrypted
      */
     public boolean shouldEncrypt(ProtocolMessage message) {
-        System.out.println("Checking if should encrypt message to " + message.getTo() +
-                " of type " + message.getMessageType());
         if (!encryptionEnabled) {
-            System.out.println("Encryption is disabled");
             return false;
         }
 
         if (encryptionStrategy == null) {
-            System.out.println("Encryption strategy not initialized");
             return false;
         }
 
-        System.out.println("Delegating to encryption strategy");
         return encryptionStrategy.shouldEncrypt(message.getMessageType(), message.getTo());
     }
 
@@ -394,10 +345,10 @@ public class ClientEncryptionService {
      * @return true if encrypted communication is possible
      */
     public boolean hasSecureSession(int peerId) {
-        if (!encryptionEnabled || encryptionStrategy == null) {
+        if (!encryptionEnabled || keyExchangeManager == null) {
             return false;
         }
-        return encryptionStrategy.hasSessionKey(peerId);
+        return keyExchangeManager.hasSessionWith(peerId);
     }
 
     /**
@@ -418,6 +369,100 @@ public class ClientEncryptionService {
      */
     public Set<String> getActiveConversationIds() {
         return sessionManager.getActiveConversations();
+    }
+
+    // ========================= Group Management =========================
+
+    /**
+     * Handles a group member addition.
+     * Triggers key rotation if we're the admin.
+     *
+     * @param groupId  the group ID
+     * @param memberId the new member ID
+     */
+    public void handleGroupMemberAdded(int groupId, int memberId) {
+        if (!encryptionEnabled || keyExchangeManager == null) {
+            return;
+        }
+
+        LOG.info(String.format("Handling member %d added to group %d", memberId, groupId));
+        keyExchangeManager.handleGroupMemberChange(groupId, memberId, true);
+
+        // Invalidate encryption context to force refresh
+        if (encryptionStrategy != null) {
+            encryptionStrategy.invalidateContext(groupId);
+        }
+    }
+
+    /**
+     * Handles a group member removal.
+     * Triggers key rotation if we're the admin.
+     *
+     * @param groupId  the group ID
+     * @param memberId the removed member ID
+     */
+    public void handleGroupMemberRemoved(int groupId, int memberId) {
+        if (!encryptionEnabled || keyExchangeManager == null) {
+            return;
+        }
+
+        LOG.info(String.format("Handling member %d removed from group %d", memberId, groupId));
+        keyExchangeManager.handleGroupMemberChange(groupId, memberId, false);
+
+        // If we're the removed member, invalidate the session
+        if (memberId == localClientId) {
+            keyExchangeManager.invalidateSession(groupId, "Removed from group");
+        }
+
+        // Invalidate encryption context
+        if (encryptionStrategy != null) {
+            encryptionStrategy.invalidateContext(groupId);
+        }
+    }
+
+    /**
+     * Handles group creation.
+     * If we're the admin, initiates key distribution.
+     *
+     * @param groupId the new group ID
+     */
+    public void handleGroupCreated(int groupId) {
+        if (!encryptionEnabled || keyExchangeManager == null) {
+            return;
+        }
+
+        LOG.info("Handling group creation: " + groupId);
+
+        // If we're admin, initiate key distribution
+        if (groupRepository != null) {
+            var group = groupRepository.findById(groupId);
+            if (group != null && group.getAdminId() == localClientId) {
+                try {
+                    keyExchangeManager.initiateKeyExchange(groupId);
+                } catch (KeyExchangeException e) {
+                    LOG.log(Level.WARNING, "Failed to initiate group key distribution", e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Manually rotates a group key (admin only).
+     *
+     * @param groupId the group ID
+     * @throws KeyExchangeException if rotation fails
+     */
+    public void rotateGroupKey(int groupId) throws KeyExchangeException {
+        if (!encryptionEnabled || keyExchangeManager == null) {
+            throw new KeyExchangeException("Encryption not enabled", KeyExchangeException.ErrorCode.INTERNAL_ERROR);
+        }
+
+        keyExchangeManager.rotateGroupKey(groupId);
+
+        // Invalidate encryption context
+        if (encryptionStrategy != null) {
+            encryptionStrategy.invalidateContext(groupId);
+        }
     }
 
     // ========================= Key Exchange Message Handling =========================
@@ -464,7 +509,7 @@ public class ClientEncryptionService {
         }
     }
 
-    // ========================= Accessors for Advanced Use =========================
+    // ========================= Accessors =========================
 
     /**
      * Gets the encryption strategy.
@@ -487,7 +532,7 @@ public class ClientEncryptionService {
      *
      * @return the key exchange manager (can be null if ID = 0)
      */
-    public KeyExchangeManager getKeyExchangeManager() {
+    public IKeyExchangeManager getKeyExchangeManager() {
         return keyExchangeManager;
     }
 
@@ -514,47 +559,46 @@ public class ClientEncryptionService {
 
         keyExchangeManager.addListener(new KeyExchangeListener() {
             @Override
-            public void onKeyExchangeCompleted(int peerId, SecretKey sessionKey) {
-                LOG.info("Key exchange completed with peer " + peerId);
+            public void onKeyExchangeCompleted(int targetId, SecretKey sessionKey) {
+                LOG.info("Key exchange completed with " + targetId);
 
-                CompletableFuture<Boolean> future = pendingExchanges.remove(peerId);
+                CompletableFuture<Boolean> future = pendingExchanges.remove(targetId);
                 if (future != null) {
                     future.complete(true);
                 }
 
                 // Invalidate context cache to use new key
                 if (encryptionStrategy != null) {
-                    encryptionStrategy.invalidateContext(peerId);
+                    encryptionStrategy.invalidateContext(targetId);
                 }
             }
 
             @Override
-            public void onKeyExchangeFailed(int peerId, KeyExchangeException error) {
-                LOG.log(Level.WARNING, "Key exchange failed with peer " + peerId, error);
+            public void onKeyExchangeFailed(int targetId, KeyExchangeException error) {
+                LOG.log(Level.WARNING, "Key exchange failed with " + targetId, error);
 
-                CompletableFuture<Boolean> future = pendingExchanges.remove(peerId);
+                CompletableFuture<Boolean> future = pendingExchanges.remove(targetId);
                 if (future != null) {
                     future.complete(false);
                 }
             }
 
             @Override
-            public void onKeyExchangeExpired(int peerId) {
-                LOG.warning("Key exchange expired with peer " + peerId);
+            public void onKeyExchangeExpired(int targetId) {
+                LOG.warning("Key exchange expired with " + targetId);
 
-                CompletableFuture<Boolean> future = pendingExchanges.remove(peerId);
+                CompletableFuture<Boolean> future = pendingExchanges.remove(targetId);
                 if (future != null) {
                     future.complete(false);
                 }
             }
 
             @Override
-            public void onSessionInvalidated(int peerId, String reason) {
-                LOG.info("Session invalidated with peer " + peerId + ": " + reason);
+            public void onSessionInvalidated(int targetId, String reason) {
+                LOG.info("Session invalidated with " + targetId + ": " + reason);
 
-                // Invalidate context cache
                 if (encryptionStrategy != null) {
-                    encryptionStrategy.invalidateContext(peerId);
+                    encryptionStrategy.invalidateContext(targetId);
                 }
             }
         });

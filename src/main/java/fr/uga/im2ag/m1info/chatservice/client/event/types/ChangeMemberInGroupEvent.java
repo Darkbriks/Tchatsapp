@@ -7,29 +7,45 @@ import fr.uga.im2ag.m1info.chatservice.client.event.system.Event;
  */
 public class ChangeMemberInGroupEvent extends Event {
     private final int groupId;
-    private final int member;
+    private final int memberId;
+    private final boolean isAdded; // true if member is added, false if removed
 
     /** Constructor for the UserPseudoUpdatedEvent class.
      *
      * @param source The source object that generated the event.
      * @param groupId The new pseudo/username.
+     * @param memberId The member being added or removed.
+     * @param isAdded True if the member is added, false if removed.
      */
-    public ChangeMemberInGroupEvent(Object source, int groupID, int member) {
+    public ChangeMemberInGroupEvent(Object source, int groupId, int memberId, boolean isAdded) {
         super(source);
-        this.groupId = groupID;
-        this.member = member;
+        this.groupId = groupId;
+        this.memberId = memberId;
+        this.isAdded = isAdded;
     }
 
-    /** Gets the new pseudo.
+    /** Gets the group ID where the member change occurred.
      *
-     * @return The new pseudo/username.
+     * @return The group ID.
      */
     public int getGroupId() {
         return groupId;
     }
-    
-    public int getMember(){
-        return member;
+
+    /** Gets the member ID that was added or removed.
+     *
+     * @return The member ID.
+     */
+    public int getMemberId() {
+        return memberId;
+    }
+
+    /** Indicates whether the member was added or removed.
+     *
+     * @return True if the member was added, false if removed.
+     */
+    public boolean isAdded() {
+        return isAdded;
     }
 
     /** Gets the specific type of the event.

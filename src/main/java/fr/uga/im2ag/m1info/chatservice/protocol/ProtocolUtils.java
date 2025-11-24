@@ -1,8 +1,8 @@
 package fr.uga.im2ag.m1info.chatservice.protocol;
- 
-import fr.uga.im2ag.m1info.chatservice.common.*;
+
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
- 
+import fr.uga.im2ag.m1info.chatservice.common.Packet;
+
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
  * Utility methods for protocol operations.
  * Provides conversions, validations, and helper functions for the messaging protocol.
  */
+@Deprecated
 public class ProtocolUtils {
  
     private static final DateTimeFormatter TIMESTAMP_FORMATTER =

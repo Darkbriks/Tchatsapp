@@ -8,7 +8,7 @@ import java.security.GeneralSecurityException;
  * Provides detailed error codes to identify the cause of failure,
  * enabling appropriate error handling and recovery strategies.
  *
- * @see KeyExchangeManager
+ * @see IKeyExchangeManager
  * @see ErrorCode
  */
 public class KeyExchangeException extends GeneralSecurityException {
@@ -77,9 +77,14 @@ public class KeyExchangeException extends GeneralSecurityException {
         /**
          * An internal error occurred.
          */
-        INTERNAL_ERROR
+        INTERNAL_ERROR,
+
+        /**
+         * The operation is not permitted due to insufficient permissions.
+         */
+        PERMISSION_DENIED
     }
-    
+
     private final ErrorCode errorCode;
     private final int peerId;
     
@@ -170,7 +175,7 @@ public class KeyExchangeException extends GeneralSecurityException {
             case INVALID_PUBLIC_KEY, INVALID_PEER_ID, PROTOCOL_VIOLATION,
                  EXCHANGE_ALREADY_IN_PROGRESS, NO_PENDING_EXCHANGE,
                  SESSION_ALREADY_EXISTS, NO_SESSION,
-                 UNSUPPORTED_KEY_FORMAT, INTERNAL_ERROR -> false;
+                 UNSUPPORTED_KEY_FORMAT, INTERNAL_ERROR, PERMISSION_DENIED -> false;
         };
     }
     

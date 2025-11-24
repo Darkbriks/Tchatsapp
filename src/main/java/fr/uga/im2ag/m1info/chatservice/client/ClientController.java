@@ -3,17 +3,19 @@ package fr.uga.im2ag.m1info.chatservice.client;
 import fr.uga.im2ag.m1info.chatservice.client.command.*;
 import fr.uga.im2ag.m1info.chatservice.client.encryption.ClientEncryptionService;
 import fr.uga.im2ag.m1info.chatservice.client.event.system.*;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.ChangeMemberInGroupEvent;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.ErrorEvent;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.GroupCreateEvent;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.ClientHandlerContext;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.KeyExchangeHandler;
 import fr.uga.im2ag.m1info.chatservice.client.model.*;
 import fr.uga.im2ag.m1info.chatservice.client.processor.DecryptingPacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
-import fr.uga.im2ag.m1info.chatservice.client.repository.GroupClientRepository;
 import fr.uga.im2ag.m1info.chatservice.common.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
-import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.KeyExchangeManager;
+import fr.uga.im2ag.m1info.chatservice.common.repository.GroupRepository;
+import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.KeyExchangeMessageData;
 
 import java.security.GeneralSecurityException;
 import java.time.Instant;
@@ -32,7 +34,7 @@ public class ClientController {
 
     private final ConversationClientRepository conversationRepository;
     private final ContactClientRepository contactRepository;
-    private final GroupClientRepository groupRepository;
+    private final GroupRepository groupRepository;
     private final UserClient activeUser;
     private final EventBus eventBus;
     private ClientEncryptionService encryptionService;
@@ -51,7 +53,7 @@ public class ClientController {
     public ClientController(Client client,
                             ConversationClientRepository conversationRepository,
                             ContactClientRepository contactRepository,
-                            GroupClientRepository groupRepository,
+                            GroupRepository groupRepository,
                             UserClient user) {
         this.client = client;
         this.connectionEstablished = false;
@@ -71,7 +73,7 @@ public class ClientController {
     public ClientController(Client client) {
         this(client, new ConversationClientRepository(),
                 new ContactClientRepository(),
-                new GroupClientRepository(),
+                new GroupRepository(),
                 new UserClient());
     }
 
@@ -111,12 +113,32 @@ public class ClientController {
     public void initializeEncryption() {
         int clientId = getClientId();
 
-        this.encryptionService = new ClientEncryptionService(clientId);
+        this.encryptionService = new ClientEncryptionService(clientId, groupRepository);
 
         if (clientId > 0) {
             encryptionService.setMessageSender(this::sendKeyExchangeMessage);
             encryptionService.start();
         }
+
+        subscribeToEvent(GroupCreateEvent.class, event -> {
+            if (event.getGroupInfo().getAdminId() == clientId) {
+                encryptionService.handleGroupCreated(event.getGroupInfo().getGroupId());
+            }
+        }, ExecutionMode.ASYNC);
+
+        subscribeToEvent(ChangeMemberInGroupEvent.class, event -> {
+            if (event.isAdded()) {
+                encryptionService.handleGroupMemberAdded(
+                        event.getGroupId(),
+                        event.getMemberId()
+                );
+            } else {
+                encryptionService.handleGroupMemberRemoved(
+                        event.getGroupId(),
+                        event.getMemberId()
+                );
+            }
+        }, ExecutionMode.ASYNC);
 
         System.out.println("[Client] Encryption service initialized for client " + clientId);
     }
@@ -219,7 +241,7 @@ public class ClientController {
      *
      * @return the group repository
      */
-    public GroupClientRepository getGroupRepository() {
+    public GroupRepository getGroupRepository() {
         return groupRepository;
     }
 
@@ -803,7 +825,7 @@ public class ClientController {
      *
      * @param data the key exchange message data
      */
-    private void sendKeyExchangeMessage(KeyExchangeManager.KeyExchangeMessageData data) {
+    private void sendKeyExchangeMessage(KeyExchangeMessageData data) {
         ProtocolMessage message;
 
         if (data.isResponse()) {
@@ -824,7 +846,12 @@ public class ClientController {
             message = request;
         }
 
-        sendPacket(message.toPacket());
+        try {
+            ProtocolMessage encryptedMessage = encryptionService.prepareForSending(message);
+            sendPacket(encryptedMessage.toPacket());
+        } catch (GeneralSecurityException e) {
+            System.err.println("[Client] Failed to send key exchange message: " + e.getMessage());
+        }
     }
 
     /**
