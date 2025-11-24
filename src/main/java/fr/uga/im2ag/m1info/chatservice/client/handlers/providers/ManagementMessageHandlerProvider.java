@@ -17,7 +17,8 @@ public class ManagementMessageHandlerProvider implements ClientPacketHandlerProv
                 MessageType.LEAVE_GROUP,
                 MessageType.ADD_GROUP_MEMBER,
                 MessageType.REMOVE_GROUP_MEMBER,
-                MessageType.UPDATE_GROUP_NAME
+                MessageType.UPDATE_GROUP_NAME,
+                MessageType.DELETE_GROUP
         );
     }
 

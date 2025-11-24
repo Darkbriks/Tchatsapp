@@ -292,6 +292,7 @@ public class CliClient {
         System.out.println("║ 3. Add member ( admin only )                   ║");
         System.out.println("║ 4. Remove member ( admin only )                ║");
         System.out.println("║ 5. Change Group name ( admin only )            ║");
+        System.out.println("║ 6. Delete a Group ( admin only )               ║");
         System.out.println("║ 0. Back to Main menu                           ║");
         System.out.println("╚════════════════════════════════════════════════╝");
         System.out.print("Your choice: ");
@@ -413,6 +414,20 @@ public class CliClient {
         clientController.createGroup(groupName);
     }
 
+    /**
+     * Handle destroy a group 
+     */
+    private void handleDestroyGroup() {
+        System.out.print("Group id: ");
+        int groupId;
+        try {
+            groupId= readIntegerFromUser("Invalid group ID.");
+        } catch (Exception e) {
+            return;
+        }
+        clientController.deleteGroup(groupId);
+    }
+
     private void handleChangeGroupName() {
         System.out.print("Group id: ");
         int groupId;
@@ -506,6 +521,7 @@ public class CliClient {
             case 3 -> handleAddMemberGroup();
             case 4 -> handleRemoveMemberGroup();
             case 5 -> handleChangeGroupName();
+            case 6 -> handleDestroyGroup();
             default -> { 
                 System.out.println("Invalid choice. Please try again.");
                 groupGestion();

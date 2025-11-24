@@ -24,6 +24,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             case ADD_GROUP_MEMBER -> addGroupMember(userMsg, context);
             case REMOVE_GROUP_MEMBER -> removeGroupMember(userMsg, context);
             case UPDATE_GROUP_NAME -> updateGroupName(userMsg, context);
+            case DELETE_GROUP -> deleteGroup(userMsg, context);
             default -> throw new IllegalArgumentException("Unsupported management message type: " + userMsg.getMessageType());
         }
     }
@@ -37,6 +38,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
                 || messageType == MessageType.LEAVE_GROUP
                 || messageType == MessageType.ADD_GROUP_MEMBER
                 || messageType == MessageType.REMOVE_GROUP_MEMBER
+                || messageType == MessageType.DELETE_GROUP
                 || messageType == MessageType.UPDATE_GROUP_NAME;
     }
 
@@ -65,6 +67,20 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         }
     }
 
+    private void deleteGroup(ManagementMessage message, ClientController context){
+        int groupId = getIntInParam(message, KeyInMessage.GROUP_ID);
+        if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
+            // This is an acknowledgment of our own pseudo update
+            System.out.printf("[Client] You successfully delete group %d\n", groupId);
+
+        } else if ( Boolean.FALSE.equals(message.getParamAsType("ack", Boolean.class))){
+            System.out.printf("[Client] You try to delete group %d but it FAIL\n", groupId);
+
+        } else {
+            context.getGroupRepository().delete(groupId);
+            System.out.printf("[Client] Group %d is destroy !\n", groupId);
+        }
+    }
 
     private void createGroup(ManagementMessage message, ClientController context){
         String newGroupe= message.getParamAsType(KeyInMessage.GROUP_NAME, String.class);

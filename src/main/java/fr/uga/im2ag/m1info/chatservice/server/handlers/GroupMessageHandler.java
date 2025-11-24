@@ -24,6 +24,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
             case ADD_GROUP_MEMBER -> addGroupMember(serverContext, userMsg);
             case REMOVE_GROUP_MEMBER -> removeGroupMember(serverContext, userMsg);
             case UPDATE_GROUP_NAME -> updateGroupName(serverContext, userMsg);
+            case DELETE_GROUP -> deleteGroup(serverContext, userMsg);
             default -> throw new IllegalArgumentException("Unsupported group management message type");
         }
     }
@@ -226,6 +227,38 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         AckHelper.sendSentAck(serverContext, groupManagementMessage);
     }
 
+    private static void deleteGroup(ServerContext serverContext, ManagementMessage groupManagementMessage) {
+        int groupMember = groupManagementMessage.getFrom();
+        int groupId = groupManagementMessage.getTo();
+
+        GroupInfo group = serverContext.getGroupRepository().findById(groupId);
+        UserInfo newMember = serverContext.getUserRepository().findById(groupMember);
+        if (group == null) {
+            LOG.warning(String.format("Group %d not found while a member trying to leave", groupId));
+            return;
+        }
+        if (newMember == null) {
+            LOG.warning(String.format("User %d provided invalid memberId to leave , [%d] not found", groupMember, groupMember));
+            AckHelper.sendFailedAck(serverContext, groupManagementMessage, "User to leave don't exists");
+            return;
+        }
+        if ( newMember.getId() != group.getAdminId() ){
+            LOG.warning("Un utilisateur n'étant pas l'admin tente de supprimer");
+            return;
+        }
+
+        for (int memberId : group.getMembers()) {
+            if (serverContext.isClientConnected(memberId)) {
+                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.DELETE_GROUP, group.getGroupId(), memberId))
+                        .addParam(KeyInMessage.GROUP_ID, group.getGroupId())
+                        .toPacket()
+                        );
+            }
+        }
+        serverContext.getGroupRepository().delete(group.getGroupId());
+        LOG.info(String.format("group %d destroy", group.getGroupId()));
+        AckHelper.sendSentAck(serverContext, groupManagementMessage);
+    }
 
     private static void createGroup(ServerContext serverContext, ManagementMessage groupManagementMessage) {
         int adminGroup = groupManagementMessage.getFrom();
@@ -251,6 +284,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
                 || messageType == MessageType.LEAVE_GROUP
                 || messageType == MessageType.ADD_GROUP_MEMBER
                 || messageType == MessageType.REMOVE_GROUP_MEMBER
-                || messageType == MessageType.UPDATE_GROUP_NAME;
+                || messageType == MessageType.UPDATE_GROUP_NAME
+                || messageType == MessageType.DELETE_GROUP;
     }
 }

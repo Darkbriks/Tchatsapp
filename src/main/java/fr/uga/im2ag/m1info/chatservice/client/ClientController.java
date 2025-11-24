@@ -735,6 +735,31 @@ public class ClientController {
     }
 
     /**
+     * Delete a group and user is the admin 
+     *
+     * @param groupID the group ID 
+     * @return true if the request was sent, false otherwise
+     */
+    public boolean deleteGroup(int groupID) {
+
+        ManagementMessage mgmtMsg = sendManagementMessage(MessageType.DELETE_GROUP, groupID);
+        if (mgmtMsg == null) {
+            return false;
+        }
+
+        mgmtMsg.addParam(KeyInMessage.GROUP_ID, groupID);
+        sendPacket(mgmtMsg.toPacket());
+        client.getCommandManager().addPendingCommand(new DeleteGroupCommand(
+                mgmtMsg.getMessageId(),
+                groupID,
+                groupRepository 
+        ));
+
+        return true;
+    }
+
+
+    /**
      * Rename a group need to be admin 
      *
      * @param name the desired name of the group 
