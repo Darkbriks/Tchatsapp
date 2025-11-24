@@ -52,10 +52,14 @@ public class HomePanel extends JPanel {
     private final JTextField searchField;
     private final DefaultListModel<ConversationItem> listModel;
     private final JList<ConversationItem> conversationList;
-    private final JButton newButton;
+    private final JButton newConversationButton;
+    private final JButton newContactButton;
+
 
     private final List<ConversationItem> masterList;
     private ActionListener onNewConversation;
+    private ActionListener onNewContact;
+
 
     public HomePanel() {
         super(new BorderLayout(8, 8));
@@ -64,7 +68,9 @@ public class HomePanel extends JPanel {
         this.searchField = new JTextField();
         this.listModel = new DefaultListModel<>();
         this.conversationList = new JList<>(listModel);
-        this.newButton = new JButton("Nouveau +");
+        this.newConversationButton = new JButton("Nouveau +");
+        this.newContactButton = new JButton("Ajouter un contact");
+
         this.masterList = new ArrayList<>();
 
         setupLayout();
@@ -89,12 +95,13 @@ public class HomePanel extends JPanel {
         scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         add(scrollPane, BorderLayout.CENTER);
 
-        // Bottom panel with new button
+        // Bottom panel with new contact button & new conversation button
         JPanel bottomPanel = new JPanel();
         bottomPanel.setLayout(new BoxLayout(bottomPanel, BoxLayout.X_AXIS));
+        bottomPanel.add(newContactButton);
         bottomPanel.add(Box.createHorizontalGlue());
-        newButton.setFocusable(false);
-        bottomPanel.add(newButton);
+        newConversationButton.setFocusable(false);
+        bottomPanel.add(newConversationButton);
         add(bottomPanel, BorderLayout.SOUTH);
     }
 
@@ -118,9 +125,16 @@ public class HomePanel extends JPanel {
         });
 
         // New conversation button
-        newButton.addActionListener(e -> {
+        newConversationButton.addActionListener(e -> {
             if (onNewConversation != null) {
                 onNewConversation.actionPerformed(e);
+            }
+        });
+
+        // New contact button
+        newContactButton.addActionListener(e -> {
+            if (onNewContact != null) {
+                onNewContact.actionPerformed(e);
             }
         });
     }
@@ -182,6 +196,16 @@ public class HomePanel extends JPanel {
     public void setOnNewConversation(ActionListener listener) {
         this.onNewConversation = listener;
     }
+
+    /**
+     * Set the callback for the new contact button.
+     *
+     * @param listener the action listener
+     */
+    public void setOnNewContact(ActionListener listener) {
+        this.onNewContact = listener;
+    }
+
 
     // ----------------------- Cell Renderer -----------------------
 

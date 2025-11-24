@@ -4,12 +4,12 @@ import fr.uga.im2ag.m1info.chatservice.client.event.system.Event;
 import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 
 /**
- * Event representing an update to the current user's pseudo.
+ * Event representing a creation of a group.
  */
 public class GroupCreateEvent extends Event {
     private final GroupInfo groupInfo;
 
-    /** Constructor for the UserPseudoUpdatedEvent class.
+    /** Constructor for the GroupCreationEvent class.
      *
      * @param source The source object that generated the event.
      * @param groupInfo The group information.

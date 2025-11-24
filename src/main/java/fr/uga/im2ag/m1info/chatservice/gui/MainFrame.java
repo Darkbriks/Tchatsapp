@@ -2,12 +2,28 @@ package fr.uga.im2ag.m1info.chatservice.gui;
 
 import fr.uga.im2ag.m1info.chatservice.client.Client;
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
-import fr.uga.im2ag.m1info.chatservice.client.event.types.ErrorEvent;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.ContactRequestResponseEvent;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.Message;
+import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
+import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
+import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+import fr.uga.im2ag.m1info.chatservice.gui.ConversationPanel.MessageItem;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.time.Instant;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Set;
 
 public class MainFrame extends JFrame {
     private static final String DEFAULT_HOST = "localhost";
@@ -30,6 +46,7 @@ public class MainFrame extends JFrame {
     // State
     private String currentConversationId;
     private volatile boolean awaitingConnection;
+    private HashMap <String, Set<Integer>> pendingGroupParticipants;
 
     public MainFrame() {
         super("TchatApp");
@@ -67,6 +84,16 @@ public class MainFrame extends JFrame {
 
     private void setupUIListeners() {
         loginPanel.addSubmitListener(e -> handleLogin());
+        homePanel.addConversationSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                HomePanel.ConversationItem selected = homePanel.getSelectedConversation();
+                if (selected != null) {
+                    handleConversationSelection(selected);
+                }
+            }
+        });
+        homePanel.setOnNewConversation(e -> handleNewConversationRequest());
+        homePanel.setOnNewContact(e -> handleNewContactRequest());
     }
 
     private void setupEventHandlerCallbacks() {
@@ -78,12 +105,59 @@ public class MainFrame extends JFrame {
         });
 
         eventHandler.setOnError(event -> {
-            if (awaitingConnection && event.getErrorLevel() == ErrorEvent.ErrorLevel.CRITICAL) {
+            if (awaitingConnection && event.getErrorLevel() == ErrorMessage.ErrorLevel.CRITICAL) {
                 awaitingConnection = false;
                 onConnectionError(event.getErrorMessage());
             } else {
                 showErrorDialog(event.getErrorLevel().toString(), event.getErrorMessage());
             }
+        });
+
+        eventHandler.setOnGroupCreated(event -> {
+            int groupId = event.getGroupId();
+            String groupName = event.getGroupName();
+            if (pendingGroupParticipants.containsKey(groupName)) {
+                for (Integer participantId : pendingGroupParticipants.get(groupName)){
+                    controller.addMemberToGroup(groupId, participantId);
+                }
+                controller.getOrCreateGroupConversation(groupId, pendingGroupParticipants.get(groupName));
+                pendingGroupParticipants.remove(groupName);
+            }
+            
+            refreshHomeConversations();
+        });
+
+        eventHandler.setOnGroupMemberChanged(event -> {
+            int groupId = event.getGroupId();
+            if (controller.getGroupRepository().findById(groupId) != null) 
+                controller.getGroupRepository().findById(groupId).addMember(event.getMember());
+        });
+
+        eventHandler.setOnContactRequestResponse(event -> {
+            showContactRequestResponseDialog(event.isAccepted(), event.getOtherUserId());    
+        });
+
+        eventHandler.setOnContactRequestReceived(event -> {
+            boolean choice = showContactRequestReceivedDialog(event.getSenderId());
+            controller.respondToContactRequest(event.getSenderId(), choice);   
+        });
+
+        eventHandler.setOnUserPseudoUpdated(event -> {
+            String newPseudo = event.getNewPseudo();
+            setTitle("TchatApp - " + newPseudo);
+            homePanel.repaint();
+
+        });
+
+        eventHandler.setOnContactUpdated(event -> {
+            refreshHomeConversations();
+            homePanel.repaint();
+        });
+
+        eventHandler.setOnTextMessageReceived(event -> {
+            refreshHomeConversations();
+            refreshMessages(controller.getConversationRepository().findById(event.getConversationId()));
+            conversationPanel.repaint();
         });
     }
 
@@ -152,6 +226,9 @@ public class MainFrame extends JFrame {
         this.eventHandler = new GuiEventHandler(controller);
         setupEventHandlerCallbacks();
         eventHandler.registerSubscriptions();
+
+        // Initialize group member pending for a group created on the request of the user
+        this.pendingGroupParticipants = new HashMap<String, Set<Integer>>();
     }
 
     private void onConnectionSuccess(int clientId, String pseudo, boolean isNewUser) {
@@ -222,10 +299,152 @@ public class MainFrame extends JFrame {
     }
 
     // ----------------------- Home Panel Actions -----------------------
-    // TODO
+
+    private void handleNewConversationRequest() {
+
+        ContactClientRepository contactRepo = controller.getContactRepository();
+        if (contactRepo == null) {
+            JOptionPane.showMessageDialog(this,
+                    "No contact repo available",
+                    "Erreur",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        int currentUserId = controller.getClientId();
+
+        CreateConversationDialog dialog = new CreateConversationDialog(this, contactRepo, currentUserId);
+        CreateConversationDialog.Result res = dialog.showDialog();
+        if (res == null) {
+            return;
+        }
+
+        if (res.isGroup()) {
+            res.getParticipantIds().add(currentUserId);
+            controller.createGroup(res.getConversationName());
+
+            pendingGroupParticipants.put(res.getConversationName(), res.getParticipantIds());
+            
+        }
+        else {
+            int otherParticipantId = res.getParticipantIds().iterator().next();
+            ConversationClient conv = controller.getOrCreatePrivateConversation(otherParticipantId);
+            ContactClient contact = controller.getContactRepository().findById(otherParticipantId);
+            conv.setConversationName(contact.getPseudo());
+        }
+        // MaJ HP
+        refreshHomeConversations();
+    }
+
+    private void refreshHomeConversations() {
+        ConversationClientRepository convoRepo = controller.getConversationRepository();
+
+        Set<ConversationClient> allConv = convoRepo.findAll();
+
+        ArrayList<HomePanel.ConversationItem> items = new ArrayList<>();
+
+        for (ConversationClient conv : allConv) {
+            Message last = conv.getLastMessage();
+            String preview = "";
+            if (last != null) {preview = last.getContent();}
+
+            HomePanel.ConversationItem item =
+                    new HomePanel.ConversationItem(
+                            conv.getConversationId(),
+                            conv.getConversationName(),
+                            preview
+                    );
+
+            items.add(item);
+        }
+
+        items.sort((a, b) -> {
+            ConversationClient ca = convoRepo.findById(a.getId());
+            ConversationClient cb = convoRepo.findById(b.getId());
+            Message ma = ca.getLastMessage();
+            Message mb = cb.getLastMessage();
+            Instant ta = (ma == null ? Instant.MIN : ma.getTimestamp());
+            Instant tb = (mb == null ? Instant.MIN : mb.getTimestamp());
+            return tb.compareTo(ta); // plus récent d’abord
+        });
+
+        homePanel.setConversations(items);
+    }
+
+    private void handleNewContactRequest() {
+        String idToAdd;
+        try {
+            do {
+            idToAdd = JOptionPane.showInputDialog(
+                    this,
+                    "Envoyer une demande de contact à :",
+                    "Nouveau contact",
+                    JOptionPane.QUESTION_MESSAGE
+            );
+            if (idToAdd == null) {}
+        } while (idToAdd.isEmpty());
+        controller.sendContactRequest(Integer.parseInt(idToAdd));
+
+
+        } catch (NullPointerException e) {}
+        
+
+    }
+
 
     // ----------------------- Conversation Panel Actions -----------------------
-    // TODO
+
+
+    public void handleConversationSelection(HomePanel.ConversationItem conversation) {
+        CardLayout cl = (CardLayout) cards.getLayout();
+        ConversationClient conv = controller.getConversationRepository()
+                                         .findById(conversation.getId());
+
+        currentConversationId = conv.getConversationId();
+        if (conv.isGroupConversation()) 
+            conversationPanel.setConversationTitle(conv.getConversationName());
+
+
+        refreshMessages(conv);
+ 
+        conversationPanel.setOnSend(text -> {
+            if (text == null || text.trim().isEmpty()) {
+                return;
+            }
+            String trimmed = text.trim();
+
+            if (conv.isGroupConversation()) {
+                int toUserId = Integer.parseInt(conv.getConversationId().substring("group_".length()));
+                controller.sendTextMessage(trimmed, toUserId);
+            } else {
+                int selfId = controller.getClientId();
+                int toUserId = conv.getParticipantIds()
+                                .stream()
+                                .filter(id -> id != selfId)
+                                .findFirst()
+                                .orElseThrow();
+                controller.sendTextMessage(trimmed, toUserId);
+            }
+        });
+
+        conversationPanel.setOnBack(e -> cl.show(cards, "home"));
+        cl.show(cards, "conversation");
+        setLocationRelativeTo(null);
+    }
+
+    public List<ConversationPanel.MessageItem> loadMessages(ConversationClient conversation){
+        List<Message> messagesFromConv = conversation.getMessagesFrom(null, -1, true, true);
+        ContactClientRepository contactClientRepository = controller.getContactRepository();
+        List<ConversationPanel.MessageItem> messageItems = new ArrayList<ConversationPanel.MessageItem>();
+        for (Message message : messagesFromConv) {
+            messageItems.add(new ConversationPanel.MessageItem (
+                             message.getFromUserId() == controller.getClientId(),
+                             contactClientRepository.findById(message.getFromUserId())
+                                                    .getPseudo(),
+                             message.getContent()));
+        }
+        return messageItems;
+    }
 
     // ----------------------- Application Lifecycle -----------------------
 
@@ -257,6 +476,47 @@ public class MainFrame extends JFrame {
 
     private void showErrorDialog(String title, String message) {
         JOptionPane.showMessageDialog(this, message, title, JOptionPane.ERROR_MESSAGE);
+    }
+
+
+    private void showContactRequestResponseDialog (boolean isAccepted, int otherUserId) {
+
+        String user = "User " + otherUserId;
+        String message = isAccepted
+                ? user + " has accepted your contact request"
+                : user + " has denied your contact request";
+
+        String title = isAccepted
+                ? "Contact request accepted!"
+                : "Contact request denied";
+
+        JOptionPane.showMessageDialog(
+                this,
+                message,
+                title,
+                JOptionPane.INFORMATION_MESSAGE
+        );
+
+    }
+    
+    private boolean showContactRequestReceivedDialog (int senderID) {
+        String [] options = {"Add user as contact", "Deny contact request"};
+        int selection = JOptionPane.showOptionDialog(this,
+                                                    "Contact request from " + senderID + "received",
+                                                    "Contact Request received",
+                                                    JOptionPane.DEFAULT_OPTION,
+                                                    JOptionPane.INFORMATION_MESSAGE,
+                                                    null,
+                                                    options,
+                                                    options[0]                          
+        );
+        boolean choice = (selection == 0);
+        return choice;
+    }
+
+    private void refreshMessages(ConversationClient conv) {
+        List<ConversationPanel.MessageItem> messageItems = loadMessages(conv);
+        conversationPanel.setMessages(messageItems);
     }
 
     // ----------------------- Entry Point -----------------------
