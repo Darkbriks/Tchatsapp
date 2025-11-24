@@ -97,15 +97,6 @@ public class MainFrame extends JFrame {
             }
         });
 
-        /*eventHandler.setOnError(event -> {
-            if (awaitingConnection && event.getErrorLevel() == ErrorMessage.ErrorLevel.CRITICAL) {
-                awaitingConnection = false;
-                onConnectionError(event.getErrorMessage());
-            } else {
-                showErrorDialog(event.getErrorLevel().toString(), event.getErrorMessage());
-            }
-        });*/
-
         eventHandler.setOnGroupCreated(event -> {
             int groupId = event.getGroupInfo().getGroupId();
             String groupName = event.getGroupInfo().getGroupName();
@@ -116,7 +107,6 @@ public class MainFrame extends JFrame {
                 controller.getOrCreateGroupConversation(groupId, pendingGroupParticipants.get(groupName));
                 pendingGroupParticipants.remove(groupName);
             }
-            
             refreshHomeConversations();
         });
 
@@ -127,7 +117,7 @@ public class MainFrame extends JFrame {
         });
 
         eventHandler.setOnContactRequestResponse(event -> {
-            showContactRequestResponseDialog(event.isAccepted(), event.getOtherUserId());    
+            showContactRequestResponseDialog(event.isAccepted(), event.getOtherUserId());
         });
 
         eventHandler.setOnContactRequestReceived(event -> {
@@ -222,7 +212,7 @@ public class MainFrame extends JFrame {
         eventHandler.registerSubscriptions();
 
         // Initialize group member pending for a group created on the request of the user
-        this.pendingGroupParticipants = new HashMap<String, Set<Integer>>();
+        this.pendingGroupParticipants = new HashMap<>();
     }
 
     private void onConnectionSuccess(int clientId, String pseudo, boolean isNewUser) {
@@ -279,13 +269,11 @@ public class MainFrame extends JFrame {
     private void showLogin() {
         cardLayout.show(cards, CARD_LOGIN);
         setSize(420, 360);
-        setLocationRelativeTo(null);
     }
 
     private void showHome() {
         cardLayout.show(cards, CARD_HOME);
         setSize(900, 600);
-        setLocationRelativeTo(null);
     }
 
     private void showConversation() {
@@ -318,7 +306,6 @@ public class MainFrame extends JFrame {
             controller.createGroup(res.getConversationName());
 
             pendingGroupParticipants.put(res.getConversationName(), res.getParticipantIds());
-            
         }
         else {
             int otherParticipantId = res.getParticipantIds().iterator().next();
@@ -369,20 +356,16 @@ public class MainFrame extends JFrame {
         String idToAdd;
         try {
             do {
-            idToAdd = JOptionPane.showInputDialog(
-                    this,
-                    "Envoyer une demande de contact à :",
-                    "Nouveau contact",
-                    JOptionPane.QUESTION_MESSAGE
-            );
-            if (idToAdd == null) {}
-        } while (idToAdd.isEmpty());
-        controller.sendContactRequest(Integer.parseInt(idToAdd));
+                idToAdd = JOptionPane.showInputDialog(this, "Envoyer une demande de contact à :", "Nouveau contact", JOptionPane.QUESTION_MESSAGE);
+                if (idToAdd == null) { return; }
+                idToAdd = idToAdd.trim();
+            } while (idToAdd.isEmpty());
 
-
-        } catch (NullPointerException e) {}
-        
-
+            int otherUserId = Integer.parseInt(idToAdd);
+            controller.sendContactRequest(otherUserId);
+        } catch (NumberFormatException e) {
+            showErrorDialog("Identifiant invalide", "Veuillez entrer un nombre valide.");
+        }
     }
 
 
@@ -395,13 +378,13 @@ public class MainFrame extends JFrame {
                                          .findById(conversation.getId());
 
         currentConversationId = conv.getConversationId();
-        if (conv.isGroupConversation()) 
+        if (conv.isGroupConversation()) {
             conversationPanel.setConversationTitle(conv.getConversationName());
-
+        }
 
         refreshMessages(conv);
- 
-        conversationPanel.setOnSend(text -> {
+
+        conversationPanel.setOnSend((text, replyId) -> {
             if (text == null || text.trim().isEmpty()) {
                 return;
             }
@@ -417,25 +400,29 @@ public class MainFrame extends JFrame {
                                 .filter(id -> id != selfId)
                                 .findFirst()
                                 .orElseThrow();
-                controller.sendTextMessage(trimmed, toUserId);
+                controller.sendTextMessage(trimmed, toUserId, replyId);
             }
+            refreshMessages(conv);
         });
 
         conversationPanel.setOnBack(e -> cl.show(cards, "home"));
         cl.show(cards, "conversation");
-        setLocationRelativeTo(null);
     }
 
     public List<ConversationPanel.MessageItem> loadMessages(ConversationClient conversation){
         List<Message> messagesFromConv = conversation.getMessagesFrom(null, -1, true, true);
         ContactClientRepository contactClientRepository = controller.getContactRepository();
-        List<ConversationPanel.MessageItem> messageItems = new ArrayList<ConversationPanel.MessageItem>();
+        List<ConversationPanel.MessageItem> messageItems = new ArrayList<>();
         for (Message message : messagesFromConv) {
-            messageItems.add(new ConversationPanel.MessageItem (
-                             message.getFromUserId() == controller.getClientId(),
-                             contactClientRepository.findById(message.getFromUserId())
-                                                    .getPseudo(),
-                             message.getContent()));
+            boolean isOwnMessage = message.getFromUserId() == controller.getClientId();
+            String pseudo;
+            if (isOwnMessage) {
+                pseudo = "Vous";
+            } else {
+                ContactClient contact = contactClientRepository.findById(message.getFromUserId());
+                pseudo = (contact != null) ? contact.getPseudo() : "User " + message.getFromUserId();
+            }
+            messageItems.add(new ConversationPanel.MessageItem(isOwnMessage, pseudo, message.getContent(), message.getMessageId(), message.getReplyToMessageId()));
         }
         return messageItems;
     }
@@ -472,7 +459,6 @@ public class MainFrame extends JFrame {
         JOptionPane.showMessageDialog(this, message, title, JOptionPane.ERROR_MESSAGE);
     }
 
-
     private void showContactRequestResponseDialog (boolean isAccepted, int otherUserId) {
 
         String user = "User " + otherUserId;
@@ -492,7 +478,7 @@ public class MainFrame extends JFrame {
         );
 
     }
-    
+
     private boolean showContactRequestReceivedDialog (int senderID) {
         String [] options = {"Add user as contact", "Deny contact request"};
         int selection = JOptionPane.showOptionDialog(this,
@@ -502,10 +488,9 @@ public class MainFrame extends JFrame {
                                                     JOptionPane.INFORMATION_MESSAGE,
                                                     null,
                                                     options,
-                                                    options[0]                          
+                                                    options[0]
         );
-        boolean choice = (selection == 0);
-        return choice;
+        return (selection == 0);
     }
 
     private void refreshMessages(ConversationClient conv) {

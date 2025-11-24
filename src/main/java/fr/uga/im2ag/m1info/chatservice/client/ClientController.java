@@ -587,15 +587,17 @@ public class ClientController {
      *
      * @param content the message content
      * @param toUserId the recipient ID
+     * @param replyToMessageId the ID of the message being replied to (optional)
      * @return the message ID, or null if failed
      */
-    public String sendTextMessage(String content, int toUserId) {
+    public String sendTextMessage(String content, int toUserId, String replyToMessageId) {
         TextMessage textMsg = (TextMessage) MessageFactory.create(
                 MessageType.TEXT,
                 getClientId(),
                 toUserId
         );
         textMsg.setContent(content);
+        textMsg.setReplyToMessageId(replyToMessageId);
 
         if (!sendEncryptedMessage(textMsg)) {
             System.err.println("[Client] Failed to send text message to user " + toUserId);
@@ -608,7 +610,7 @@ public class ClientController {
                 toUserId,
                 content,
                 textMsg.getTimestamp(),
-                null
+                replyToMessageId
         );
 
         ConversationClient conversation = getOrCreatePrivateConversation(toUserId);
@@ -622,6 +624,16 @@ public class ClientController {
 
         client.getCommandManager().addPendingCommand(command);
         return textMsg.getMessageId();
+    }
+
+    /**
+     * Send a text message to a recipient using the ACK system.
+     *
+     * @param content the message content
+     * @param toUserId the recipient ID
+     */
+    public void sendTextMessage(String content, int toUserId) {
+        sendTextMessage(content, toUserId, null);
     }
 
     /**

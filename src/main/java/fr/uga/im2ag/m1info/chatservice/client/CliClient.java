@@ -285,7 +285,7 @@ public class CliClient {
      */
     private void displayGroupMenu() {
         System.out.println("\n╔════════════════════════════════════════════════╗");
-        System.out.println("║              TCHATSAPP MAIN MENU               ║");
+        System.out.println("║             TCHATSAPP GROUP MENU               ║");
         System.out.println("╠════════════════════════════════════════════════╣");
         System.out.println("║ 1. Create a group                              ║");
         System.out.println("║ 2. Leave a group                               ║");
@@ -335,11 +335,29 @@ public class CliClient {
             return;
         }
 
-        System.out.print("Your message (start with '/' for file path): ");
+        System.out.print("Your message (/file <path> for file, /reply <msgId> <text> for reply): ");
         String msg = scanner.nextLine();
 
-        if (!msg.isEmpty() && msg.charAt(0) == '/') {
-            clientController.sendMedia(msg, to);
+        if (msg.startsWith("/file ")) {
+            String filePath = msg.substring(6).trim();
+            if (!filePath.isEmpty()) {
+                clientController.sendMedia(filePath, to);
+            } else {
+                System.err.println("File path cannot be empty.");
+            }
+        } else if (msg.startsWith("/reply ")) {
+            String[] parts = msg.split(" ", 3);
+            if (parts.length < 3) {
+                System.err.println("Invalid reply format. Use /reply <msgId> <text>.");
+                return;
+            }
+            String replyToMessageId = parts[1].trim();
+            String replyText = parts[2].trim();
+            if (replyText.isEmpty()) {
+                System.err.println("Reply text cannot be empty.");
+                return;
+            }
+            clientController.sendTextMessage(replyText, to, replyToMessageId);
         } else {
             clientController.sendTextMessage(msg, to);
         }
@@ -672,6 +690,7 @@ public class CliClient {
         System.out.println("╠════════════════════════════════════════════════╣");
 
         for (Message msg : messages) {
+            System.out.println("║ message ID: " + msg.getMessageId());
             String fromLabel = (msg.getFromUserId() == clientController.getClientId())
                     ? "You"
                     : "User #" + msg.getFromUserId();
