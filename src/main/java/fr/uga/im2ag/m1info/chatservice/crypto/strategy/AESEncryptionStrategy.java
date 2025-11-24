@@ -107,14 +107,31 @@ public class AESEncryptionStrategy implements EncryptionStrategy {
     public ProtocolMessage decrypt(EncryptedWrapper wrapper) throws GeneralSecurityException {
         try {
             int senderId = wrapper.getFrom();
-            ConversationEncryptionContext context = getOrCreateContext(senderId);
+            int targetId = wrapper.getTo();
+
+            int contextId;
+            String conversationId;
+
+            if (targetId == localClientId) {
+                contextId = senderId;
+                conversationId = getConversationId(senderId);
+                LOG.fine(String.format("Decrypting private message from %d using context %s", senderId, conversationId));
+            } else {
+                contextId = targetId;
+                conversationId = getConversationId(targetId);
+                LOG.fine(String.format("Decrypting group message from %d to group %d using context %s", senderId, targetId, conversationId));
+            }
+
+            ConversationEncryptionContext context = getOrCreateContextForConversation(conversationId, localClientId, contextId);
 
             if (context == null) {
-                throw new GeneralSecurityException("No decryption context available for sender " + senderId);
+                throw new GeneralSecurityException(String.format("No decryption context available for %s", conversationId));
             }
 
             ProtocolMessage decrypted = wrapper.unwrap(context);
-            LOG.fine(String.format("Successfully decrypted %s message from %d", decrypted.getMessageType(), senderId));
+
+            LOG.fine(String.format("Successfully decrypted %s message from %d (conversation %s)", decrypted.getMessageType(), senderId, conversationId));
+
             return decrypted;
         } catch (Exception e) {
             LOG.log(Level.SEVERE, "Failed to decrypt message", e);
@@ -206,10 +223,22 @@ public class AESEncryptionStrategy implements EncryptionStrategy {
     }
 
     /**
-     * Gets or creates an encryption context for a conversation.
+     * Gets or creates an encryption context for a target.
+     * Used for encryption (when we know the target).
      */
     private ConversationEncryptionContext getOrCreateContext(int targetId) {
         String conversationId = getConversationId(targetId);
+        return getOrCreateContextForConversation(conversationId, localClientId, targetId);
+    }
+
+    /**
+     * Gets or creates an encryption context for a specific conversation.
+     * Used for both encryption and decryption.
+     */
+    private ConversationEncryptionContext getOrCreateContextForConversation(
+            String conversationId, int localId, int remoteId) {
+
+        // Check cache first
         ConversationEncryptionContext context = contextCache.get(conversationId);
 
         if (context != null && context.hasSessionKey()) {
@@ -225,12 +254,12 @@ public class AESEncryptionStrategy implements EncryptionStrategy {
                 conversationId,
                 sessionManager,
                 cipher,
-                localClientId,
-                targetId
+                localId,
+                remoteId
         );
 
         contextCache.put(conversationId, context);
-        LOG.fine(String.format("Created new encryption context for %s", conversationId));
+        LOG.fine(String.format("Created new encryption context for %s (local=%d, remote=%d)", conversationId, localId, remoteId));
         return context;
     }
 }

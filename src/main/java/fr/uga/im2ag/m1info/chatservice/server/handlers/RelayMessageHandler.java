@@ -12,6 +12,13 @@ public class RelayMessageHandler extends ValidatingServerPacketHandler {
     @Override
     public void handle(ProtocolMessage message, TchatsAppServer.ServerContext serverContext) {
         if (!validateSenderRegistered(message, serverContext)) return;
+
+        if (message.getMessageType() == MessageType.KEY_EXCHANGE ||
+            message.getMessageType() == MessageType.KEY_EXCHANGE_RESPONSE) {
+            sendPacketToRecipient(message, serverContext);
+            return;
+        }
+
         if (isGroupId(message.getTo(), serverContext)) {
             if (!validateSenderMemberOfGroup(message, serverContext)) return;
         } else {
