@@ -735,6 +735,37 @@ public class ClientController {
     }
 
     /**
+     * Rename a group need to be admin 
+     *
+     * @param name the desired name of the group 
+     * @param groupID the group 
+     * @return true if the request was sent, false otherwise
+     */
+    public boolean renameGroup(String name, int groupID) {
+        if (name == null || name.isEmpty() ) {
+            System.err.println("[Client] Group name cannot be null or empty");
+            return false;
+        }
+
+
+        ManagementMessage mgmtMsg = sendManagementMessage(MessageType.UPDATE_GROUP_NAME, groupID);
+        if (mgmtMsg == null) {
+            return false;
+        }
+
+        mgmtMsg.addParam(KeyInMessage.GROUP_NAME, name);
+        sendPacket(mgmtMsg.toPacket());
+        client.getCommandManager().addPendingCommand(new UpdateGroupNameCommand(
+                mgmtMsg.getMessageId(),
+                groupID,
+                groupRepository, 
+                name
+        ));
+
+        return true;
+    }
+
+    /**
      * Leave a group 
      *
      * @param groupID the id of the group to leave 

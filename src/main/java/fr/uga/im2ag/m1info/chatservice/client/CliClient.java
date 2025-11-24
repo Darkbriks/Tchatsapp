@@ -291,6 +291,7 @@ public class CliClient {
         System.out.println("║ 2. Leave a group                               ║");
         System.out.println("║ 3. Add member ( admin only )                   ║");
         System.out.println("║ 4. Remove member ( admin only )                ║");
+        System.out.println("║ 5. Change Group name ( admin only )            ║");
         System.out.println("║ 0. Back to Main menu                           ║");
         System.out.println("╚════════════════════════════════════════════════╝");
         System.out.print("Your choice: ");
@@ -412,6 +413,25 @@ public class CliClient {
         clientController.createGroup(groupName);
     }
 
+    private void handleChangeGroupName() {
+        System.out.print("Group id: ");
+        int groupId;
+        try {
+            groupId= readIntegerFromUser("Invalid group ID.");
+        } catch (Exception e) {
+            return;
+        }
+        System.out.print("new group name: ");
+        String groupName = scanner.nextLine().trim();
+
+        if (groupName.isEmpty()) {
+            System.err.println("GroupName cannot be empty.");
+            return;
+        }
+
+        clientController.renameGroup(groupName, groupId);
+    }
+
     /**
      * Handle Leaving a group 
      */
@@ -485,6 +505,7 @@ public class CliClient {
             case 2 -> handleLeaveGroup();
             case 3 -> handleAddMemberGroup();
             case 4 -> handleRemoveMemberGroup();
+            case 5 -> handleChangeGroupName();
             default -> { 
                 System.out.println("Invalid choice. Please try again.");
                 groupGestion();
@@ -493,6 +514,7 @@ public class CliClient {
         }
 
     }
+
 
     /**
      * List all groups.
