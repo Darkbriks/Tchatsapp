@@ -11,7 +11,6 @@ import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 /**
@@ -356,9 +355,10 @@ public class CliClient {
         try {
             result = scanner.nextInt();
             scanner.nextLine();
-        } catch (NoSuchElementException e){
+        // TODO: Fix (non integer value trigger this case)
+        /*} catch (NoSuchElementException e){
             System.out.println("Control D catch ");
-            System.exit(1);
+            System.exit(1);*/
         } catch (Exception e) {
             System.err.println("Invalid ID.");
             scanner.nextLine();

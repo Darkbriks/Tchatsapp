@@ -3,7 +3,6 @@ package fr.uga.im2ag.m1info.chatservice.server.handlers;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
-import fr.uga.im2ag.m1info.chatservice.server.util.AckHelper;
 
 public class AckMessageHandler extends ValidatingServerPacketHandler {
     @Override
@@ -11,10 +10,6 @@ public class AckMessageHandler extends ValidatingServerPacketHandler {
         if (message.getTo() != 0) {
             if (!validateSenderRegistered(message, serverContext)) return;
             if (!validateRecipientExists(message, serverContext)) return;
-            if (!checkContactRelationship(message.getFrom(), message.getTo(), serverContext)) {
-                AckHelper.sendFailedAck(serverContext, message, "Not authorized");
-                return;
-            }
 
             serverContext.sendPacketToClient(message.toPacket());
         }

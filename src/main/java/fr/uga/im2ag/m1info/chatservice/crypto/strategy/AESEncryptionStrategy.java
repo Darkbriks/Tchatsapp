@@ -109,20 +109,23 @@ public class AESEncryptionStrategy implements EncryptionStrategy {
             int senderId = wrapper.getFrom();
             int targetId = wrapper.getTo();
 
-            int contextId;
             String conversationId;
+            int localIdForContext;
+            int peerIdForContext;
 
             if (targetId == localClientId) {
-                contextId = senderId;
                 conversationId = getConversationId(senderId);
+                localIdForContext = localClientId;
+                peerIdForContext = senderId;
                 LOG.fine(String.format("Decrypting private message from %d using context %s", senderId, conversationId));
             } else {
-                contextId = targetId;
                 conversationId = getConversationId(targetId);
+                localIdForContext = targetId;
+                peerIdForContext = senderId;
                 LOG.fine(String.format("Decrypting group message from %d to group %d using context %s", senderId, targetId, conversationId));
             }
 
-            ConversationEncryptionContext context = getOrCreateContextForConversation(conversationId, localClientId, contextId);
+            ConversationEncryptionContext context = getOrCreateContextForConversation(conversationId, localIdForContext, peerIdForContext);
 
             if (context == null) {
                 throw new GeneralSecurityException(String.format("No decryption context available for %s", conversationId));
