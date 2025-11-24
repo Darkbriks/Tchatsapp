@@ -1,14 +1,14 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
 import java.time.Instant;
 
 /**
- * Class representing a text message in the chat service protocol.
+ * A text message that can contain plain text content and optionally reference
+ * another message it is replying to.
  */
-public class TextMessage extends ProtocolMessage {
+public class TextMessage extends AbstractSerializableMessage {
     private String content;
     private String replyToMessageId;
 
@@ -17,26 +17,21 @@ public class TextMessage extends ProtocolMessage {
      */
     public TextMessage() {
         super(MessageType.NONE, -1, -1);
-        timestamp = Instant.EPOCH;
-        messageId = null;
+        this.timestamp = Instant.EPOCH;
+        this.messageId = null;
         this.content = "";
         this.replyToMessageId = null;
     }
 
-    /** Get the text content of the message.
+    // ========================= Getters/Setters =========================
+
+    /**
+     * Get the text content of the message.
      *
      * @return the text content
      */
     public String getContent() {
         return content;
-    }
-
-    /** Get the ID of the message being replied to.
-     *
-     * @return the reply-to message ID, or null if not a reply
-     */
-    public String getReplyToMessageId() {
-        return replyToMessageId;
     }
 
     /** Set the text content of the message.
@@ -49,7 +44,16 @@ public class TextMessage extends ProtocolMessage {
         return this;
     }
 
-    /** Set the ID of the message being replied to.
+    /** Get the ID of the message being replied to.
+     *
+     * @return the reply-to message ID, or null if not a reply
+     */
+    public String getReplyToMessageId() {
+        return replyToMessageId;
+    }
+
+    /**
+     * Set the ID of the message being replied to.
      *
      * @param replyToMessageId the reply-to message ID to set
      * @return the TextMessage instance for method chaining
@@ -59,35 +63,32 @@ public class TextMessage extends ProtocolMessage {
         return this;
     }
 
+    // ========================= Serialization Methods =========================
+
     @Override
-    public Packet toPacket() {
-        if (messageId == null) { throw  new IllegalArgumentException("Message id is null"); }
-        StringBuilder sb = getStringBuilder();
-        sb.append(messageId).append("|").append(timestamp.toEpochMilli()).append("|");
-        if (replyToMessageId != null) {
-            sb.append(replyToMessageId);
-        }
-        sb.append("|").append(content);
-        int length = sb.length();
-        return new Packet.PacketBuilder(length)
-                .setMessageType(messageType)
-                .setFrom(from)
-                .setTo(to)
-                .setPayload(sb.toString().getBytes())
-                .build();
+    protected void serializeContent(StringBuilder sb) {
+        joinFields(sb, replyToMessageId != null ? replyToMessageId : "", content);
     }
 
     @Override
-    public TextMessage fromPacket(Packet packet) {
-        this.messageType = packet.messageType();
-        this.from = packet.from();
-        this.to = packet.to();
-        String payload = new String(packet.getModifiablePayload().array());
-        String[] parts = payload.split("\\|", 4);
-        this.messageId = parts[0];
-        this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
-        this.replyToMessageId = parts[2].isEmpty() ? null : parts[2];
-        this.content = parts[3];
-        return this;
+    protected void deserializeContent(String[] parts, int startIndex) {
+        this.replyToMessageId = parts[startIndex].isEmpty() ? null : parts[startIndex];
+        this.content = parts[startIndex + 1];
+    }
+
+    @Override
+    protected int getExpectedPartCount() {
+        return 4;
+    }
+
+    @Override
+    public String toString() {
+        return "TextMessage{" +
+                "messageId='" + messageId + '\'' +
+                ", from=" + from +
+                ", to=" + to +
+                ", content='" + (content.length() > 50 ? content.substring(0, 50) + "..." : content) + '\'' +
+                ", replyTo=" + replyToMessageId +
+                '}';
     }
 }

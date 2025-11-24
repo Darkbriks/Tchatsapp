@@ -30,8 +30,38 @@ public abstract class ValidatingServerPacketHandler extends ServerPacketHandler 
         return true;
     }
 
+    protected boolean validateSenderMemberOfGroup(ProtocolMessage message, TchatsAppServer.ServerContext ctx) {
+        UserInfo sender = ctx.getUserRepository().findById(message.getFrom());
+        //if (!sender.isMemberOfGroup(message.getTo())) {
+        if (!ctx.getGroupRepository().findById(message.getTo()).hasMember(message.getFrom())) {
+            LOG.warning(() -> String.format(
+                    "User %d is not a member of group %d (type: %s)",
+                    message.getFrom(), message.getTo(), message.getMessageType()
+            ));
+            AckHelper.sendFailedAck(ctx, message, "Sender not member of group");
+            return false;
+        }
+        return true;
+    }
+
     protected boolean checkContactRelationship(int from, int to, TchatsAppServer.ServerContext ctx) {
         UserInfo sender = ctx.getUserRepository().findById(from);
         return sender.hasContact(to);
+    }
+
+    protected boolean isGroupId(int id, TchatsAppServer.ServerContext ctx) {
+        return ctx.getGroupRepository().findById(id) != null;
+    }
+
+    protected void sendPacketToRecipient(ProtocolMessage message, TchatsAppServer.ServerContext ctx) {
+        if (isGroupId(message.getTo(), ctx)) {
+            for (int memberId : ctx.getGroupRepository().findById(message.getTo()).getMembers()) {
+                if (memberId != message.getFrom()) {
+                    ctx.sendPacketToClient(message.toPacket(), memberId);
+                }
+            }
+        } else {
+            ctx.sendPacketToClient(message.toPacket());
+        }
     }
 }

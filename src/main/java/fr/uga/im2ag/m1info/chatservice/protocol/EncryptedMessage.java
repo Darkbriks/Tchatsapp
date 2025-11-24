@@ -1,12 +1,14 @@
 package fr.uga.im2ag.m1info.chatservice.protocol;
+
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
- 
+
 import java.nio.ByteBuffer;
  
 /**
  * Represents an encrypted message with type, sequence number, nonce, and ciphertext.
  * Provides serialization and deserialization for the encrypted payload format.
  */
+@Deprecated
 public class EncryptedMessage {
  
     private final MessageType type;

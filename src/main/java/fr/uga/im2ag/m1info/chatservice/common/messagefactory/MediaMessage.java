@@ -1,16 +1,14 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
 
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 
 /**
  * Class representing a media message in the chat service protocol.
  */
-public class MediaMessage extends ProtocolMessage {
+public class MediaMessage extends AbstractSerializableMessage {
     private byte[] content;
     private String mediaName;
     private String replyToMessageId;
@@ -24,6 +22,8 @@ public class MediaMessage extends ProtocolMessage {
         this.mediaName = "";
         this.replyToMessageId = null;
     }
+
+    // ========================= Getters/Setters =========================
 
     /** Get the media of the message.
      *
@@ -90,40 +90,36 @@ public class MediaMessage extends ProtocolMessage {
         this.replyToMessageId = replyToMessageId;
     }
 
+    // ========================= Serialization Methods =========================
+
     @Override
-    public Packet toPacket() {
-        if (messageId == null) { throw  new IllegalArgumentException("Message id is null"); }
-        StringBuilder sb = getStringBuilder();
-        sb.append(messageId).append("|").append(timestamp.toEpochMilli()).append("|");
-        if (replyToMessageId != null) {
-            sb.append(replyToMessageId);
-        }
-        sb.append("|").append(mediaName);
-        String encodedContent = Base64.getEncoder().encodeToString(Arrays.copyOfRange(content, 0, size));
-        sb.append("|").append(encodedContent);
-        byte[] payload = sb.toString().getBytes();
-        int length = payload.length;
-        return new Packet.PacketBuilder(length)
-                .setMessageType(messageType)
-                .setFrom(from)
-                .setTo(to)
-                .setPayload(payload)
-                .build();
+    protected void serializeContent(StringBuilder sb) {
+        joinFields(sb, replyToMessageId != null ? replyToMessageId : "", mediaName,
+                Base64.getEncoder().encodeToString(Arrays.copyOfRange(content, 0, size)));
     }
 
     @Override
-    public MediaMessage fromPacket(Packet packet) {
-        this.messageType = packet.messageType();
-        this.from = packet.from();
-        this.to = packet.to();
-        String payload = new String(packet.getModifiablePayload().array());
-        String[] parts = payload.split("\\|", 5);
-        this.messageId = parts[0];
-        this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
-        this.replyToMessageId = parts[2].isEmpty() ? null : parts[2];
-        this.mediaName = parts[3];
-        this.content = Base64.getDecoder().decode(parts[4]);
+    protected void deserializeContent(String[] parts, int startIndex) {
+        this.replyToMessageId = parts[startIndex].isEmpty() ? null : parts[startIndex];
+        this.mediaName = parts[startIndex + 1];
+        this.content = Base64.getDecoder().decode(parts[startIndex + 2]);
         this.size = content.length;
-        return this;
+    }
+
+    @Override
+    protected int getExpectedPartCount() {
+        return 6;
+    }
+
+    @Override
+    public String toString() {
+        return "MediaMessage{" +
+                "messageId='" + messageId + '\'' +
+                ", from=" + from +
+                ", to=" + to +
+                ", mediaName='" + mediaName + '\'' +
+                ", replyToMessageId='" + replyToMessageId + '\'' +
+                ", contentSize=" + (content != null ? content.length : 0) +
+                '}';
     }
 }

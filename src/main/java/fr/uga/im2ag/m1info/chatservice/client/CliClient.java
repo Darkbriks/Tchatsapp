@@ -1,13 +1,16 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.client.event.types.*;
-import fr.uga.im2ag.m1info.chatservice.client.model.*;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
+import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
+import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 
 import java.io.IOException;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 /**
@@ -31,6 +34,7 @@ public class CliClient {
     CliClient(int clientId, Scanner scanner) {
         Client client = new Client(clientId);
         this.clientController = new ClientController(client);
+        this.clientController.initializeEncryption();
         this.clientController.initializeHandlers();
         this.scanner = scanner;
         registerEventListeners();
@@ -233,6 +237,7 @@ public class CliClient {
             case DELIVERED -> "📬";
             case READ -> "📖";
             case FAILED -> "❌";
+            case CRITICAL_FAILURE -> "⚠️";
         };
 
         String msgIdShort = event.getMessageId().substring(0, Math.min(8, event.getMessageId().length()));
@@ -283,9 +288,9 @@ public class CliClient {
         System.out.println("║              TCHATSAPP MAIN MENU               ║");
         System.out.println("╠════════════════════════════════════════════════╣");
         System.out.println("║ 1. Create a group                              ║");
-        System.out.println("║ 2. Leavea a group                              ║");
+        System.out.println("║ 2. Leave a group                               ║");
         System.out.println("║ 3. Add member ( admin only )                   ║");
-        System.out.println("║ 4. Remove member ('admin only )                ║");
+        System.out.println("║ 4. Remove member ( admin only )                ║");
         System.out.println("║ 0. Back to Main menu                           ║");
         System.out.println("╚════════════════════════════════════════════════╝");
         System.out.print("Your choice: ");
@@ -350,9 +355,10 @@ public class CliClient {
         try {
             result = scanner.nextInt();
             scanner.nextLine();
-        } catch (NoSuchElementException e){
+        // TODO: Fix (non integer value trigger this case)
+        /*} catch (NoSuchElementException e){
             System.out.println("Control D catch ");
-            System.exit(1);
+            System.exit(1);*/
         } catch (Exception e) {
             System.err.println("Invalid ID.");
             scanner.nextLine();
@@ -503,9 +509,9 @@ public class CliClient {
         System.out.println("║                 YOUR GROUPS                    ║");
         System.out.println("╠════════════════════════════════════════════════╣");
 
-        for (GroupClient group : groups) {
+        for (GroupInfo group : groups) {
             System.out.println("║ ID: " + group.getGroupId());
-            System.out.println("║ NAME: " + group.getName());
+            System.out.println("║ NAME: " + group.getGroupName());
             for ( int member : group.getMembers()){
                 if (clientController.getContactRepository().isContact(member)){
                     System.out.println("║ MENBER_NAME: " + clientController.getContactRepository().findById(member).getPseudo());

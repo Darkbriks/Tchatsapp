@@ -1,16 +1,13 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
-
-import java.time.Instant;
 
 /**
  * Message representing a contact request.
  */
-public class ContactRequestMessage extends ProtocolMessage {
+public class ContactRequestMessage extends AbstractSerializableMessage {
     private String requestId;
-    private long expirationTimestamp; // only used when isResponse = false
+    private long expirationTimestamp;
 
     /**
      * Default constructor.
@@ -20,6 +17,8 @@ public class ContactRequestMessage extends ProtocolMessage {
         this.requestId = null;
         this.expirationTimestamp = 0;
     }
+
+    // ========================= Getters/Setters =========================
 
     /**
      * Get the request ID.
@@ -61,37 +60,21 @@ public class ContactRequestMessage extends ProtocolMessage {
         return this;
     }
 
-    @Override
-    public Packet toPacket() {
-        StringBuilder sb = getStringBuilder();
-        sb.append(messageId).append("|");
-        sb.append(timestamp.toEpochMilli()).append("|");
-        sb.append(requestId != null ? requestId : messageId).append("|");
-        sb.append(expirationTimestamp);
+    // ========================= Serialization Methods =========================
 
-        byte[] payload = sb.toString().getBytes();
-        return new Packet.PacketBuilder(payload.length)
-                .setMessageType(messageType)
-                .setFrom(from)
-                .setTo(to)
-                .setPayload(payload)
-                .build();
+    @Override
+    protected void serializeContent(StringBuilder sb) {
+        joinFields(sb, getRequestId(), Long.toString(expirationTimestamp));
     }
 
     @Override
-    public ContactRequestMessage fromPacket(Packet packet) {
-        this.messageType = packet.messageType();
-        this.from = packet.from();
-        this.to = packet.to();
+    protected void deserializeContent(String[] parts, int startIndex) {
+        this.requestId = parts[startIndex];
+        this.expirationTimestamp = Long.parseLong(parts[startIndex + 1]);
+    }
 
-        String payload = new String(packet.getModifiablePayload().array());
-        String[] parts = payload.split("\\|", 4);
-
-        this.messageId = parts[0];
-        this.timestamp = Instant.ofEpochMilli(Long.parseLong(parts[1]));
-        this.requestId = parts[2];
-        this.expirationTimestamp = Long.parseLong(parts[3]);
-
-        return this;
+    @Override
+    protected int getExpectedPartCount() {
+        return 4;
     }
 }

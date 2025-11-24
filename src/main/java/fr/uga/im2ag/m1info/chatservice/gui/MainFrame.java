@@ -2,27 +2,20 @@ package fr.uga.im2ag.m1info.chatservice.gui;
 
 import fr.uga.im2ag.m1info.chatservice.client.Client;
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
-import fr.uga.im2ag.m1info.chatservice.client.event.types.ContactRequestResponseEvent;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
-import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
-import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ErrorMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
-import fr.uga.im2ag.m1info.chatservice.gui.ConversationPanel.MessageItem;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.time.Instant;
-import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 
 public class MainFrame extends JFrame {
@@ -104,18 +97,18 @@ public class MainFrame extends JFrame {
             }
         });
 
-        eventHandler.setOnError(event -> {
+        /*eventHandler.setOnError(event -> {
             if (awaitingConnection && event.getErrorLevel() == ErrorMessage.ErrorLevel.CRITICAL) {
                 awaitingConnection = false;
                 onConnectionError(event.getErrorMessage());
             } else {
                 showErrorDialog(event.getErrorLevel().toString(), event.getErrorMessage());
             }
-        });
+        });*/
 
         eventHandler.setOnGroupCreated(event -> {
-            int groupId = event.getGroupId();
-            String groupName = event.getGroupName();
+            int groupId = event.getGroupInfo().getGroupId();
+            String groupName = event.getGroupInfo().getGroupName();
             if (pendingGroupParticipants.containsKey(groupName)) {
                 for (Integer participantId : pendingGroupParticipants.get(groupName)){
                     controller.addMemberToGroup(groupId, participantId);
@@ -130,7 +123,7 @@ public class MainFrame extends JFrame {
         eventHandler.setOnGroupMemberChanged(event -> {
             int groupId = event.getGroupId();
             if (controller.getGroupRepository().findById(groupId) != null) 
-                controller.getGroupRepository().findById(groupId).addMember(event.getMember());
+                controller.getGroupRepository().findById(groupId).addMember(event.getMemberId());
         });
 
         eventHandler.setOnContactRequestResponse(event -> {

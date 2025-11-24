@@ -1,36 +1,30 @@
 package fr.uga.im2ag.m1info.chatservice.client.event.types;
 
 import fr.uga.im2ag.m1info.chatservice.client.event.system.Event;
+import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 
 /**
  * Event representing a creation of a group.
  */
 public class GroupCreateEvent extends Event {
-    private final int groupId;
-    private final String groupName;
+    private final GroupInfo groupInfo;
 
     /** Constructor for the GroupCreationEvent class.
      *
      * @param source The source object that generated the event.
-     * @param groupId The id of the group
-     * @param groupName The name of the group
+     * @param groupInfo The group information.
      */
-    public GroupCreateEvent(Object source, int groupID, String groupName) {
+    public GroupCreateEvent(Object source, GroupInfo groupInfo) {
         super(source);
-        this.groupId = groupID;
-        this.groupName = groupName;
+        this.groupInfo = groupInfo;
     }
 
-    /** Gets the group id.
+    /** Gets the group information.
      *
-     * @return The id of the group.
+     * @return The group information.
      */
-    public int getGroupId() {
-        return groupId;
-    }
-
-    public String getGroupName() {
-        return groupName;
+    public GroupInfo getGroupInfo() {
+        return groupInfo;
     }
 
     /** Gets the specific type of the event.

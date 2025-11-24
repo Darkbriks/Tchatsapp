@@ -2,12 +2,13 @@ package fr.uga.im2ag.m1info.chatservice.storage;
  
 import javax.crypto.SecretKey;
 import java.io.IOException;
- 
+import java.util.Map;
+
 /**
  * Handles secure storage of cryptographic keys.
  * Keys are encrypted at rest using a master key derived from the user's password.
  */
-public class KeyStore {
+public interface KeyStore {
  
     /**
      * Saves a session key to persistent storage.
@@ -15,10 +16,7 @@ public class KeyStore {
      * @param key The session key to store
      * @throws IOException if storage fails
      */
-    public void saveSessionKey(String conversationId, SecretKey key) throws IOException {
-        // TODO: Implement encrypted key storage
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+    void saveSessionKey(String conversationId, SecretKey key) throws IOException;
  
     /**
      * Loads a session key from persistent storage.
@@ -26,18 +24,19 @@ public class KeyStore {
      * @return The session key or null if not found
      * @throws IOException if loading fails
      */
-    public SecretKey loadSessionKey(String conversationId) throws IOException {
-        // TODO: Implement key loading
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+    SecretKey loadSessionKey(String conversationId) throws IOException;
  
     /**
      * Deletes a session key from storage.
      * @param conversationId The conversation identifier
      * @throws IOException if deletion fails
      */
-    public void deleteSessionKey(String conversationId) throws IOException {
-        // TODO: Implement key deletion
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+    void deleteSessionKey(String conversationId) throws IOException;
+
+    /**
+     * Loads all session keys from storage.
+     * @return A map of conversation IDs to their corresponding session keys
+     * @throws IOException if loading fails
+     */
+    Map<String, SecretKey> loadAllSessionKeys() throws IOException;
 }

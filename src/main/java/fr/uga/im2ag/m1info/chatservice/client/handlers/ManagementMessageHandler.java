@@ -3,11 +3,11 @@ package fr.uga.im2ag.m1info.chatservice.client.handlers;
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.*;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
-import fr.uga.im2ag.m1info.chatservice.client.model.GroupClient;
 import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
+import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 
 public class ManagementMessageHandler extends ClientPacketHandler {
     @Override
@@ -72,9 +72,9 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
             System.out.println("[Client] Your Group has been created : " + newGroupe + " his ID is " + groupId);
-            GroupClient group = new GroupClient(groupId, newGroupe, context.getClientId());
+            GroupInfo group = new GroupInfo(groupId, context.getClientId(), newGroupe);
             context.getGroupRepository().add(group);
-            publishEvent(new GroupCreateEvent(this, groupId, newGroupe), context);
+            publishEvent(new GroupCreateEvent(this, group), context);
         }
     }
 
@@ -96,7 +96,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
                 System.out.printf("[Client] You leave the group %d !\n", groupId);
                 context.getGroupRepository().delete(groupId);
             } else {
-                GroupClient group = context.getGroupRepository().findById(groupId);
+                GroupInfo group = context.getGroupRepository().findById(groupId);
                 group.removeMember(deleteMember);
                 context.getGroupRepository().update(groupId, group);
                 System.out.printf("[Client] User %d leave the group %d !\n", deleteMember, groupId);
@@ -114,7 +114,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
             // TODO admin is just a member like other so he also receives the normal message
-            publishEvent(new ChangeMemberInGroupEvent(this, groupId, newMember), context);
+            publishEvent(new ChangeMemberInGroupEvent(this, groupId, newMember, true), context);
         } else if ( Boolean.FALSE.equals(message.getParamAsType("ack", Boolean.class))){
             System.out.printf("[Client] You try to add member %d to the group %d but it FAIL\n",newMember, groupId);
 
@@ -124,7 +124,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
                 System.out.printf("[Client] You have been add to the group %d !\n", groupId);
                 String groupName = message.getParamAsType(KeyInMessage.GROUP_NAME, String.class);
                 int adminId = getIntInParam(message, KeyInMessage.GROUP_ADMIN_ID);
-                GroupClient group = new GroupClient(groupId, groupName, adminId);
+                GroupInfo group = new GroupInfo(groupId, adminId, groupName);
                 int i = 0;
                 while (true){
                     try{
@@ -137,7 +137,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
                 }
                 context.getGroupRepository().add(group);
             } else {
-                GroupClient group = context.getGroupRepository().findById(groupId);
+                GroupInfo group = context.getGroupRepository().findById(groupId);
                 group.addMember(newMember);
                 context.getGroupRepository().update(groupId, group);
                 System.out.printf("[Client] User %d have been add to the group %d !\n", newMember, groupId);
@@ -151,7 +151,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         int groupId = getIntInParam(message, KeyInMessage.GROUP_ID);
         if (Boolean.TRUE.equals(message.getParamAsType("ack", Boolean.class))) {
             // This is an acknowledgment of our own pseudo update
-            publishEvent(new ChangeMemberInGroupEvent(this, groupId, deleteMember), context);
+            publishEvent(new ChangeMemberInGroupEvent(this, groupId, deleteMember, false), context);
             System.out.printf("[Client] You successfully remove member %d to the group %d\n",deleteMember, groupId);
             // TODO admin is just a member like other so he also receives the normal message
             // GroupClient group = context.getGroupRepository().findById(groupId);
@@ -167,7 +167,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
                 // TODO  a new member need to access every data like other members !!!
                 context.getGroupRepository().delete(groupId);
             } else {
-                GroupClient group = context.getGroupRepository().findById(groupId);
+                GroupInfo group = context.getGroupRepository().findById(groupId);
                 group.removeMember(deleteMember);
                 context.getGroupRepository().update(groupId, group);
                 System.out.printf("[Client] User %d have been removed to the group %d !\n", deleteMember, groupId);
@@ -190,10 +190,10 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             System.out.printf("[Client] You try to rename group %d to %s but it FAIL",groupId, newGroupName);
 
         } else {
-                GroupClient group = context.getGroupRepository().findById(groupId);
-                group.setName(newGroupName);
-                context.getGroupRepository().update(groupId, group);
-                System.out.printf("[Client] Group %d have been renamed to %s !", groupId, newGroupName);
+            GroupInfo group = context.getGroupRepository().findById(groupId);
+            group.setGroupName(newGroupName);
+            context.getGroupRepository().update(groupId, group);
+            System.out.printf("[Client] Group %d have been renamed to %s !", groupId, newGroupName);
 
         }
     }

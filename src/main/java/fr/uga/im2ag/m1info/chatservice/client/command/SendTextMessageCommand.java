@@ -41,7 +41,7 @@ public class SendTextMessageCommand implements PendingCommand {
             case SENT -> MessageStatus.SENT;
             case DELIVERED -> MessageStatus.DELIVERED;
             case READ -> MessageStatus.READ;
-            case FAILED -> MessageStatus.FAILED;
+            case FAILED, CRITICAL_FAILURE -> MessageStatus.FAILED;
         };
 
         if (newStatus == currentStatus) {

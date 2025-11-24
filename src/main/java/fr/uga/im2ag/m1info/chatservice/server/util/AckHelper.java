@@ -56,6 +56,29 @@ public class AckHelper {
     }
 
     /**
+     * Send a CRITICAL_FAILURE acknowledgment to a specific client.
+     * This indicates a critical error occurred, and client
+     * generally needs to disconnect.
+     * <p>
+     * Do not use this method for standard message failures.
+     *
+     * @param serverContext the server context
+     * @param messageId the ID of the message that encountered a critical error
+     * @param clientId the client to send the ACK to
+     * @param reason the reason for the critical failure
+     */
+    public static void sendCriticalAck(TchatsAppServer.ServerContext serverContext, String messageId, int clientId, String reason) {
+        LOGGER.severe("Critical: " + reason + " for message ID: " + messageId);
+
+        AckMessage ack = (AckMessage) MessageFactory.create(MessageType.MESSAGE_ACK, 0, clientId);
+        ack.setAcknowledgedMessageId(messageId);
+        ack.setAckType(MessageStatus.CRITICAL_FAILURE);
+        ack.setErrorReason(reason);
+
+        serverContext.sendPacketToClient(ack.toPacket());
+    }
+
+    /**
      * Internal method to send an ACK message.
      *
      * @param serverContext the server context

@@ -1,21 +1,27 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.client.command.*;
+import fr.uga.im2ag.m1info.chatservice.client.encryption.ClientEncryptionService;
 import fr.uga.im2ag.m1info.chatservice.client.event.system.*;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.ChangeMemberInGroupEvent;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.ErrorEvent;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.GroupCreateEvent;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.ClientHandlerContext;
+import fr.uga.im2ag.m1info.chatservice.client.handlers.KeyExchangeHandler;
 import fr.uga.im2ag.m1info.chatservice.client.model.*;
+import fr.uga.im2ag.m1info.chatservice.client.processor.DecryptingPacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
-import fr.uga.im2ag.m1info.chatservice.client.repository.GroupClientRepository;
-import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
-import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
-import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.Packet;
+import fr.uga.im2ag.m1info.chatservice.common.*;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
+import fr.uga.im2ag.m1info.chatservice.common.repository.GroupRepository;
+import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.KeyExchangeMessageData;
 
+import java.security.GeneralSecurityException;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Context providing access to client functionalities for packet handlers.
@@ -28,9 +34,11 @@ public class ClientController {
 
     private final ConversationClientRepository conversationRepository;
     private final ContactClientRepository contactRepository;
-    private final GroupClientRepository groupRepository;
+    private final GroupRepository groupRepository;
     private final UserClient activeUser;
     private final EventBus eventBus;
+    private ClientEncryptionService encryptionService;
+    private KeyExchangeHandler keyExchangeHandler;
 
     /* ----------------------- Constructor ----------------------- */
 
@@ -45,7 +53,7 @@ public class ClientController {
     public ClientController(Client client,
                             ConversationClientRepository conversationRepository,
                             ContactClientRepository contactRepository,
-                            GroupClientRepository groupRepository,
+                            GroupRepository groupRepository,
                             UserClient user) {
         this.client = client;
         this.connectionEstablished = false;
@@ -65,7 +73,7 @@ public class ClientController {
     public ClientController(Client client) {
         this(client, new ConversationClientRepository(),
                 new ContactClientRepository(),
-                new GroupClientRepository(),
+                new GroupRepository(),
                 new UserClient());
     }
 
@@ -88,9 +96,58 @@ public class ClientController {
      * Disconnect from the server.
      */
     public void disconnect() {
+        if (encryptionService != null) {
+            encryptionService.shutdown();
+        }
+
         client.disconnect();
+        connectionEstablished = false;
     }
 
+    /**
+     * Initializes the encryption service.
+     * <p>
+     * Must be called before initializing handlers,
+     * or never if encryption is not desired.
+     */
+    public void initializeEncryption() {
+        int clientId = getClientId();
+
+        this.encryptionService = new ClientEncryptionService(clientId, groupRepository);
+
+        if (clientId > 0) {
+            encryptionService.setMessageSender(this::sendKeyExchangeMessage);
+            encryptionService.start();
+        }
+
+        subscribeToEvent(GroupCreateEvent.class, event -> {
+            if (event.getGroupInfo().getAdminId() == clientId) {
+                encryptionService.handleGroupCreated(event.getGroupInfo().getGroupId());
+            }
+        }, ExecutionMode.ASYNC);
+
+        subscribeToEvent(ChangeMemberInGroupEvent.class, event -> {
+            if (event.isAdded()) {
+                encryptionService.handleGroupMemberAdded(
+                        event.getGroupId(),
+                        event.getMemberId()
+                );
+            } else {
+                encryptionService.handleGroupMemberRemoved(
+                        event.getGroupId(),
+                        event.getMemberId()
+                );
+            }
+        }, ExecutionMode.ASYNC);
+
+        System.out.println("[Client] Encryption service initialized for client " + clientId);
+    }
+
+    /**
+     * Initializes packet handlers and the packet processor.
+     * <p>
+     * Must be called after encryption initialization if encryption is desired.
+     */
     public void initializeHandlers() {
         ClientHandlerContext handlerContext = ClientHandlerContext.builder()
                 .commandManager(client.getCommandManager())
@@ -101,7 +158,53 @@ public class ClientController {
                 handlerContext
         );
 
-        client.setPacketProcessor(router);
+
+        if (encryptionService != null) {
+            keyExchangeHandler = new KeyExchangeHandler();
+            keyExchangeHandler.setEncryptionService(encryptionService);
+            router.addHandler(keyExchangeHandler);
+        }
+
+        PacketProcessor processor = createPacketProcessor(router);
+        client.setPacketProcessor(processor);
+    }
+
+    private PacketProcessor createPacketProcessor(ClientPaquetRouter router) {
+        if (encryptionService != null && encryptionService.isEncryptionEnabled()) {
+            DecryptingPacketProcessor decryptingProcessor = new DecryptingPacketProcessor(router, encryptionService.getEncryptionStrategy());
+            decryptingProcessor.setErrorCallback((senderId, message, cause) -> publishEvent(new ErrorEvent(this, ErrorEvent.ErrorLevel.ERROR, "DECRYPTION_ERROR", "Decryption error from " + senderId + ": " + message)));
+            return decryptingProcessor;
+        } else {
+            return router;
+        }
+    }
+
+    public void reinitializePacketProcessor() {
+        if (client == null) {
+            return;
+        }
+
+        ClientHandlerContext handlerContext = ClientHandlerContext.builder()
+                .commandManager(client.getCommandManager())
+                .build();
+
+        ClientPaquetRouter router = ClientPaquetRouter.createWithServiceLoader(
+                this,
+                handlerContext
+        );
+
+        if (encryptionService != null) {
+            if (keyExchangeHandler == null) {
+                keyExchangeHandler = new KeyExchangeHandler();
+            }
+            keyExchangeHandler.setEncryptionService(encryptionService);
+            router.addHandler(keyExchangeHandler);
+        }
+
+        PacketProcessor processor = createPacketProcessor(router);
+        client.setPacketProcessor(processor);
+
+        System.out.println("[Client] PacketProcessor reinitialized");
     }
 
     /* ----------------------- Accessors ----------------------- */
@@ -138,7 +241,7 @@ public class ClientController {
      *
      * @return the group repository
      */
-    public GroupClientRepository getGroupRepository() {
+    public GroupRepository getGroupRepository() {
         return groupRepository;
     }
 
@@ -217,6 +320,23 @@ public class ClientController {
      */
     public void updateClientId(int clientId) {
         client.updateClientId(clientId);
+
+        if (encryptionService != null) {
+            encryptionService.updateClientId(clientId);
+            encryptionService.setMessageSender(this::sendKeyExchangeMessage);
+
+            // Start the service if not already started
+            if (!encryptionService.isRunning()) {
+                encryptionService.start();
+            }
+
+            // Update the handler
+            if (keyExchangeHandler != null) {
+                keyExchangeHandler.setEncryptionService(encryptionService);
+            }
+
+            reinitializePacketProcessor();
+        }
     }
 
     /* ----------------------- Conversation Management ----------------------- */
@@ -260,6 +380,9 @@ public class ClientController {
             participants.add(otherUserId);
             conversation = new ConversationClient(conversationId, participants, false);
             conversationRepository.add(conversation);
+            if (encryptionService != null) {
+                encryptionService.initiateSecureConversation(otherUserId);
+            }
         }
 
         return conversation;
@@ -435,6 +558,31 @@ public class ClientController {
     /* ----------------------- ACK System Message Sending ----------------------- */
 
     /**
+     * Sends a protocol message, encrypting it if appropriate.
+     * <p>
+     * This is a convenience method that handles encryption transparently.
+     *
+     * @param message the message to send
+     * @return true if sent successfully, false otherwise
+     */
+    public boolean sendEncryptedMessage(ProtocolMessage message) {
+        System.out.println("[Client] Encryption of " + message);
+        ProtocolMessage messageToSend = message;
+
+        if (encryptionService != null && encryptionService.shouldEncrypt(message)) {
+            try {
+                System.out.println("[Client] Encrypting message");
+                messageToSend = encryptionService.prepareForSending(message);
+            } catch (GeneralSecurityException e) {
+                System.err.println("[Client] Encryption failed: " + e.getMessage());
+                return false;
+            }
+        }
+        System.out.println("[Client] Sending " + messageToSend);
+        return sendPacket(messageToSend.toPacket());
+    }
+
+    /**
      * Send a text message to a recipient using the ACK system.
      *
      * @param content the message content
@@ -448,6 +596,11 @@ public class ClientController {
                 toUserId
         );
         textMsg.setContent(content);
+
+        if (!sendEncryptedMessage(textMsg)) {
+            System.err.println("[Client] Failed to send text message to user " + toUserId);
+            return null;
+        }
 
         Message msg = new Message(
                 textMsg.getMessageId(),
@@ -468,7 +621,6 @@ public class ClientController {
         );
 
         client.getCommandManager().addPendingCommand(command);
-        sendPacket(textMsg.toPacket());
         return textMsg.getMessageId();
     }
 
@@ -666,4 +818,76 @@ public class ClientController {
         client.sendAck(originalMessage, ackType);
     }
 
+    /**
+     * Sends a key exchange message.
+     * <p>
+     * Used as callback for the KeyExchangeManager.
+     *
+     * @param data the key exchange message data
+     */
+    private void sendKeyExchangeMessage(KeyExchangeMessageData data) {
+        ProtocolMessage message;
+
+        if (data.isResponse()) {
+            KeyExchangeResponseMessage response = (KeyExchangeResponseMessage) MessageFactory.create(
+                    MessageType.KEY_EXCHANGE_RESPONSE,
+                    data.getFromId(),
+                    data.getToId()
+            );
+            response.setPublicKey(data.getPublicKey());
+            message = response;
+        } else {
+            KeyExchangeMessage request = (KeyExchangeMessage) MessageFactory.create(
+                    MessageType.KEY_EXCHANGE,
+                    data.getFromId(),
+                    data.getToId()
+            );
+            request.setPublicKey(data.getPublicKey());
+            message = request;
+        }
+
+        try {
+            ProtocolMessage encryptedMessage = encryptionService.prepareForSending(message);
+            sendPacket(encryptedMessage.toPacket());
+        } catch (GeneralSecurityException e) {
+            System.err.println("[Client] Failed to send key exchange message: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Initiates a secure conversation with a peer.
+     * <p>
+     * Performs key exchange if no session exists. The returned future completes
+     * when the session is established.
+     *
+     * @param peerId the peer ID
+     * @return a future that completes with true if successful
+     */
+    public CompletableFuture<Boolean> initiateSecureConversation(int peerId) {
+        if (encryptionService == null) {
+            return CompletableFuture.completedFuture(false);
+        }
+        return encryptionService.initiateSecureConversation(peerId);
+    }
+
+    /**
+     * Checks if a secure session exists with a peer.
+     *
+     * @param peerId the peer ID
+     * @return true if encrypted communication is possible
+     */
+    public boolean hasSecureSession(int peerId) {
+        return encryptionService != null && encryptionService.hasSecureSession(peerId);
+    }
+
+    /**
+     * Gets the encryption service.
+     * <p>
+     * For advanced use cases.
+     *
+     * @return the encryption service, or null if not initialized
+     */
+    public ClientEncryptionService getEncryptionService() {
+        return encryptionService;
+    }
 }

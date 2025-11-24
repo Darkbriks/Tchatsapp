@@ -1,7 +1,7 @@
+fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.AckMessageProvider
+fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.ContactRequestMessageProvider
+fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.EncryptedWrapperProvider
+fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.KeyExchangeMessageProvider
 fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.ManagementMessageProvider
 fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.MediaMessageProvider
 fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.TextMessageProvider
-fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.ErrorMessageProvider
-fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.ContactRequestMessageProvider
-fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.ContactRequestResponseMessageProvider
-fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.AckMessageProvider
