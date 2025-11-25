@@ -338,7 +338,17 @@ public class CliClient {
         System.out.print("Your message (start with '/' for file path): ");
         String msg = scanner.nextLine();
 
-        if (!msg.isEmpty() && msg.charAt(0) == '/') {
+        if(!msg.isEmpty() && msg.startsWith("/reaction")){
+            String[] parts = msg.split(" ", 3);
+            if(parts.length >= 3) { 
+                String messageId = parts[1];
+                String reaction = parts[2];
+                clientController.sendReactionMessage(reaction, to, messageId);
+            } else {
+                System.out.println("Correct format : /reaction <messageId> <reaction>");
+            }
+        }
+        else if (!msg.isEmpty() && msg.charAt(0) == '/') {
             clientController.sendMedia(msg, to);
         } else {
             clientController.sendTextMessage(msg, to);

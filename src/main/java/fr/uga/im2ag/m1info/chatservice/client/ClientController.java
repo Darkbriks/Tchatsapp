@@ -624,6 +624,41 @@ public class ClientController {
         return textMsg.getMessageId();
     }
 
+    public String sendReactionMessage(String content, int toUserId, String reactionToMessageId) {
+        ReactionMessage reactMsg = (ReactionMessage) MessageFactory.create(
+                MessageType.REACTION,
+                getClientId(),
+                toUserId
+        );
+        reactMsg.setContent(content);
+
+        if (!sendEncryptedMessage(reactMsg)) {
+            System.err.println("[Client] Failed to send text message to user " + toUserId);
+            return null;
+        }
+
+        Message msg = new Message(
+                reactMsg.getMessageId(),
+                getClientId(),
+                toUserId,
+                content,
+                reactMsg.getTimestamp(),
+                reactionToMessageId
+        );
+
+        ConversationClient conversation = getOrCreatePrivateConversation(toUserId);
+        conversation.addMessage(msg);
+
+        SendTextMessageCommand command = new SendTextMessageCommand(
+                reactMsg.getMessageId(),
+                msg,
+                conversationRepository
+        );
+
+        client.getCommandManager().addPendingCommand(command);
+        return reactMsg.getMessageId();
+    }
+
     /**
      * Send a management message using the ACK system.
      *
