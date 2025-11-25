@@ -494,7 +494,7 @@ public class MainFrame extends JFrame {
             String trimmed = text.trim();
 
             int toUserId = conv.getPeerId();
-            controller.sendTextMessage(trimmed, toUserId);
+            controller.sendTextMessage(trimmed, toUserId, replyId);
             refreshMessages(conv);
         });
 
