@@ -1,7 +1,9 @@
 package fr.uga.im2ag.m1info.chatservice.server.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
+import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.AckMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
@@ -65,13 +67,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
                 );
             }
         }
-
-        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_GROUP_NAME, groupId, adminGroup))
-                .addParam(KeyInMessage.GROUP_NAME, newGroupName)
-                .addParam(KeyInMessage.GROUP_ID, groupId)
-                .addParam("ack", "true")
-                .toPacket()
-        );
+        AckHelper.sendSentAck(serverContext, groupManagementMessage);
     }
 
     private static void removeGroupMember(ServerContext serverContext, ManagementMessage groupManagementMessage) {
@@ -208,23 +204,25 @@ public class GroupMessageHandler extends  ServerPacketHandler {
             return;
         }
 
-
-        for (int memberId : group.getMembers()) {
-            if (serverContext.isClientConnected(memberId)) {
-                LOG.info(String.format("member %d leave group %d Send this info to %d", groupMember, groupId, memberId));
-                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.LEAVE_GROUP, groupId, memberId))
-                        .addParam(KeyInMessage.GROUP_ID, groupId)
-                        .addParam(KeyInMessage.MEMBER_REMOVE_ID, groupMember )
-                        .toPacket()
-                );
+        // Si la personne qui quitte est l'admin on supprime le groupe
+        if ( group.getAdminId() == groupMember ){
+            deleteGroup(serverContext, groupManagementMessage);
+        } else {
+            for (int memberId : group.getMembers()) {
+                if (serverContext.isClientConnected(memberId)) {
+                    LOG.info(String.format("member %d leave group %d Send this info to %d", groupMember, groupId, memberId));
+                    serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.LEAVE_GROUP, groupId, memberId))
+                            .addParam(KeyInMessage.GROUP_ID, groupId)
+                            .addParam(KeyInMessage.MEMBER_REMOVE_ID, groupMember)
+                            .toPacket()
+                    );
+                }
             }
+            group.removeMember(groupMember);
+            serverContext.getGroupRepository().update(group.getGroupId(), group);
+            LOG.info(String.format("member %d leave group %d", groupMember, groupId));
+            AckHelper.sendSentAck(serverContext, groupManagementMessage);
         }
-
-        group.removeMember(groupMember);
-        serverContext.getGroupRepository().update(group.getGroupId(), group);
-        LOG.info(String.format("member %d leave group %d", groupMember, groupId));
-
-        AckHelper.sendSentAck(serverContext, groupManagementMessage);
     }
 
     private static void deleteGroup(ServerContext serverContext, ManagementMessage groupManagementMessage) {
@@ -268,13 +266,14 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         group.addMember(adminGroup);
         serverContext.getGroupRepository().add(group);
         LOG.info(String.format("Group %d with name %s now exist and admin is member %d", groupID, newGroupName, adminGroup));
-        serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.CREATE_GROUP, groupID, adminGroup))
-                .addParam(KeyInMessage.GROUP_ID, groupID)
-                .addParam(KeyInMessage.GROUP_NAME, newGroupName)
-                .addParam("ack", "true")
-                .toPacket()
-        );
-        AckHelper.sendSentAck(serverContext, groupManagementMessage);
+
+        AckMessage ack = (AckMessage) MessageFactory.create(MessageType.MESSAGE_ACK, 0, groupManagementMessage.getFrom());
+        ack.setAcknowledgedMessageId( groupManagementMessage.getMessageId() );
+        ack.setAckType(MessageStatus.SENT);
+        ack.addParam(KeyInMessage.GROUP_ID, groupID);
+        ack.addParam(KeyInMessage.GROUP_ADMIN_ID, adminGroup);
+        ack.addParam(KeyInMessage.GROUP_NAME, newGroupName);
+        serverContext.sendPacketToClient(ack.toPacket());
     }
 
 

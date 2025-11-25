@@ -625,7 +625,7 @@ public class CliClient {
             System.out.println("║ ID: " + conv.getConversationId());
             System.out.println("║ Name: " + conv.getConversationName());
             System.out.println("║ Type: " + (conv.isGroupConversation() ? "Group" : "Private"));
-            System.out.println("║ Participants: " + conv.getParticipantIds().size());
+            System.out.println("║ Participants: " + conv.getParticipantIds(clientController.getGroupRepository()).size());
 
             // Get message count
             var messages = conv.getMessagesFrom(null, -1, true, true);
@@ -646,7 +646,7 @@ public class CliClient {
      * View conversation history.
      */
     private void handleViewConversationHistory() {
-        System.out.print("Enter conversation ID (or recipient user ID for private chat): ");
+        System.out.print("Enter conversation ID or user/group ID directly: ");
         String input = scanner.nextLine().trim();
 
         ConversationClient conversation;
@@ -654,9 +654,12 @@ public class CliClient {
         // Try to parse as user ID first
         try {
             int userId = Integer.parseInt(input);
-            String conversationId = ClientController.generatePrivateConversationId(
-                    clientController.getClientId(), userId);
+            String conversationId = ClientController.generatePrivateConversationId(clientController.getClientId(), userId);
             conversation = clientController.getConversationRepository().findById(conversationId);
+            if (conversation == null) {
+                conversationId = ClientController.generateGroupConversationId(userId);
+                conversation = clientController.getConversationRepository().findById(conversationId);
+            }
         } catch (NumberFormatException e) {
             // Not a number, use as conversation ID directly
             conversation = clientController.getConversationRepository().findById(input);

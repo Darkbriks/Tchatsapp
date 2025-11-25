@@ -107,7 +107,7 @@ public class MainFrame extends JFrame {
                 for (Integer participantId : pendingGroupParticipants.get(groupName)){
                     controller.addMemberToGroup(groupId, participantId);
                 }
-                controller.getOrCreateGroupConversation(groupId, pendingGroupParticipants.get(groupName));
+                controller.getOrCreateGroupConversation(groupId);
                 pendingGroupParticipants.remove(groupName);
             }
             refreshHomeConversations();
@@ -435,7 +435,7 @@ public class MainFrame extends JFrame {
                 controller.sendTextMessage(trimmed, toUserId);
             } else {
                 int selfId = controller.getClientId();
-                int toUserId = conv.getParticipantIds()
+                int toUserId = conv.getParticipantIds(controller.getGroupRepository())
                                 .stream()
                                 .filter(id -> id != selfId)
                                 .findFirst()

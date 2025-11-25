@@ -19,8 +19,6 @@ import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.KeyExchangeMessageData
 
 import java.security.GeneralSecurityException;
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -375,10 +373,7 @@ public class ClientController {
         ConversationClient conversation = conversationRepository.findById(conversationId);
 
         if (conversation == null) {
-            Set<Integer> participants = new HashSet<>();
-            participants.add(getClientId());
-            participants.add(otherUserId);
-            conversation = new ConversationClient(conversationId, participants, false);
+            conversation = new ConversationClient(conversationId, otherUserId, false);
             conversationRepository.add(conversation);
             if (encryptionService != null) {
                 encryptionService.initiateSecureConversation(otherUserId);
@@ -392,15 +387,17 @@ public class ClientController {
      * Get or create a group conversation.
      *
      * @param groupId the group ID
-     * @param participantIds the participant IDs (including current user)
      * @return the conversation
      */
-    public ConversationClient getOrCreateGroupConversation(int groupId, Set<Integer> participantIds) {
+    public ConversationClient getOrCreateGroupConversation(int groupId) {
         String conversationId = generateGroupConversationId(groupId);
         ConversationClient conversation = conversationRepository.findById(conversationId);
 
         if (conversation == null) {
-            conversation = new ConversationClient(conversationId, participantIds, true);
+            if (groupRepository.findById(groupId) == null) {
+                throw new IllegalArgumentException("Group with ID " + groupId + " does not exist");
+            }
+            conversation = new ConversationClient(conversationId, groupId, true);
             conversationRepository.add(conversation);
         }
 
@@ -613,8 +610,13 @@ public class ClientController {
                 replyToMessageId
         );
 
-        ConversationClient conversation = getOrCreatePrivateConversation(toUserId);
-        conversation.addMessage(msg);
+        if (groupRepository.findById(toUserId) != null) {
+            ConversationClient conversation = getOrCreateGroupConversation(toUserId);
+            conversation.addMessage(msg);
+        } else {
+            ConversationClient conversation = getOrCreatePrivateConversation(toUserId);
+            conversation.addMessage(msg);
+        }
 
         SendTextMessageCommand command = new SendTextMessageCommand(
                 textMsg.getMessageId(),
@@ -739,7 +741,6 @@ public class ClientController {
         sendPacket(mgmtMsg.toPacket());
         client.getCommandManager().addPendingCommand(new CreateGroupCommand(
                 mgmtMsg.getMessageId(),
-                name,
                 groupRepository 
         ));
 
