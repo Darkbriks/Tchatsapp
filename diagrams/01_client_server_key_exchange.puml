@@ -1,0 +1,36 @@
+@startuml Client-Server Key Exchange
+!theme plain
+title Client-Server Key Exchange (Connection Setup)
+
+actor User
+participant "Client" as C
+participant "Server" as S
+
+User -> C: Connect to server
+activate C
+
+C -> S: TCP Connection
+activate S
+
+S -> S: Generate keypair\n(X25519)
+S -> C: SERVER_KEY_EXCHANGE\n(Server Public Key)
+
+C -> C: Generate keypair\n(X25519)
+C -> C: Compute shared secret\n(ECDH)
+C -> C: Derive session key\n(HKDF-SHA256)
+
+C -> S: SERVER_KEY_EXCHANGE_RESPONSE\n(Client Public Key)
+
+S -> S: Compute shared secret\n(ECDH)
+S -> S: Derive session key\n(HKDF-SHA256)
+
+S --> C: Ready (encrypted channel established)
+note over C,S: All subsequent messages are encrypted
+
+C -> S: Encrypted(CREATE_USER / CONNECT)
+S -> C: Encrypted(Response)
+
+deactivate S
+deactivate C
+
+@enduml
