@@ -6,6 +6,8 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.repository.GroupRepository;
 
+import java.util.Map;
+
 public class DeleteGroupCommand extends SendManagementMessageCommand {
     private final int groupID;
     private final GroupRepository groupRepository;
@@ -18,9 +20,9 @@ public class DeleteGroupCommand extends SendManagementMessageCommand {
     }
 
     @Override
-    public boolean onAckReceived(MessageStatus ackType) {
+    public boolean onAckReceived(MessageStatus ackType, Map<String, Object> params) {
         groupRepository.delete(groupID);
-        EventBus.getInstance().publish(new DeleteGroupEvent(this, groupID, true));
+        EventBus.getInstance().publish(new DeleteGroupEvent(this, groupID));
         System.out.printf("[CLIENT ] Group %d successfully deleted.%n", groupID);
         return true;
     }

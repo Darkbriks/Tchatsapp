@@ -156,6 +156,7 @@ public class MainFrame extends JFrame {
         eventHandler.setOnMediaMessageReceived(event -> {
             Message msg = event.getMessage();
             String conversationId = event.getConversationId();
+
         });
 
         eventHandler.setOnMessageStatusChanged(event -> {
@@ -164,8 +165,6 @@ public class MainFrame extends JFrame {
 
         eventHandler.setOnContactAdded(event -> {
             int contactId = event.getContactId();
-            controller.getOrCreatePrivateConversation(contactId);
-            refreshHomeConversations();
         });
 
         eventHandler.setOnContactRemoved(event -> {

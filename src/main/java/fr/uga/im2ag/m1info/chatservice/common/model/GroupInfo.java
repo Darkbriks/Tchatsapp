@@ -2,7 +2,9 @@ package fr.uga.im2ag.m1info.chatservice.common.model;
 
 import java.io.Serializable;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Class representing group information.
@@ -11,7 +13,7 @@ public class GroupInfo implements Serializable {
     private final int id;
     private final int adminId;
     private String groupName;
-    private final Set<Integer> members;
+    private final Map<Integer, String> members;
 
     /**
      * Constructs a GroupInfo instance with all fields specified.
@@ -21,7 +23,7 @@ public class GroupInfo implements Serializable {
      * @param groupName  the groupName
      * @param members  the set of member IDs
      */
-    public GroupInfo(int id, int adminID, String groupName, Set<Integer> members) {
+    public GroupInfo(int id, int adminID, String groupName, Map<Integer, String> members) {
         this.id = id;
         this.adminId = adminID;
         this.groupName = groupName;
@@ -36,7 +38,7 @@ public class GroupInfo implements Serializable {
      * @param groupName the groupName
      */
     public GroupInfo(int id, int adminID, String groupName) {
-        this(id, adminID, groupName, new HashSet<>());
+        this(id, adminID, groupName, new ConcurrentHashMap<>());
     }
 
     /**
@@ -56,8 +58,9 @@ public class GroupInfo implements Serializable {
     public int getAdminId() {
         return adminId;
     }
+
     /**
-     * Gets the groupName.
+     * Gets a non-modifiable view of the groupName.
      *
      * @return the groupName
      */
@@ -66,12 +69,29 @@ public class GroupInfo implements Serializable {
     }
 
     /**
+     * Gets a non-modifiable view of the members.
+     *
+     * @return the map of member IDs to member names
+     */
+    public Map<Integer, String> getMembers() {
+        return Map.copyOf(members);
+    }
+
+    /**
      * Gets a non-modifiable view of the member IDs.
      *
      * @return the set of member IDs
      */
-    public Set<Integer> getMembers() {
-        return Set.copyOf(members);
+    public Set<Integer> getMembersId() {
+        return new HashSet<>(members.keySet());
+    }
+
+    public String getMemberName(int memberId) {
+        return members.get(memberId);
+    }
+
+    public void setMemberName(int memberId, String memberName) {
+        members.put(memberId, memberName);
     }
 
     /** Sets the groupName.
@@ -86,8 +106,11 @@ public class GroupInfo implements Serializable {
      *
      * @param memberId the member ID to add
      */
-    public void addMember(int memberId) {
-        members.add(memberId);
+    public void addMember(int memberId, String memberName) {
+        if (memberName == null || memberName.isEmpty()) {
+            memberName = "User #" + memberId;
+        }
+        members.put(memberId, memberName);
     }
 
     /** Removes a member ID from the members set.
@@ -105,7 +128,7 @@ public class GroupInfo implements Serializable {
      * @return true if the member ID exists, false otherwise
      */
     public boolean hasMember(int memberId) {
-        return members.contains(memberId);
+        return members.containsKey(memberId);
     }
 
     /**

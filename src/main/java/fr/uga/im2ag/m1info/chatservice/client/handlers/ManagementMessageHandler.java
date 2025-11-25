@@ -1,8 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
-import fr.uga.im2ag.m1info.chatservice.client.event.types.ContactRemovedEvent;
-import fr.uga.im2ag.m1info.chatservice.client.event.types.ContactUpdatedEvent;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.*;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.common.KeyInMessage;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
@@ -52,12 +51,17 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         String newPseudo = message.getParamAsType("newPseudo", String.class);
         Integer contactId = message.getParamAsType("contactId", Integer.class);
 
-        if (contactId != null && newPseudo != null) {
-            ContactClient contact = context.getContactRepository().findById(contactId);
-            if (contact != null) {
-                contact.updatePseudo(newPseudo);
-                context.getContactRepository().update(contactId, contact);
-                publishEvent(new ContactUpdatedEvent(this, contactId), context);
+        ContactClient contact = context.getContactRepository().findById(contactId);
+        if (contact != null) {
+            contact.updatePseudo(newPseudo);
+            context.getContactRepository().update(contactId, contact);
+            publishEvent(new ContactUpdatedEvent(this, contactId), context);
+        }
+
+        for (GroupInfo group : context.getGroupRepository().findAll()) {
+            if (group.hasMember(contactId)) {
+                group.setMemberName(contactId, newPseudo);
+                context.getGroupRepository().update(group.getGroupId(), group);
             }
         }
     }
@@ -66,6 +70,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         int groupId = getIntInParam(message, KeyInMessage.GROUP_ID);
         context.getGroupRepository().delete(groupId);
         System.out.printf("[Client] Group %d is destroy !\n", groupId);
+        publishEvent(new DeleteGroupEvent(this,  groupId), context);
     }
 
     private void leaveGroup(ManagementMessage message, ClientController context){
@@ -84,6 +89,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             context.getGroupRepository().update(groupId, group);
             System.out.printf("[Client] User %d leave the group %d !\n", deleteMember, groupId);
         }
+        publishEvent(new LeaveGroupEvent(this, groupId), context);
     }
 
     private int getIntInParam(ManagementMessage message, String s){
@@ -92,6 +98,7 @@ public class ManagementMessageHandler extends ClientPacketHandler {
 
     private void addGroupMember(ManagementMessage message, ClientController context) {
         int newMember = getIntInParam(message, KeyInMessage.MEMBER_ADD_ID);
+        String newMemberPseudo = message.getParamAsType(KeyInMessage.MEMBER_ADD_PSEUDO, String.class);
         int groupId = getIntInParam(message, KeyInMessage.GROUP_ID);
         // just a group member not the admin
         if ( newMember == context.getClientId()){
@@ -103,21 +110,24 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             while (true){
                 try{
                     int member = getIntInParam(message, KeyInMessage.GROUP_MEMBER_ID + i);
-                    group.addMember(member);
+                    String memberPseudo = message.getParamAsType(KeyInMessage.GROUP_MEMBER_PSEUDO + i, String.class);
+                    group.addMember(member, memberPseudo);
                     i++;
                 } catch (Exception e){
                     break;
                 }
             }
             context.getGroupRepository().add(group);
+            publishEvent(new GroupCreateEvent(this, group), context);
         } else {
             GroupInfo group = context.getGroupRepository().findById(groupId);
             if (group == null) {
                 return;
             }
-            group.addMember(newMember);
+            group.addMember(newMember, newMemberPseudo);
             context.getGroupRepository().update(groupId, group);
             System.out.printf("[Client] User %d have been add to the group %d !\n", newMember, groupId);
+            publishEvent(new ChangeMemberInGroupEvent(this, groupId, newMember, newMemberPseudo, true), context);
         }
     }
 
@@ -129,11 +139,13 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             System.out.printf("[Client] You have been remove of the group %d !\n", groupId);
             // TODO  a new member need to access every data like other members !!!
             context.getGroupRepository().delete(groupId);
+            publishEvent(new LeaveGroupEvent(this, groupId), context);
         } else {
             GroupInfo group = context.getGroupRepository().findById(groupId);
             group.removeMember(deleteMember);
             context.getGroupRepository().update(groupId, group);
             System.out.printf("[Client] User %d have been removed to the group %d !\n", deleteMember, groupId);
+            publishEvent(new ChangeMemberInGroupEvent(this, groupId, deleteMember, "", false), context);
         }
     }
 
@@ -144,5 +156,6 @@ public class ManagementMessageHandler extends ClientPacketHandler {
         group.setGroupName(newGroupName);
         context.getGroupRepository().update(groupId, group);
         System.out.printf("[Client] Group %d have been renamed to %s !", groupId, newGroupName);
+        publishEvent(new UpdateGroupNameEvent(this, groupId, newGroupName), context);
     }
 }

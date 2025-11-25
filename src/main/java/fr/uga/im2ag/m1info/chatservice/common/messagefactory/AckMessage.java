@@ -138,6 +138,15 @@ public class AckMessage extends AbstractSerializableMessage {
         return this;
     }
 
+    /**
+     * Get all additional data as a map.
+     *
+     * @return the additional data map
+     */
+    public Map<String, Object> getAdditionalData() {
+        return Map.copyOf(additionalData);
+    }
+
     // ========================= Serialization Methods =========================
 
     @Override

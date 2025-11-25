@@ -109,12 +109,27 @@ public class ConversationClient implements Serializable{
         if (isGroupConversation) {
             GroupInfo groupInfo = groupRepository.findById(peerId);
             if (groupInfo != null) {
-                return Set.copyOf(groupInfo.getMembers());
+                return Set.copyOf(groupInfo.getMembersId());
             }
             return Set.of();
         } else {
             return Set.of(peerId);
         }
+    }
+
+    /**
+     * @deprecated Use GroupRepository to get participant list for group conversations.
+     * Can be used only for group conversations.
+     */
+    @Deprecated
+    public Map<Integer, String> getParticipantList(GroupRepository groupRepository) {
+        if (isGroupConversation) {
+            GroupInfo groupInfo = groupRepository.findById(peerId);
+            if (groupInfo != null) {
+                return groupInfo.getMembers();
+            }
+        }
+        return Map.of();
     }
 
     public boolean isGroupConversation() {

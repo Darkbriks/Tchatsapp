@@ -58,7 +58,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         serverContext.getGroupRepository().update(group.getGroupId(), group);
         LOG.info(String.format("Group %d updated name to %s", groupId, newGroupName));
 
-        for (int memberId : group.getMembers()) {
+        for (int memberId : group.getMembersId()) {
             if (serverContext.isClientConnected(memberId)) {
                 serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_GROUP_NAME, groupId, memberId))
                         .addParam(KeyInMessage.GROUP_ID, groupId)
@@ -102,7 +102,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
 
         // Deleted member is still in the group, when he will receive the message, need to leave the group by comparing his ID and the removed one
 
-        for (int memberId : group.getMembers()) {
+        for (int memberId : group.getMembersId()) {
             if (serverContext.isClientConnected(memberId)) {
                 serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.REMOVE_GROUP_MEMBER, groupId, memberId))
                         .addParam(KeyInMessage.GROUP_ID, groupId)
@@ -152,17 +152,18 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         }
 
 
-        for (int memberId : group.getMembers()) {
+        for (int memberId : group.getMembersId()) {
             if (serverContext.isClientConnected(memberId)) {
                 serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, memberId))
                         .addParam(KeyInMessage.GROUP_ID, groupId)
                         .addParam(KeyInMessage.MEMBER_ADD_ID, newMemberID)
+                        .addParam(KeyInMessage.MEMBER_ADD_PSEUDO, newMember.getUsername())
                         .toPacket()
                 );
             }
         }
 
-        group.addMember(newMemberID);
+        group.addMember(newMemberID, newMember.getUsername());
         serverContext.getGroupRepository().update(group.getGroupId(), group);
         LOG.info(String.format("Group %d add member %d", groupId, newMemberID));
         ManagementMessage message  = (ManagementMessage) MessageFactory.create(MessageType.ADD_GROUP_MEMBER, groupId, newMemberID);
@@ -171,14 +172,21 @@ public class GroupMessageHandler extends  ServerPacketHandler {
                 .addParam(KeyInMessage.GROUP_ADMIN_ID, adminGroup)
                 .addParam(KeyInMessage.GROUP_NAME, group.getGroupName());
         int i = 0;
-        for ( int user : group.getMembers()){
-            message.addParam(KeyInMessage.GROUP_MEMBER_ID + i, user);
+        for (var entry : group.getMembers().entrySet()) {
+            message.addParam(KeyInMessage.GROUP_MEMBER_ID + i, entry.getKey());
+            message.addParam(KeyInMessage.GROUP_MEMBER_PSEUDO + i, entry.getValue());
             i++;
         }
-                //.addParam("groupMembers", group.getMembers())
+
         serverContext.sendPacketToClient(message.toPacket());
 
-        AckHelper.sendSentAck(serverContext, groupManagementMessage);
+        AckMessage ack = (AckMessage) MessageFactory.create(MessageType.MESSAGE_ACK, 0, groupManagementMessage.getFrom());
+        ack.setAcknowledgedMessageId( groupManagementMessage.getMessageId() );
+        ack.setAckType(MessageStatus.SENT);
+        ack.addParam(KeyInMessage.GROUP_ID, groupId);
+        ack.addParam(KeyInMessage.MEMBER_ADD_ID, newMemberID);
+        ack.addParam(KeyInMessage.MEMBER_ADD_PSEUDO, newMember.getUsername());
+        serverContext.sendPacketToClient(ack.toPacket());
     }
 
 
@@ -208,7 +216,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         if ( group.getAdminId() == groupMember ){
             deleteGroup(serverContext, groupManagementMessage);
         } else {
-            for (int memberId : group.getMembers()) {
+            for (int memberId : group.getMembersId()) {
                 if (serverContext.isClientConnected(memberId)) {
                     LOG.info(String.format("member %d leave group %d Send this info to %d", groupMember, groupId, memberId));
                     serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.LEAVE_GROUP, groupId, memberId))
@@ -245,7 +253,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
             return;
         }
 
-        for (int memberId : group.getMembers()) {
+        for (int memberId : group.getMembersId()) {
             if (serverContext.isClientConnected(memberId)) {
                 serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.DELETE_GROUP, group.getGroupId(), memberId))
                         .addParam(KeyInMessage.GROUP_ID, group.getGroupId())
@@ -263,7 +271,7 @@ public class GroupMessageHandler extends  ServerPacketHandler {
         String newGroupName= groupManagementMessage.getParamAsType(KeyInMessage.GROUP_NAME, String.class);
         int groupID = serverContext.generateClientId();
         GroupInfo group = new GroupInfo(groupID, adminGroup, newGroupName);
-        group.addMember(adminGroup);
+        group.addMember(adminGroup, null);
         serverContext.getGroupRepository().add(group);
         LOG.info(String.format("Group %d with name %s now exist and admin is member %d", groupID, newGroupName, adminGroup));
 

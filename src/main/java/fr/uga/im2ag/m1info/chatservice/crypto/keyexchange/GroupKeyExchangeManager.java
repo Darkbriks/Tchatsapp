@@ -328,7 +328,7 @@ public class GroupKeyExchangeManager implements IKeyExchangeManager {
         updateGroupMembersCache(groupId, group);
 
         // Get members (excluding self)
-        Set<Integer> members = new HashSet<>(group.getMembers());
+        Set<Integer> members = new HashSet<>(group.getMembersId());
         members.remove(localClientId);
 
         if (members.isEmpty()) {
@@ -565,7 +565,7 @@ public class GroupKeyExchangeManager implements IKeyExchangeManager {
     }
 
     private void updateGroupMembersCache(int groupId, GroupInfo group) {
-        groupMembersCache.put(groupId, new HashSet<>(group.getMembers()));
+        groupMembersCache.put(groupId, new HashSet<>(group.getMembersId()));
     }
 
     private void sendKeyExchangeMessage(int peerId, byte[] data) {
