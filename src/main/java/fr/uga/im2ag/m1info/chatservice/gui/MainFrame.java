@@ -87,7 +87,10 @@ public class MainFrame extends JFrame {
         });
         homePanel.setOnNewConversation(e -> handleNewConversationRequest());
         homePanel.setOnNewContact(e -> handleNewContactRequest());
+        homePanel.setOnViewContacts(e -> generateContactView());
     }
+
+    
 
     private void setupEventHandlerCallbacks() {
         eventHandler.setOnConnectionEstablished(event -> {
@@ -368,6 +371,43 @@ public class MainFrame extends JFrame {
         }
     }
 
+    private void generateContactView() {
+        JDialog dialog = new JDialog(this, "Your contacts", true);
+        dialog.setLayout(new BorderLayout(8, 8));
+
+        JPanel listPanel = new JPanel();
+        listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
+
+        Set<ContactClient> contacts = controller.getContactRepository().findAll();
+
+        if (contacts.isEmpty()) {
+            listPanel.add(new JLabel("You have no contacts."));
+        } else {
+            for (ContactClient contact : contacts) {
+                String label = "- " + contact.getPseudo()
+                            + " (" + contact.getContactId() + ")";
+                listPanel.add(new JLabel(label));
+            }
+        }
+
+        JScrollPane scroll = new JScrollPane(listPanel);
+        scroll.setPreferredSize(new Dimension(300, 200));
+
+        dialog.add(scroll, BorderLayout.CENTER);
+
+        JButton closeBtn = new JButton("Close");
+        closeBtn.addActionListener(e -> dialog.dispose());
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(closeBtn);
+
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+
 
     // ----------------------- Conversation Panel Actions -----------------------
 
@@ -405,8 +445,47 @@ public class MainFrame extends JFrame {
             refreshMessages(conv);
         });
 
+        conversationPanel.setOnOptions(() -> {
+            if (conv.isGroupConversation()) {
+                showGroupOptions(conv);
+            }
+        });
         conversationPanel.setOnBack(e -> cl.show(cards, "home"));
         cl.show(cards, "conversation");
+    }
+
+    private void showGroupOptions(ConversationClient conv) {
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem viewMembers = new JMenuItem("Voir les membres");
+        viewMembers.addActionListener(e -> showGroupMembersDialog(conv));
+        menu.add(viewMembers);
+        menu.show(conversationPanel, conversationPanel.getWidth() - 10, 35);
+    }
+
+    private void showGroupMembersDialog(ConversationClient conv) {
+        ContactClientRepository contacts = controller.getContactRepository();
+
+        StringBuilder sb = new StringBuilder();
+        for (Integer memberId : conv.getParticipantIds()) {
+
+            String pseudo = "User #" + memberId;
+            ContactClient c = contacts.findById(memberId);
+
+            if (c != null) {
+                pseudo = c.getPseudo();
+            }
+
+            sb.append("- ").append(pseudo)
+            .append(" (").append(memberId).append(")")
+            .append("\n");
+        }
+
+        JOptionPane.showMessageDialog(
+                this,
+                sb.toString(),
+                "Membres du groupe : " + conv.getConversationName(),
+                JOptionPane.INFORMATION_MESSAGE
+        );
     }
 
     public List<ConversationPanel.MessageItem> loadMessages(ConversationClient conversation){

@@ -54,11 +54,13 @@ public class HomePanel extends JPanel {
     private final JList<ConversationItem> conversationList;
     private final JButton newConversationButton;
     private final JButton newContactButton;
+    private final JButton viewContactsButton;
 
 
     private final List<ConversationItem> masterList;
     private ActionListener onNewConversation;
     private ActionListener onNewContact;
+    private ActionListener onViewContacts;
 
 
     public HomePanel() {
@@ -70,7 +72,7 @@ public class HomePanel extends JPanel {
         this.conversationList = new JList<>(listModel);
         this.newConversationButton = new JButton("Nouveau +");
         this.newContactButton = new JButton("Ajouter un contact");
-
+        this.viewContactsButton = new JButton("Voir les contacts");
         this.masterList = new ArrayList<>();
 
         setupLayout();
@@ -99,6 +101,8 @@ public class HomePanel extends JPanel {
         JPanel bottomPanel = new JPanel();
         bottomPanel.setLayout(new BoxLayout(bottomPanel, BoxLayout.X_AXIS));
         bottomPanel.add(newContactButton);
+        bottomPanel.add(Box.createHorizontalGlue());
+        bottomPanel.add(viewContactsButton);
         bottomPanel.add(Box.createHorizontalGlue());
         newConversationButton.setFocusable(false);
         bottomPanel.add(newConversationButton);
@@ -135,6 +139,12 @@ public class HomePanel extends JPanel {
         newContactButton.addActionListener(e -> {
             if (onNewContact != null) {
                 onNewContact.actionPerformed(e);
+            }
+        });
+
+        viewContactsButton.addActionListener(e -> {
+            if (onViewContacts != null) {
+                onViewContacts.actionPerformed(e);
             }
         });
     }
@@ -204,6 +214,15 @@ public class HomePanel extends JPanel {
      */
     public void setOnNewContact(ActionListener listener) {
         this.onNewContact = listener;
+    }
+
+    /**
+     * Set the callback for the contact view button.
+     *
+     * @param listener the action listener
+     */
+    public void setOnViewContacts(ActionListener listener) {
+        this.onViewContacts = listener;
     }
 
 

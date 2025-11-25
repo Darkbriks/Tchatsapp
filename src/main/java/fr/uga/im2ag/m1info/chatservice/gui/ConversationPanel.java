@@ -2,6 +2,9 @@ package fr.uga.im2ag.m1info.chatservice.gui;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+
+import javafx.scene.layout.Border;
+
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionListener;
@@ -78,6 +81,14 @@ public class ConversationPanel extends JPanel {
         void onReply(MessageItem message);
     }
 
+     /**
+     * Callback interface for options in conv.
+     */
+    @FunctionalInterface
+    public interface OnOptionListener {
+        void onOption();
+    }
+
     private final JButton backButton;
     private final JLabel titleLabel;
     private final DefaultListModel<MessageItem> messageModel;
@@ -87,10 +98,12 @@ public class ConversationPanel extends JPanel {
     private final JPanel replyPreviewPanel;
     private final JLabel replyPreviewLabel;
     private final JButton cancelReplyButton;
+    private final JButton optionsButton;
 
     private ActionListener onBack;
     private OnSendListener onSend;
     private OnReplyListener onReply;
+    private OnOptionListener onOption;
 
     private MessageItem replyingTo = null;
     private final Map<String, MessageItem> messageCache = new HashMap<>();
@@ -110,7 +123,7 @@ public class ConversationPanel extends JPanel {
         this.replyPreviewPanel = new JPanel(new BorderLayout(8, 0));
         this.replyPreviewLabel = new JLabel();
         this.cancelReplyButton = new JButton("✕");
-
+        this.optionsButton = new JButton("⋮");
         setupLayout();
         setupListeners();
         setupContextMenu();
@@ -123,7 +136,9 @@ public class ConversationPanel extends JPanel {
         headerPanel.setBorder(new EmptyBorder(8, 8, 8, 8));
 
         backButton.setFocusable(false);
+        optionsButton.setFocusable(false);
         headerPanel.add(backButton, BorderLayout.WEST);
+        headerPanel.add(optionsButton, BorderLayout.EAST);
 
         titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 16f));
         headerPanel.add(titleLabel, BorderLayout.CENTER);
@@ -197,8 +212,14 @@ public class ConversationPanel extends JPanel {
             }
         };
 
+        ActionListener openActionMenu = e -> {
+
+
+        };
+
         sendButton.addActionListener(sendAction);
         inputField.addActionListener(sendAction);
+        optionsButton.addActionListener(openActionMenu);
 
         cancelReplyButton.addActionListener(e -> clearReplyPreview());
     }
@@ -397,6 +418,10 @@ public class ConversationPanel extends JPanel {
      */
     public void setOnReply(OnReplyListener listener) {
         this.onReply = listener;
+    }
+
+    public void setOnOptions(OnOptionListener listener) {
+        this.onOption = listener;
     }
 
     /**
