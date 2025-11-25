@@ -467,10 +467,6 @@ public class ClientController {
             ContactClient newContact = new ContactClient(senderId, "User #" + senderId);
             contactRepository.add(newContact);
             getOrCreatePrivateConversation(senderId);
-
-            ManagementMessage updateMsg = (ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, getClientId(), 0);
-            updateMsg.addParam("newPseudo", getActiveUser().getPseudo());
-            sendPacket(updateMsg.toPacket());
         }
 
         sendPacket(response.toPacket());

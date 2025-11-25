@@ -1,9 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.server.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestResponseMessage;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
 import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
 import fr.uga.im2ag.m1info.chatservice.server.util.AckHelper;
@@ -138,6 +136,23 @@ public class ContactRequestServerHandler extends ValidatingServerPacketHandler {
 
         // Forward response to original sender
         serverContext.sendPacketToClient(crMsg.toPacket());
+
+        if (accepted) {
+            UserInfo responder = serverContext.getUserRepository().findById(responderId);
+            UserInfo sender = serverContext.getUserRepository().findById(originalSenderId);
+
+            serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, responderId, originalSenderId))
+                    .addParam("contactId", responderId)
+                    .addParam("newPseudo", responder.getUsername())
+                    .toPacket()
+            );
+
+            serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, originalSenderId, responderId))
+                    .addParam("contactId", originalSenderId)
+                    .addParam("newPseudo", sender.getUsername())
+                    .toPacket()
+            );
+        }
     }
 
     /**

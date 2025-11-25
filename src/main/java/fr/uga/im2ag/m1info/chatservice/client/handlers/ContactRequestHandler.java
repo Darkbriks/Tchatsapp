@@ -8,7 +8,9 @@ import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
-import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ContactRequestResponseMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 
 import java.time.Instant;
 
@@ -112,9 +114,5 @@ public class ContactRequestHandler extends ClientPacketHandler {
         context.getOrCreatePrivateConversation(senderId);
 
         publishEvent(new ContactAddedEvent(this, senderId), context);
-
-        ManagementMessage updateMsg = (ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, context.getClientId(), 0);
-        updateMsg.addParam("newPseudo", context.getActiveUser().getPseudo());
-        context.sendPacket(updateMsg.toPacket());
     }
 }
