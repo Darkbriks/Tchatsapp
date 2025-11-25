@@ -11,7 +11,6 @@ public class LeaveGroupCommand extends SendManagementMessageCommand {
     private final GroupRepository repo;
 
     public LeaveGroupCommand(String commandId, int groupID, GroupRepository repo) {
-
         super(commandId, MessageType.ADD_GROUP_MEMBER);
         this.groupID = groupID;
         this.repo = repo;
@@ -19,6 +18,7 @@ public class LeaveGroupCommand extends SendManagementMessageCommand {
 
     @Override
     public boolean onAckReceived(MessageStatus ackType) {
+        repo.delete(groupID);
         EventBus.getInstance().publish(new LeaveGroupEvent(this, groupID));
         System.out.printf("[CLIENT ] Groupe %d bien quitté\n", groupID);
         return true;

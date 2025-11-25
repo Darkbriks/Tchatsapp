@@ -4,6 +4,7 @@ import fr.uga.im2ag.m1info.chatservice.client.event.system.EventBus;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.UpdateGroupNameEvent;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 import fr.uga.im2ag.m1info.chatservice.common.repository.GroupRepository;
 
 public class UpdateGroupNameCommand extends SendManagementMessageCommand {
@@ -21,6 +22,9 @@ public class UpdateGroupNameCommand extends SendManagementMessageCommand {
 
     @Override
     public boolean onAckReceived(MessageStatus ackType) {
+        GroupInfo group = repo.findById(groupID);
+        group.setGroupName(newName);
+        repo.update(groupID, group);
         EventBus.getInstance().publish(new UpdateGroupNameEvent(this, groupID, newName, true));
         System.out.printf("[Client] You successfully change group name to %s for group %d\n", newName, groupID);
         return true;

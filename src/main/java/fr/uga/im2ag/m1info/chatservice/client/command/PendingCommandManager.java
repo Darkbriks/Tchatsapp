@@ -59,14 +59,8 @@ public class PendingCommandManager {
             return;
         }
 
-        if (ack.getAckType() == MessageStatus.FAILED) {
-            String reason = ack.getErrorReason() != null ? ack.getErrorReason() : "Unknown error";
-            command.onAckFailed(reason);
+        if (command.handleAck(ack) || ack.getAckType() == MessageStatus.READ) {
             pendingCommands.remove(msgId);
-        } else {
-            if (command.onAckReceived(ack.getAckType()) || ack.getAckType() == MessageStatus.READ) {
-                pendingCommands.remove(msgId);
-            }
         }
     }
 

@@ -739,7 +739,6 @@ public class ClientController {
         sendPacket(mgmtMsg.toPacket());
         client.getCommandManager().addPendingCommand(new CreateGroupCommand(
                 mgmtMsg.getMessageId(),
-                name,
                 groupRepository 
         ));
 
