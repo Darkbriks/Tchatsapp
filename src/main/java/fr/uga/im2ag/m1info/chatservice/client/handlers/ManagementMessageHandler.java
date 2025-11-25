@@ -112,6 +112,9 @@ public class ManagementMessageHandler extends ClientPacketHandler {
             context.getGroupRepository().add(group);
         } else {
             GroupInfo group = context.getGroupRepository().findById(groupId);
+            if (group == null) {
+                return;
+            }
             group.addMember(newMember);
             context.getGroupRepository().update(groupId, group);
             System.out.printf("[Client] User %d have been add to the group %d !\n", newMember, groupId);
