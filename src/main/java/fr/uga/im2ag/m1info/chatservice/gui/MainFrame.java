@@ -305,6 +305,7 @@ public class MainFrame extends JFrame {
     private void showHome() {
         cardLayout.show(cards, CARD_HOME);
         setSize(900, 600);
+        homePanel.clearSelection();   // <--- important pour pouvoir réouvrir la conv !!!
     }
 
     private void showConversation() {
@@ -573,7 +574,7 @@ public class MainFrame extends JFrame {
                 showGroupOptions(conv);
             }
         });
-        conversationPanel.setOnBack(e -> cl.show(cards, "home"));
+        conversationPanel.setOnBack(e -> showHome());
         cl.show(cards, "conversation");
     }
 
