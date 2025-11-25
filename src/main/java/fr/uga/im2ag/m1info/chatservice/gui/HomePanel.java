@@ -71,10 +71,10 @@ public class HomePanel extends JPanel {
         this.searchField = new JTextField();
         this.listModel = new DefaultListModel<>();
         this.conversationList = new JList<>(listModel);
-        this.newConversationButton = new JButton("Nouveau +");
-        this.newContactButton = new JButton("Ajouter un contact");
-        this.pendingContactRequestButton = new JButton("Demandes en attentes");
-        this.viewContactsButton = new JButton("Voir les contacts");
+        this.newConversationButton = new JButton("New +");
+        this.newContactButton = new JButton("Add a contact");
+        this.pendingContactRequestButton = new JButton("Pending contact requests");
+        this.viewContactsButton = new JButton("Show contacts");
         this.masterList = new ArrayList<>();
 
         setupLayout();
@@ -88,7 +88,7 @@ public class HomePanel extends JPanel {
         title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
         header.add(title, BorderLayout.NORTH);
 
-        searchField.setToolTipText("Rechercher une conversation");
+        searchField.setToolTipText("Search for a conversation");
         header.add(searchField, BorderLayout.SOUTH);
         add(header, BorderLayout.NORTH);
 

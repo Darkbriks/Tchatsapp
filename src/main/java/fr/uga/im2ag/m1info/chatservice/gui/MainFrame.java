@@ -132,8 +132,10 @@ public class MainFrame extends JFrame {
         });
 
         eventHandler.setOnContactRequestReceived(event -> {
-            boolean choice = showContactRequestReceivedDialog(event.getSenderId());
-            controller.respondToContactRequest(event.getSenderId(), choice);   
+            Boolean choice = showContactRequestReceivedDialog(event.getSenderId());
+            if (choice != null) {
+                controller.respondToContactRequest(event.getSenderId(), choice);
+            } 
         });
 
         eventHandler.setOnUserPseudoUpdated(event -> {
@@ -434,15 +436,6 @@ public class MainFrame extends JFrame {
     }
 
     private void showPendingContactRequests() {
-        if (controller == null) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Pas encore connecté, aucune demande de contact.",
-                    "Demandes de contact",
-                    JOptionPane.INFORMATION_MESSAGE
-            );
-            return;
-        }
 
         ContactClientRepository repo = controller.getContactRepository();
         repo.cleanupExpiredRequests();
@@ -460,37 +453,90 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        StringBuilder sb = new StringBuilder();
+        JDialog dialog = new JDialog(this, "Pending contact requests", true);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.setLayout(new BorderLayout(10, 10));
 
-        if (!received.isEmpty()) {
-            sb.append("received :\n");
-            for (ContactRequest r : received) {
-                sb.append(" - from ")
-                .append(r.getSenderId())
-                .append(" (request id : ")
-                .append(r.getRequestId())
-                .append(")\n");
+        // ---------- RECEIVED REQUESTS ----------
+        JPanel receivedListPanel = new JPanel();
+        receivedListPanel.setLayout(new BoxLayout(receivedListPanel, BoxLayout.Y_AXIS));
+
+        for (ContactRequest request : received) {
+            int senderId = request.getSenderId();
+
+            String pseudo = "User #" + senderId;
+            ContactClient contact = repo.findById(senderId);
+            if (contact != null && contact.getPseudo() != null && !contact.getPseudo().isEmpty()) {
+                pseudo = contact.getPseudo();
             }
+
+            JPanel item = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            item.add(new JLabel(pseudo + " (" + senderId + ")"));
+
+            JButton acceptBtn = new JButton("Accept");
+            JButton denyBtn = new JButton("Deny");
+
+            acceptBtn.addActionListener(ev -> {
+                controller.respondToContactRequest(senderId, true);
+                dialog.dispose();              // simple behavior: close after action
+                refreshHomeConversations();
+            });
+
+            denyBtn.addActionListener(ev -> {
+                controller.respondToContactRequest(senderId, false);
+                dialog.dispose();
+                refreshHomeConversations();
+            });
+
+            item.add(acceptBtn);
+            item.add(denyBtn);
+
+            receivedListPanel.add(item);
         }
 
-        if (!sent.isEmpty()) {
-            if (sb.length() > 0) sb.append("\n");
-            sb.append("sent :\n");
-            for (ContactRequest r : sent) {
-                sb.append(" - to ")
-                .append(r.getReceiverId())
-                .append(" (request id : ")
-                .append(r.getRequestId())
-                .append(")\n");
+        JScrollPane receivedScroll = new JScrollPane(receivedListPanel);
+
+        JPanel receivedPanel = new JPanel(new BorderLayout(4, 4));
+        receivedPanel.setBorder(BorderFactory.createTitledBorder("Received"));
+        receivedPanel.add(receivedScroll, BorderLayout.CENTER);
+
+        JPanel sentListPanel = new JPanel();
+        sentListPanel.setLayout(new BoxLayout(sentListPanel, BoxLayout.Y_AXIS));
+
+        for (ContactRequest request : sent) {
+            int receiverId = request.getReceiverId();
+
+            String pseudo = "User #" + receiverId;
+            ContactClient contact = repo.findById(receiverId);
+            if (contact != null && contact.getPseudo() != null && !contact.getPseudo().isEmpty()) {
+                pseudo = contact.getPseudo();
             }
+
+            JPanel item = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            item.add(new JLabel(pseudo + " (" + receiverId + ")"));
+            sentListPanel.add(item);
         }
 
-        JOptionPane.showMessageDialog(
-                this,
-                sb.toString(),
-                "pending contact request",
-                JOptionPane.INFORMATION_MESSAGE
-        );
+        JScrollPane sentScroll = new JScrollPane(sentListPanel);
+
+        JPanel sentPanel = new JPanel(new BorderLayout(4, 4));
+        sentPanel.setBorder(BorderFactory.createTitledBorder("Sent"));
+        sentPanel.add(sentScroll, BorderLayout.CENTER);
+
+        JPanel center = new JPanel(new GridLayout(1, 2, 8, 8));
+        center.add(receivedPanel);
+        center.add(sentPanel);
+        dialog.add(center, BorderLayout.CENTER);
+
+        JPanel south = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton closeBtn = new JButton("Close");
+        closeBtn.addActionListener(e -> dialog.dispose());
+        south.add(closeBtn);
+        dialog.add(south, BorderLayout.SOUTH);
+
+        dialog.setSize(600, 400);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
     }
 
 
@@ -630,8 +676,8 @@ public class MainFrame extends JFrame {
 
     }
 
-    private boolean showContactRequestReceivedDialog (int senderID) {
-        String [] options = {"Add user as contact", "Deny contact request"};
+    private Boolean showContactRequestReceivedDialog (int senderID) {
+        String [] options = {"Add user as contact", "Deny contact request", "Decide later"};
         int selection = JOptionPane.showOptionDialog(this,
                                                     "Contact request from " + senderID + "received",
                                                     "Contact Request received",
@@ -641,6 +687,10 @@ public class MainFrame extends JFrame {
                                                     options,
                                                     options[0]
         );
+        if (selection == JOptionPane.CLOSED_OPTION || selection == 2) {
+        // null means do nothing, keep request pending
+            return null;
+        }
         return (selection == 0);
     }
 
