@@ -104,7 +104,7 @@ public class MainFrame extends JFrame {
                 for (Integer participantId : pendingGroupParticipants.get(groupName)){
                     controller.addMemberToGroup(groupId, participantId);
                 }
-                controller.getOrCreateGroupConversation(groupId, pendingGroupParticipants.get(groupName));
+                controller.getOrCreateGroupConversation(groupId);
                 pendingGroupParticipants.remove(groupName);
             }
             refreshHomeConversations();
