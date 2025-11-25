@@ -195,6 +195,13 @@ public class HomePanel extends JPanel {
     }
 
     /**
+     * Clear the current conversation selection.
+     */
+    public void clearSelection() {
+        conversationList.clearSelection();
+    }
+
+    /**
      * Add a listener for conversation selection changes.
      *
      * @param listener the list selection listener

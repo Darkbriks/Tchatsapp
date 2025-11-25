@@ -167,6 +167,8 @@ public class MainFrame extends JFrame {
 
         eventHandler.setOnContactAdded(event -> {
             int contactId = event.getContactId();
+            controller.getOrCreatePrivateConversation(contactId);
+            refreshHomeConversations();
         });
 
         eventHandler.setOnContactRemoved(event -> {
@@ -573,7 +575,11 @@ public class MainFrame extends JFrame {
                 showGroupOptions(conv);
             }
         });
-        conversationPanel.setOnBack(e -> cl.show(cards, "home"));
+
+        conversationPanel.setOnBack(e -> {
+            homePanel.clearSelection();
+            cl.show(cards, "home");
+        });
         cl.show(cards, "conversation");
     }
 
