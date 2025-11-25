@@ -91,6 +91,7 @@ public class MainFrame extends JFrame {
         homePanel.setOnNewContact(e -> handleNewContactRequest());
         homePanel.setOnViewContacts(e -> generateContactView());
         homePanel.setOnShowPendingRequest(e -> showPendingContactRequests());
+        homePanel.setOnUpdatePseudo(e -> handleUpdatePseudoRequest());
     }
 
     
@@ -139,7 +140,10 @@ public class MainFrame extends JFrame {
         });
 
         eventHandler.setOnUserPseudoUpdated(event -> {
-            refreshHomeConversations();
+            String newPseudo = event.getNewPseudo();
+            setTitle("TchatApp - " + newPseudo);
+            homePanel.setUserPseudo(newPseudo);
+            homePanel.repaint();
         });
 
         eventHandler.setOnContactUpdated(event -> {
@@ -262,6 +266,7 @@ public class MainFrame extends JFrame {
         }
 
         setTitle("TchatApp - " + pseudo);
+        homePanel.setUserPseudo(pseudo);
         showHome();
     }
 
@@ -315,6 +320,30 @@ public class MainFrame extends JFrame {
     }
 
     // ----------------------- Home Panel Actions -----------------------
+
+    /**
+     * Handle user request to update their pseudo
+     */
+    private void handleUpdatePseudoRequest() {
+        String currentPseudo = controller.getActiveUser().getPseudo();
+
+        String newPseudo;
+        do {
+            newPseudo = JOptionPane.showInputDialog(this, "Nouveau pseudo :", currentPseudo);
+            if (newPseudo == null) { return; }
+            newPseudo = newPseudo.trim();
+
+            if (newPseudo.isEmpty()) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Le pseudo ne peut pas être vide.",
+                        "Erreur",
+                        JOptionPane.ERROR_MESSAGE
+                );
+            }
+        } while (newPseudo.isEmpty());
+        controller.updatePseudo(newPseudo);
+    }
 
     private void handleNewConversationRequest() {
 
@@ -576,15 +605,11 @@ public class MainFrame extends JFrame {
                 showGroupOptions(conv);
             }
         });
-<<<<<<< HEAD
-        conversationPanel.setOnBack(e -> showHome());
-=======
 
         conversationPanel.setOnBack(e -> {
             homePanel.clearSelection();
             cl.show(cards, "home");
         });
->>>>>>> e895f3f6703ca1ea29eae16e87f7a0e47c8db6fa
         cl.show(cards, "conversation");
     }
 
