@@ -17,18 +17,24 @@ import fr.uga.im2ag.m1info.chatservice.common.PacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
 import fr.uga.im2ag.m1info.chatservice.common.repository.GroupRepository;
+import fr.uga.im2ag.m1info.chatservice.server.encryption.ServerEncryptionService;
 import fr.uga.im2ag.m1info.chatservice.server.handlers.ServerHandlerContext;
+import fr.uga.im2ag.m1info.chatservice.server.handlers.ServerKeyExchangeHandler;
+import fr.uga.im2ag.m1info.chatservice.server.processor.ServerDecryptingPacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.server.repository.UserRepository;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
+import java.security.GeneralSecurityException;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -46,6 +52,11 @@ public class TchatsAppServer {
      * Size (in bytes) of the buffer used by the server to read
      */
     private final static int BUFFER_LENGTH = 2<<16; // 64ko
+
+    /**
+     * Delay (in s) after the connection that a client has to complete the key exchange
+     */
+    private static final long KEY_EXCHANGE_TIMEOUT_SECONDS = 5;
 
     /**
      * Delay (in s) after the connection that a client has to send its id (after this dely the connection is closed)
@@ -79,6 +90,9 @@ public class TchatsAppServer {
      */
     private IdGenerator idGenerator;
 
+    /** Service used for server-side encryption/decryption */
+    private final ServerEncryptionService encryptionService;
+
     /**
      * Workers used to send notifications for message or connection events.
      */
@@ -93,7 +107,7 @@ public class TchatsAppServer {
      * Multiplexor used for the channels
      */
     private final Selector selector;
-    private volatile boolean started;
+    private AtomicBoolean started;
 
     private final ServerContext serverContext;
 
@@ -102,16 +116,30 @@ public class TchatsAppServer {
         private int clientId;
         private final Instant connectedAt;
         private final ByteBuffer readBuffer;
-        private volatile boolean identified;
+        private final AtomicBoolean identified;
         private Packet.PacketBuilder currentPacket;
+        private final AtomicBoolean encryptionEstablished;
 
         ConnectionState(SocketChannel c) {
             this.clientId = 0;
             this.channel = c;
             this.readBuffer = ByteBuffer.allocate(BUFFER_LENGTH);
             this.connectedAt = Instant.now();
-            this.identified = false;
+            this.identified = new AtomicBoolean(false);
             this.currentPacket = null;
+            this.encryptionEstablished = new AtomicBoolean(false);
+        }
+
+        public SocketChannel getChannel() {
+            return channel;
+        }
+
+        public boolean isEncryptionEstablished() {
+            return encryptionEstablished.get();
+        }
+
+        public void setEncryptionEstablished(boolean established) {
+            this.encryptionEstablished.set(established);
         }
     }
 
@@ -205,7 +233,7 @@ public class TchatsAppServer {
                 return false;
             }
             state.clientId = clientId;
-            state.identified = true;
+            state.identified.set(true);
 
             // Create queue if it doesn't exist
             clientQueues.putIfAbsent(clientId, new ConcurrentLinkedQueue<>());
@@ -273,8 +301,26 @@ public class TchatsAppServer {
         this.workers = Executors.newFixedThreadPool(workerThreads);
         setClientIdGenerator(new SequentialIdGenerator());
         this.serverContext = new ServerContext();
+        this.encryptionService = new ServerEncryptionService();
         LOG.info("Server started on port " + port + " with " + workerThreads + " workers");
         // default processors left empty -> defaultForwardProcessor used when missing
+    }
+
+    public void initializePacketProcessor() {
+        ServerHandlerContext handlerContext = ServerHandlerContext.builder().build();
+        ServerPacketRouter router = ServerPacketRouter.createWithServiceLoader(serverContext, handlerContext);
+        configureKeyExchangeHandler(router);
+
+        this.packetProcessor = new ServerDecryptingPacketProcessor(
+                router,
+                encryptionService,
+                serverContext
+        );
+    }
+
+    private void configureKeyExchangeHandler(ServerPacketRouter router) {
+        ServerKeyExchangeHandler keyExchangeHandler = new ServerKeyExchangeHandler(encryptionService);
+        router.addHandler(keyExchangeHandler);
     }
 
     /* ----------------------- configuration / registration ----------------------- */
@@ -299,8 +345,8 @@ public class TchatsAppServer {
      * @throws IOException if an I/O error occurs
      */
     public void start() throws IOException {
-        started = true;
-        while (started) {
+        started = new AtomicBoolean(true);
+        while (started.get()) {
             selector.select();
             Iterator<SelectionKey> it = selector.selectedKeys().iterator();
             while (it.hasNext()) {
@@ -322,7 +368,7 @@ public class TchatsAppServer {
      * Stops the server
      */
     public void stop() {
-        started = false;
+        started.set(false);
         selector.wakeup();
     }
 
@@ -331,20 +377,34 @@ public class TchatsAppServer {
     private void accept(SelectionKey key) throws IOException {
         ServerSocketChannel ssc = (ServerSocketChannel) key.channel();
         SocketChannel sc = ssc.accept();
-        if (sc == null) return;
         sc.configureBlocking(false);
-        activeConnections.put(sc, new ConnectionState(sc));
         sc.register(selector, SelectionKey.OP_READ);
-        // if no client id is received after IDENTIFY_TIMEOUT seconds after opening the connection
-        // then the connection is closed.
-        scheduler.schedule(() -> {
-            ConnectionState st = activeConnections.get(sc);
-            if (st == null || !st.identified) {
-                closeChannel(sc);
-                LOG.info("Client not identified after " + IDENTIFY_TIMEOUT + " second(s) : connection closed");
+
+        ConnectionState state = new ConnectionState(sc);
+        activeConnections.put(sc, state);
+
+        // Initiate encryption key exchange
+        try {
+            Packet keyExchangePacket = encryptionService.initiateKeyExchange(sc);
+
+            ByteBuffer buffer = keyExchangePacket.asByteBuffer();
+            while (buffer.hasRemaining()) {
+                sc.write(buffer);
             }
-        }, IDENTIFY_TIMEOUT, TimeUnit.SECONDS);
-        LOG.info("Accepted connection from " + sc.getRemoteAddress());
+
+            LOG.info("Sent SERVER_KEY_EXCHANGE to new connection: " + sc);
+
+            scheduler.schedule(() -> {
+                if (!state.isEncryptionEstablished() && activeConnections.containsKey(sc)) {
+                    LOG.warning("Key exchange timeout for connection: " + sc);
+                    closeChannel(sc);
+                }
+            }, KEY_EXCHANGE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+        } catch (GeneralSecurityException e) {
+            LOG.log(Level.SEVERE, "Failed to initiate key exchange", e);
+            closeChannel(sc);
+        }
     }
 
     private void read(SelectionKey key) {
@@ -462,6 +522,13 @@ public class TchatsAppServer {
      * dans le Packet est celui du groupe.
      */
     public void sendPacketToClient(Packet pkt, int clientId) {
+        ConnectionState state = connectedClients.get(clientId);
+        if (state != null && state.isEncryptionEstablished()) {
+            if (encryptionService.shouldEncrypt(pkt)) {
+                pkt = encryptionService.encryptOutgoing(state.channel, pkt);
+            }
+        }
+
         Queue<ByteBuffer> q = clientQueues.get(clientId);
         if (q != null) {
             q.offer(pkt.asByteBuffer());
@@ -503,9 +570,10 @@ public class TchatsAppServer {
     private void closeChannel(SocketChannel sc) {
         try { sc.close(); } catch (IOException ignored) {}
         ConnectionState cs = activeConnections.remove(sc);
-        if (cs != null && cs.identified) {
+        if (cs != null && cs.identified.get()) {
             connectedClients.remove(cs.clientId, cs);
         }
+        encryptionService.onConnectionClosed(sc);
     }
 
     private void closeKey(SelectionKey key) {
@@ -531,15 +599,8 @@ public class TchatsAppServer {
         int port = 1666;
         int workers = Math.max(2, Runtime.getRuntime().availableProcessors());
         TchatsAppServer s = new TchatsAppServer(port, workers);
-
-        ServerHandlerContext handlerContext = ServerHandlerContext.builder().build();
-
-        ServerPacketRouter router = ServerPacketRouter.createWithServiceLoader(
-                s.serverContext,
-                handlerContext
-        );
-
-        s.setPacketProcessor(router);
+        s.initializePacketProcessor();
+        s.setPacketProcessor(s.packetProcessor);
         s.start();
     }
 }
