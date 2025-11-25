@@ -55,7 +55,7 @@ public abstract class ValidatingServerPacketHandler extends ServerPacketHandler 
 
     protected void sendPacketToRecipient(ProtocolMessage message, TchatsAppServer.ServerContext ctx) {
         if (isGroupId(message.getTo(), ctx)) {
-            for (int memberId : ctx.getGroupRepository().findById(message.getTo()).getMembers()) {
+            for (int memberId : ctx.getGroupRepository().findById(message.getTo()).getMembersId()) {
                 if (memberId != message.getFrom()) {
                     ctx.sendPacketToClient(message.toPacket(), memberId);
                 }

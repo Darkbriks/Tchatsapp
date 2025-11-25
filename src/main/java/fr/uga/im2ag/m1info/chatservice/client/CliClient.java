@@ -568,11 +568,13 @@ public class CliClient {
         for (GroupInfo group : groups) {
             System.out.println("║ ID: " + group.getGroupId());
             System.out.println("║ NAME: " + group.getGroupName());
-            for ( int member : group.getMembers()){
-                if (clientController.getContactRepository().isContact(member)){
-                    System.out.println("║ MENBER_NAME: " + clientController.getContactRepository().findById(member).getPseudo());
+            for (var entry : group.getMembers().entrySet()) {
+                int memberId = entry.getKey();
+                String memberName = entry.getValue();
+                if (memberName.isEmpty()) {
+                    System.out.println("║ MEMBER_ID: " + memberId);
                 } else {
-                    System.out.println("║ MENBER_ID: " + member);
+                    System.out.println("║ MEMBER_NAME: " + memberName + " (ID: " + memberId + ")");
                 }
             }
             System.out.println("╚════════════════════════════════════════════════╝");

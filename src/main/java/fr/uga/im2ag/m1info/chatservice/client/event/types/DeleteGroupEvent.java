@@ -8,18 +8,15 @@ import fr.uga.im2ag.m1info.chatservice.client.event.system.Event;
 public class DeleteGroupEvent extends Event {
 
     private final int groupId;
-    private final boolean isAdded; // true if member is added, false if removed
 
     /** Constructor for the UserPseudoUpdatedEvent class.
      *
      * @param source The source object that generated the event.
-     * @param groupId The bgroup id  
-     * @param isAdded True if the member is added, false if removed.
+     * @param groupId The group id
      */
-    public DeleteGroupEvent(Object source, int groupId, boolean isAdded) {
+    public DeleteGroupEvent(Object source, int groupId) {
         super(source);
         this.groupId = groupId;
-        this.isAdded = isAdded;
     }
 
     /** Gets the group ID where the member change occurred.
@@ -28,15 +25,6 @@ public class DeleteGroupEvent extends Event {
      */
     public int getGroupId() {
         return groupId;
-    }
-
-
-    /** Indicates whether the group name was changed or not 
-     *
-     * @return True if the group name was change, false else 
-     */
-    public boolean isChanged() {
-        return isAdded;
     }
 
     /** Gets the specific type of the event.

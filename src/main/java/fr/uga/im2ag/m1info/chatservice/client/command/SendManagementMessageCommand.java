@@ -6,6 +6,8 @@ import fr.uga.im2ag.m1info.chatservice.client.event.types.ManagementOperationSuc
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 
+import java.util.Map;
+
 /**
  * Command for tracking a pending management message.
  */
@@ -30,7 +32,7 @@ public class SendManagementMessageCommand implements PendingCommand {
     }
 
     @Override
-    public boolean onAckReceived(MessageStatus ackType) {
+    public boolean onAckReceived(MessageStatus ackType, Map<String, Object> params) {
         if (ackType == MessageStatus.SENT || ackType == MessageStatus.DELIVERED) {
             EventBus.getInstance().publish(new ManagementOperationSucceededEvent(
                     this,

@@ -6,6 +6,8 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.repository.GroupRepository;
 
+import java.util.Map;
+
 public class LeaveGroupCommand extends SendManagementMessageCommand {
     private final int groupID;
     private final GroupRepository repo;
@@ -17,7 +19,7 @@ public class LeaveGroupCommand extends SendManagementMessageCommand {
     }
 
     @Override
-    public boolean onAckReceived(MessageStatus ackType) {
+    public boolean onAckReceived(MessageStatus ackType, Map<String, Object> params) {
         repo.delete(groupID);
         EventBus.getInstance().publish(new LeaveGroupEvent(this, groupID));
         System.out.printf("[CLIENT ] Groupe %d bien quitté\n", groupID);

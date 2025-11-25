@@ -168,11 +168,6 @@ public class HomePanel extends JPanel {
                 listModel.addElement(item);
             }
         }
-
-        // Select first item if none selected
-        if (!listModel.isEmpty() && conversationList.getSelectedIndex() == -1) {
-            conversationList.setSelectedIndex(0);
-        }
     }
 
     // ----------------------- Public API -----------------------
