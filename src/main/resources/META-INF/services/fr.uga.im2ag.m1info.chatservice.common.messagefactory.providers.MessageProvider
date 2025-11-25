@@ -5,3 +5,4 @@ fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.KeyExchangeMessa
 fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.ManagementMessageProvider
 fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.MediaMessageProvider
 fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.TextMessageProvider
+fr.uga.im2ag.m1info.chatservice.common.messagefactory.providers.ReactionMessageProvider

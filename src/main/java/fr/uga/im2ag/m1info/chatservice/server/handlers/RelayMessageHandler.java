@@ -40,6 +40,7 @@ public class RelayMessageHandler extends ValidatingServerPacketHandler {
     public boolean canHandle(MessageType messageType) {
         return messageType == MessageType.TEXT ||
                 messageType == MessageType.MEDIA ||
+                messageType == MessageType.REACTION ||
                 messageType == MessageType.ENCRYPTED ||
                 messageType == MessageType.KEY_EXCHANGE ||
                 messageType == MessageType.KEY_EXCHANGE_RESPONSE;

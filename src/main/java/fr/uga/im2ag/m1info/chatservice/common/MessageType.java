@@ -4,6 +4,7 @@ package fr.uga.im2ag.m1info.chatservice.common;
 public enum MessageType {
     TEXT,
     MEDIA,
+    REACTION,
     CREATE_USER,
     CONNECT_USER,
     ACK_CONNECTION,

@@ -10,7 +10,7 @@ import java.util.Set;
 public class ConversationMessageHandlerProvider implements ClientPacketHandlerProvider {
     @Override
     public Set<MessageType> getHandledTypes() {
-        return Set.of(MessageType.TEXT, MessageType.MEDIA);
+        return Set.of(MessageType.TEXT, MessageType.MEDIA, MessageType.REACTION);
     }
 
     @Override

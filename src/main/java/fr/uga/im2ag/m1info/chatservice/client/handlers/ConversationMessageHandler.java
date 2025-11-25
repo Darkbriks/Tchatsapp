@@ -3,6 +3,7 @@ package fr.uga.im2ag.m1info.chatservice.client.handlers;
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
 import fr.uga.im2ag.m1info.chatservice.client.event.system.Event;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.MediaMessageReceivedEvent;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.ReactionMessageReceivedEvent;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.TextMessageReceivedEvent;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
@@ -10,6 +11,7 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MediaMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
+import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ReactionMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
 
 public class ConversationMessageHandler extends ClientPacketHandler {
@@ -50,6 +52,17 @@ public class ConversationMessageHandler extends ClientPacketHandler {
                     mediaMsg.getReplyToMessageId()
             );
             event = new MediaMessageReceivedEvent(this, conversationId, msg);
+        } else if (message instanceof ReactionMessage reactionMsg) {
+            msg = new Message(
+                    reactionMsg.getMessageId(),
+                    reactionMsg.getFrom(),
+                    reactionMsg.getTo(),
+                    "[Reaction: " + reactionMsg.getContent() + "]",
+                    reactionMsg.getTimestamp(),
+                    reactionMsg.getReactionToMessageId()
+            );
+            event = new ReactionMessageReceivedEvent(this, conversationId, msg);
+
         } else {
             throw new IllegalArgumentException("Unsupported message type for ConversationMessageHandler");
         }
