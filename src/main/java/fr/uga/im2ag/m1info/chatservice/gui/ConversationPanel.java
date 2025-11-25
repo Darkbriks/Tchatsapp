@@ -213,8 +213,9 @@ public class ConversationPanel extends JPanel {
         };
 
         ActionListener openActionMenu = e -> {
-
-
+            if (onOption != null) {
+                onOption.onOption();
+            }
         };
 
         sendButton.addActionListener(sendAction);
@@ -420,7 +421,7 @@ public class ConversationPanel extends JPanel {
         this.onReply = listener;
     }
 
-    public void setOnOptions(OnOptionListener listener) {
+    public void setOnOption(OnOptionListener listener) {
         this.onOption = listener;
     }
 

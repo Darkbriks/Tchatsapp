@@ -498,7 +498,7 @@ public class MainFrame extends JFrame {
             refreshMessages(conv);
         });
 
-        conversationPanel.setOnOptions(() -> {
+        conversationPanel.setOnOption(() -> {
             if (conv.isGroupConversation()) {
                 showGroupOptions(conv);
             }
