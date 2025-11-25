@@ -54,6 +54,7 @@ public class HomePanel extends JPanel {
     private final JList<ConversationItem> conversationList;
     private final JButton newConversationButton;
     private final JButton newContactButton;
+    private final JButton pendingContactRequestButton;
     private final JButton viewContactsButton;
 
 
@@ -61,7 +62,7 @@ public class HomePanel extends JPanel {
     private ActionListener onNewConversation;
     private ActionListener onNewContact;
     private ActionListener onViewContacts;
-
+    private ActionListener onShowPendingRequest;
 
     public HomePanel() {
         super(new BorderLayout(8, 8));
@@ -72,6 +73,7 @@ public class HomePanel extends JPanel {
         this.conversationList = new JList<>(listModel);
         this.newConversationButton = new JButton("Nouveau +");
         this.newContactButton = new JButton("Ajouter un contact");
+        this.pendingContactRequestButton = new JButton("Demandes en attentes");
         this.viewContactsButton = new JButton("Voir les contacts");
         this.masterList = new ArrayList<>();
 
@@ -104,7 +106,8 @@ public class HomePanel extends JPanel {
         bottomPanel.add(Box.createHorizontalGlue());
         bottomPanel.add(viewContactsButton);
         bottomPanel.add(Box.createHorizontalGlue());
-        newConversationButton.setFocusable(false);
+        bottomPanel.add(pendingContactRequestButton);
+        bottomPanel.add(Box.createHorizontalGlue());
         bottomPanel.add(newConversationButton);
         add(bottomPanel, BorderLayout.SOUTH);
     }
@@ -145,6 +148,13 @@ public class HomePanel extends JPanel {
         viewContactsButton.addActionListener(e -> {
             if (onViewContacts != null) {
                 onViewContacts.actionPerformed(e);
+            }
+        });
+
+        // Pending contact requests button
+        pendingContactRequestButton.addActionListener(e -> {
+            if (onShowPendingRequest != null) {
+                onShowPendingRequest.actionPerformed(e);
             }
         });
     }
@@ -223,6 +233,10 @@ public class HomePanel extends JPanel {
      */
     public void setOnViewContacts(ActionListener listener) {
         this.onViewContacts = listener;
+    }
+
+    public void setOnShowPendingRequest(ActionListener l) {
+        this.onShowPendingRequest = l;
     }
 
 

@@ -3,6 +3,7 @@ package fr.uga.im2ag.m1info.chatservice.gui;
 import fr.uga.im2ag.m1info.chatservice.client.Client;
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
 import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
+import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
 import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
@@ -88,6 +89,7 @@ public class MainFrame extends JFrame {
         homePanel.setOnNewConversation(e -> handleNewConversationRequest());
         homePanel.setOnNewContact(e -> handleNewContactRequest());
         homePanel.setOnViewContacts(e -> generateContactView());
+        homePanel.setOnShowPendingRequest(e -> showPendingContactRequests());
     }
 
     
@@ -407,6 +409,67 @@ public class MainFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    private void showPendingContactRequests() {
+        if (controller == null) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Pas encore connecté, aucune demande de contact.",
+                    "Demandes de contact",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+            return;
+        }
+
+        ContactClientRepository repo = controller.getContactRepository();
+        repo.cleanupExpiredRequests();
+
+        Set<ContactRequest> received = repo.getPendingReceivedRequests();
+        Set<ContactRequest> sent = repo.getPendingSentRequests();
+
+        if (received.isEmpty() && sent.isEmpty()) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "no pending contact requests",
+                    "pending contact requests",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        if (!received.isEmpty()) {
+            sb.append("received :\n");
+            for (ContactRequest r : received) {
+                sb.append(" - from ")
+                .append(r.getSenderId())
+                .append(" (request id : ")
+                .append(r.getRequestId())
+                .append(")\n");
+            }
+        }
+
+        if (!sent.isEmpty()) {
+            if (sb.length() > 0) sb.append("\n");
+            sb.append("sent :\n");
+            for (ContactRequest r : sent) {
+                sb.append(" - to ")
+                .append(r.getReceiverId())
+                .append(" (request id : ")
+                .append(r.getRequestId())
+                .append(")\n");
+            }
+        }
+
+        JOptionPane.showMessageDialog(
+                this,
+                sb.toString(),
+                "pending contact request",
+                JOptionPane.INFORMATION_MESSAGE
+        );
+    }
+
+
 
 
     // ----------------------- Conversation Panel Actions -----------------------
@@ -430,18 +493,8 @@ public class MainFrame extends JFrame {
             }
             String trimmed = text.trim();
 
-            if (conv.isGroupConversation()) {
-                int toUserId = Integer.parseInt(conv.getConversationId().substring("group_".length()));
-                controller.sendTextMessage(trimmed, toUserId);
-            } else {
-                int selfId = controller.getClientId();
-                int toUserId = conv.getParticipantIds(controller.getGroupRepository())
-                                .stream()
-                                .filter(id -> id != selfId)
-                                .findFirst()
-                                .orElseThrow();
-                controller.sendTextMessage(trimmed, toUserId, replyId);
-            }
+            int toUserId = conv.getPeerId();
+            controller.sendTextMessage(trimmed, toUserId);
             refreshMessages(conv);
         });
 
@@ -466,7 +519,7 @@ public class MainFrame extends JFrame {
         ContactClientRepository contacts = controller.getContactRepository();
 
         StringBuilder sb = new StringBuilder();
-        for (Integer memberId : conv.getParticipantIds()) {
+        for (Integer memberId : controller.getGroupRepository().findById(conv.getPeerId()).getMembers()) {
 
             String pseudo = "User #" + memberId;
             ContactClient c = contacts.findById(memberId);
