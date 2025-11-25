@@ -625,7 +625,7 @@ public class CliClient {
             System.out.println("║ ID: " + conv.getConversationId());
             System.out.println("║ Name: " + conv.getConversationName());
             System.out.println("║ Type: " + (conv.isGroupConversation() ? "Group" : "Private"));
-            System.out.println("║ Participants: " + conv.getParticipantIds().size());
+            System.out.println("║ Participants: " + conv.getParticipantIds(clientController.getGroupRepository()).size());
 
             // Get message count
             var messages = conv.getMessagesFrom(null, -1, true, true);

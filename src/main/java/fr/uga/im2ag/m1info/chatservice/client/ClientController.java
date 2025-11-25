@@ -19,8 +19,6 @@ import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.KeyExchangeMessageData
 
 import java.security.GeneralSecurityException;
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -375,10 +373,7 @@ public class ClientController {
         ConversationClient conversation = conversationRepository.findById(conversationId);
 
         if (conversation == null) {
-            Set<Integer> participants = new HashSet<>();
-            participants.add(getClientId());
-            participants.add(otherUserId);
-            conversation = new ConversationClient(conversationId, participants, false);
+            conversation = new ConversationClient(conversationId, otherUserId, false);
             conversationRepository.add(conversation);
             if (encryptionService != null) {
                 encryptionService.initiateSecureConversation(otherUserId);
@@ -402,8 +397,7 @@ public class ClientController {
             if (groupRepository.findById(groupId) == null) {
                 throw new IllegalArgumentException("Group with ID " + groupId + " does not exist");
             }
-            Set<Integer> participantIds = groupRepository.findById(groupId).getMembers();
-            conversation = new ConversationClient(conversationId, participantIds, true);
+            conversation = new ConversationClient(conversationId, groupId, true);
             conversationRepository.add(conversation);
         }
 

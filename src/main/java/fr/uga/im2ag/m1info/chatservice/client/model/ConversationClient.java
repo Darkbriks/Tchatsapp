@@ -1,6 +1,8 @@
 package fr.uga.im2ag.m1info.chatservice.client.model;
 
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.TextMessage;
+import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
+import fr.uga.im2ag.m1info.chatservice.common.repository.GroupRepository;
 
 import java.io.Serializable;
 import java.time.Instant;
@@ -11,20 +13,21 @@ public class ConversationClient implements Serializable{
     private String conversationName;
     private final Map<String, Message> messages;
     private final SortedMap<Instant, String> messageOrder; // Red Black Tree, O(log n) for get, put, remove
-    private final Set<Integer> participantIds;
+    //private final Set<Integer> participantIds;
+    private final int peerId;
     private final boolean isGroupConversation;
 
-    public ConversationClient(String conversationId, String conversationName, Map<String, Message> messages, SortedMap<Instant, String> messageOrder, Set<Integer> participantIds, boolean isGroupConversation) {
+    public ConversationClient(String conversationId, String conversationName, Map<String, Message> messages, SortedMap<Instant, String> messageOrder, int peerId, boolean isGroupConversation) {
         this.conversationId = conversationId;
         this.conversationName = conversationName;
         this.messages = messages;
         this.messageOrder = messageOrder;
-        this.participantIds = participantIds;
+        this.peerId = peerId;
         this.isGroupConversation = isGroupConversation;
     }
 
-    public ConversationClient(String conversationId, Set<Integer> participantIds, boolean isGroupConversation) {
-        this(conversationId, "Conversation " + conversationId, new HashMap<>(), new TreeMap<>(), participantIds, isGroupConversation);
+    public ConversationClient(String conversationId, int peerId, boolean isGroupConversation) {
+        this(conversationId, "Conversation " + conversationId, new HashMap<>(), new TreeMap<>(), peerId, isGroupConversation);
     }
 
     public String getConversationId() {
@@ -94,8 +97,24 @@ public class ConversationClient implements Serializable{
         return ascending ? result : result.reversed();
     }
 
-    public Set<Integer> getParticipantIds() {
-        return Set.copyOf(participantIds);
+    public int getPeerId() {
+        return peerId;
+    }
+
+    /**
+     * @deprecated Use GroupRepository to get participant IDs for group conversations.
+     */
+    @Deprecated
+    public Set<Integer> getParticipantIds(GroupRepository groupRepository) {
+        if (isGroupConversation) {
+            GroupInfo groupInfo = groupRepository.findById(peerId);
+            if (groupInfo != null) {
+                return Set.copyOf(groupInfo.getMembers());
+            }
+            return Set.of();
+        } else {
+            return Set.of(peerId);
+        }
     }
 
     public boolean isGroupConversation() {
