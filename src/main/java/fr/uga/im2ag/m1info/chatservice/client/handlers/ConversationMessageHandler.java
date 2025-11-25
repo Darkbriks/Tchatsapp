@@ -21,7 +21,7 @@ public class ConversationMessageHandler extends ClientPacketHandler {
             conversation = context.getOrCreatePrivateConversation(message.getFrom());
         } else if (context.getGroupRepository().findById(recipientId) != null) {
             // TODO: Find a way to know list of group members to create group conversation properly
-            conversation = context.getOrCreateGroupConversation(recipientId, null);
+            conversation = context.getOrCreateGroupConversation(recipientId, context.getGroupRepository().findById(recipientId).getMembers());
         } else {
             throw new IllegalArgumentException("Message recipient not recognized by ConversationMessageHandler");
         }
