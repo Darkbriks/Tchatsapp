@@ -1,0 +1,38 @@
+@startuml Encrypted Message Flow
+!theme plain
+title Encrypted Client-Server Communication
+
+participant "Client A" as CA
+participant "Server" as S
+
+note over CA,S: Session already established
+
+== Sending Encrypted Message ==
+
+CA -> CA: Create message\n(e.g., CREATE_GROUP)
+CA -> CA: Generate nonce (12 bytes)
+CA -> CA: Encrypt with AES-GCM\n(session key + nonce)
+CA -> CA: Wrap as SERVER_ENCRYPTED
+
+CA -> S: SERVER_ENCRYPTED packet\n(original type + nonce + ciphertext)
+
+S -> S: Extract nonce and ciphertext
+S -> S: Decrypt with AES-GCM\n(session key + nonce)
+S -> S: Verify authentication tag
+S -> S: Extract original message
+
+S -> S: Process message
+
+== Server Response ==
+
+S -> S: Create response
+S -> S: Generate nonce (12 bytes)
+S -> S: Encrypt with AES-GCM\n(session key + nonce)
+
+S -> CA: SERVER_ENCRYPTED packet
+
+CA -> CA: Decrypt with AES-GCM
+CA -> CA: Verify authentication tag
+CA -> CA: Process response
+
+@enduml
