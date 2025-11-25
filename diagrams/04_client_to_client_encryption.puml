@@ -1,0 +1,41 @@
+@startuml Client-to-Client Encryption
+!theme plain
+title Client-to-Client Encrypted Communication (via Server)
+
+participant "Client A" as CA
+participant "Server" as S
+participant "Client B" as CB
+
+note over CA,CB: All clients have established server encryption
+
+== Client A sends encrypted message to Client B ==
+
+CA -> CA: Encrypt message\nwith Client B's shared key\n(end-to-end encryption)
+CA -> CA: Wrap as ENCRYPTED message
+CA -> CA: Encrypt with server session key\n(transport encryption)
+
+CA -> S: SERVER_ENCRYPTED(ENCRYPTED)\n(double encrypted)
+
+S -> S: Decrypt outer layer\n(server encryption)
+S -> S: Get ENCRYPTED message\n(still encrypted for Client B)
+
+note right of S
+Server cannot read
+the message content
+(end-to-end encrypted)
+end note
+
+S -> S: Encrypt with Client B's\nserver session key
+S -> CB: SERVER_ENCRYPTED(ENCRYPTED)
+
+CB -> CB: Decrypt outer layer\n(server encryption)
+CB -> CB: Decrypt inner layer\n(Client A-B shared key)
+CB -> CB: Display message
+
+note over CA,CB
+Double encryption:
+- Inner: Message encrypted with A-B shared key
+- Outer: Server transport encryption
+end note
+
+@enduml
