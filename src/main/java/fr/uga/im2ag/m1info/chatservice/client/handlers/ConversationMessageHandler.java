@@ -77,6 +77,6 @@ public class ConversationMessageHandler extends ClientPacketHandler {
 
     @Override
     public boolean canHandle(MessageType messageType) {
-        return messageType == MessageType.TEXT || messageType == MessageType.MEDIA;
+        return messageType == MessageType.TEXT || messageType == MessageType.MEDIA || messageType == MessageType.REACTION;
     }
 }
