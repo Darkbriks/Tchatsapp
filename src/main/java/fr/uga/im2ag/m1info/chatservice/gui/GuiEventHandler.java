@@ -32,6 +32,9 @@ public class GuiEventHandler {
     private Consumer<ContactRequestResponseEvent> onContactRequestResponse;
     private Consumer<GroupCreateEvent> onGroupCreated;
     private Consumer<ChangeMemberInGroupEvent> onGroupMemberChanged;
+    private Consumer<ManagementOperationSucceededEvent> onManagementOperationSucceeded;
+    private Consumer<ManagementOperationFailedEvent> onManagementOperationFailed;
+
 
     public GuiEventHandler(ClientController controller) {
         this.controller = controller;
@@ -126,6 +129,18 @@ public class GuiEventHandler {
                 this::handleError,
                 ExecutionMode.ASYNC
         ));
+
+        subscriptions.add(controller.subscribeToEvent(
+                ManagementOperationSucceededEvent.class,
+                this::handleManagementOperationSucceeded,
+                ExecutionMode.ASYNC
+        ));
+
+        subscriptions.add(controller.subscribeToEvent(
+                ManagementOperationFailedEvent.class,
+                this::handleManagementOperationFailed,
+                ExecutionMode.ASYNC
+        ));
     }
 
     /**
@@ -193,6 +208,14 @@ public class GuiEventHandler {
         dispatchToEDT(onError, event);
     }
 
+    private void handleManagementOperationSucceeded (ManagementOperationSucceededEvent event) {
+        dispatchToEDT(onManagementOperationSucceeded, event);
+    }
+
+    private void handleManagementOperationFailed (ManagementOperationFailedEvent event) {
+        dispatchToEDT(onManagementOperationFailed, event);
+    }
+
     // ----------------------- Utility -----------------------
 
     private <T> void dispatchToEDT(Consumer<T> callback, T event) {
@@ -253,5 +276,13 @@ public class GuiEventHandler {
 
     public void setOnGroupMemberChanged(Consumer<ChangeMemberInGroupEvent> callback) {
         this.onGroupMemberChanged = callback;
+    }
+
+    public void setOnManagementOperationSucceeded(Consumer<ManagementOperationSucceededEvent> callback) {
+        this.onManagementOperationSucceeded = callback;
+    }
+
+    public void setOnManagementOperationFailed(Consumer<ManagementOperationFailedEvent> callback) {
+        this.onManagementOperationFailed = callback;
     }
 }

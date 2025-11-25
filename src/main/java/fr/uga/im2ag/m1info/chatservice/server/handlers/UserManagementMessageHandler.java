@@ -69,7 +69,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
             connectionFailed(serverContext, state, newClientId, "Failed to register connection");
             return;
         }
-
+        
         ManagementMessage response = ((ManagementMessage) MessageFactory.create(MessageType.ACK_CONNECTION, 0, newClientId))
                 .addParam("clientId", newClientId)
                 .addParam("pseudo", pseudo)

@@ -133,20 +133,38 @@ public class MainFrame extends JFrame {
         eventHandler.setOnUserPseudoUpdated(event -> {
             String newPseudo = event.getNewPseudo();
             setTitle("TchatApp - " + newPseudo);
-            homePanel.repaint();
-
         });
 
         eventHandler.setOnContactUpdated(event -> {
             refreshHomeConversations();
-            homePanel.repaint();
         });
 
         eventHandler.setOnTextMessageReceived(event -> {
             refreshHomeConversations();
-            refreshMessages(controller.getConversationRepository().findById(event.getConversationId()));
-            conversationPanel.repaint();
+            String convId = event.getConversationId();
+            if (currentConversationId != null && currentConversationId.equals(convId)) {
+                ConversationClient conv = controller.getConversationRepository().findById(convId);
+                refreshMessages(conv);
+            }
         });
+
+        eventHandler.setOnMediaMessageReceived(event -> {
+            Message msg = event.getMessage();
+            String conversationId = event.getConversationId();
+        });
+
+        eventHandler.setOnMessageStatusChanged(event -> {
+
+        });
+
+        eventHandler.setOnContactAdded(event -> {
+
+        });
+
+        eventHandler.setOnContactRemoved(event -> {
+
+        });
+
     }
 
     // ----------------------- Login Flow -----------------------
@@ -208,7 +226,7 @@ public class MainFrame extends JFrame {
 
     private void initializeClient(int clientId) {
         this.controller = new ClientController(new Client(clientId));
-        //this.controller.initializeEncryption();
+        this.controller.initializeEncryption();
         this.controller.initializeHandlers();
 
         // Initialize event handler
