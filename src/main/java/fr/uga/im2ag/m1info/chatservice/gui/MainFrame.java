@@ -8,6 +8,7 @@ import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
 import fr.uga.im2ag.m1info.chatservice.client.model.Message;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
+import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 
 import javax.swing.*;
 import java.awt.*;
@@ -112,13 +113,18 @@ public class MainFrame extends JFrame {
                 controller.getOrCreateGroupConversation(groupId);
                 pendingGroupParticipants.remove(groupName);
             }
+            controller.getOrCreateGroupConversation(groupId);
             refreshHomeConversations();
         });
 
         eventHandler.setOnGroupMemberChanged(event -> {
             int groupId = event.getGroupId();
-            if (controller.getGroupRepository().findById(groupId) != null) 
-                controller.getGroupRepository().findById(groupId).addMember(event.getMemberId());
+            GroupInfo group = controller.getGroupRepository().findById(groupId);
+            if (group != null && event.isAdded()) {
+                group.addMember(event.getMemberId(), event.getMemberPseudo());
+                controller.getOrCreateGroupConversation(groupId);
+                refreshHomeConversations();
+            }
         });
 
         eventHandler.setOnContactRequestResponse(event -> {
@@ -131,8 +137,7 @@ public class MainFrame extends JFrame {
         });
 
         eventHandler.setOnUserPseudoUpdated(event -> {
-            String newPseudo = event.getNewPseudo();
-            setTitle("TchatApp - " + newPseudo);
+            refreshHomeConversations();
         });
 
         eventHandler.setOnContactUpdated(event -> {
@@ -158,7 +163,9 @@ public class MainFrame extends JFrame {
         });
 
         eventHandler.setOnContactAdded(event -> {
-
+            int contactId = event.getContactId();
+            controller.getOrCreatePrivateConversation(contactId);
+            refreshHomeConversations();
         });
 
         eventHandler.setOnContactRemoved(event -> {
@@ -537,18 +544,8 @@ public class MainFrame extends JFrame {
         ContactClientRepository contacts = controller.getContactRepository();
 
         StringBuilder sb = new StringBuilder();
-        for (Integer memberId : controller.getGroupRepository().findById(conv.getPeerId()).getMembers()) {
-
-            String pseudo = "User #" + memberId;
-            ContactClient c = contacts.findById(memberId);
-
-            if (c != null) {
-                pseudo = c.getPseudo();
-            }
-
-            sb.append("- ").append(pseudo)
-            .append(" (").append(memberId).append(")")
-            .append("\n");
+        for (var entry : controller.getGroupRepository().findById(conv.getPeerId()).getMembers().entrySet()) {
+            sb.append("- ").append(entry.getValue()).append(" (").append(entry.getKey()).append(")").append("\n");
         }
 
         JOptionPane.showMessageDialog(
@@ -570,7 +567,12 @@ public class MainFrame extends JFrame {
                 pseudo = "Vous";
             } else {
                 ContactClient contact = contactClientRepository.findById(message.getFromUserId());
-                pseudo = (contact != null) ? contact.getPseudo() : "User " + message.getFromUserId();
+                if (contact != null) {
+                    pseudo = contact.getPseudo();
+                } else {
+                    String groupPseudo = controller.getGroupRepository().findById(conversation.getPeerId()).getMemberName(message.getFromUserId());
+                    pseudo = (groupPseudo != null) ? groupPseudo : "User " + message.getFromUserId();
+                }
             }
             messageItems.add(new ConversationPanel.MessageItem(isOwnMessage, pseudo, message.getContent(), message.getMessageId(), message.getReplyToMessageId()));
         }
