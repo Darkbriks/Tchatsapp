@@ -78,6 +78,11 @@ public class CliClient {
                 this::onMediaMessageReceived
         );
 
+        clientController.subscribeToEvent(
+                ReactionMessageReceivedEvent.class,
+                this::onReactionMessageReceived
+        );
+
         // Contact events
         clientController.subscribeToEvent(
                 ContactAddedEvent.class,
@@ -178,6 +183,22 @@ public class CliClient {
         System.out.println("║ Conversation: " + conversationId);
         System.out.println("║ From: User #" + msg.getFromUserId());
         System.out.println("║ To: User #" + msg.getToUserId());
+        System.out.println("║ Time: " + TIME_FORMATTER.format(msg.getTimestamp()));
+        System.out.println("╠════════════════════════════════════════════════╣");
+        System.out.println("║ " + msg.getContent());
+        System.out.println("╚════════════════════════════════════════════════╝\n");
+    }
+
+    private void onReactionMessageReceived(ReactionMessageReceivedEvent event) {
+        Message msg = event.getMessage();
+        String conversationId = event.getConversationId();
+
+        System.out.println("\n╔════════════════════════════════════════════════╗");
+        System.out.println("║        NEW REACTION MESSAGE RECEIVED              ║");
+        System.out.println("╠════════════════════════════════════════════════╣");
+        System.out.println("║ Conversation: " + conversationId);
+        System.out.println("║ From: User #" + msg.getFromUserId());
+        System.out.println("║ To: Message #" + msg.getReplyToMessageId());
         System.out.println("║ Time: " + TIME_FORMATTER.format(msg.getTimestamp()));
         System.out.println("╠════════════════════════════════════════════════╣");
         System.out.println("║ " + msg.getContent());
