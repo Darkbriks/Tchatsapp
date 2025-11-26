@@ -1,19 +1,21 @@
 package fr.uga.im2ag.m1info.chatservice.gui;
 
+import fr.uga.im2ag.m1info.chatservice.client.model.Media;
+import fr.uga.im2ag.m1info.chatservice.client.model.VirtualMedia;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-
-import javafx.scene.layout.Border;
-
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
+import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Panel displaying a conversation with messages.
@@ -31,17 +33,23 @@ public class ConversationPanel extends JPanel {
         private final String text;
         private final String messageId;
         private final String replyToMessageId;
+        private final Media attachedMedia;
 
-        public MessageItem(boolean mine, String author, String text, String messageId, String replyToMessageId) {
+        public MessageItem(boolean mine, String author, String text, String messageId, String replyToMessageId, Media attachedMedia) {
             this.mine = mine;
             this.author = author;
             this.text = text;
             this.messageId = messageId;
             this.replyToMessageId = replyToMessageId;
+            this.attachedMedia = attachedMedia;
+        }
+
+        public MessageItem(boolean mine, String author, String text, String messageId, String replyToMessageId) {
+            this(mine, author, text, messageId, replyToMessageId, null);
         }
 
         public MessageItem(boolean mine, String author, String text) {
-            this(mine, author, text, null, null);
+            this(mine, author, text, null, null, null);
         }
 
         public boolean isMine() {
@@ -62,6 +70,10 @@ public class ConversationPanel extends JPanel {
 
         public String getReplyToMessageId() {
             return replyToMessageId;
+        }
+
+        public Media getAttachedMedia() {
+            return attachedMedia;
         }
     }
 
@@ -95,19 +107,23 @@ public class ConversationPanel extends JPanel {
     private final JList<MessageItem> messageList;
     private final JTextField inputField;
     private final JButton sendButton;
+    private final JButton attachFileButton;
     private final JPanel replyPreviewPanel;
     private final JLabel replyPreviewLabel;
     private final JButton cancelReplyButton;
     private final JButton optionsButton;
 
+    // Callbacks
     private ActionListener onBack;
     private OnSendListener onSend;
     private OnReplyListener onReply;
     private OnOptionListener onOption;
+    private Consumer<File> onFileSend;
+    private Consumer<String> onFileDownload;
+    private Consumer<String> onFileOpen;
 
     private MessageItem replyingTo = null;
     private final Map<String, MessageItem> messageCache = new HashMap<>();
-
     private int hoveredIndex = -1;
 
     public ConversationPanel() {
@@ -120,6 +136,7 @@ public class ConversationPanel extends JPanel {
         this.messageList = new JList<>(messageModel);
         this.inputField = new JTextField();
         this.sendButton = new JButton("Envoyer");
+        this.attachFileButton = new JButton("Joindre");
         this.replyPreviewPanel = new JPanel(new BorderLayout(8, 0));
         this.replyPreviewLabel = new JLabel();
         this.cancelReplyButton = new JButton("✕");
@@ -147,7 +164,21 @@ public class ConversationPanel extends JPanel {
 
         // Message list
         messageList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        messageList.setCellRenderer(new MessageRenderer());
+        MessageRenderer renderer = new MessageRenderer();
+        renderer.setFileActionCallbacks(
+                mediaId -> {
+                    if (onFileDownload != null) {
+                        onFileDownload.accept(mediaId);
+                    }
+                },
+                mediaId -> {
+                    if (onFileOpen != null) {
+                        onFileOpen.accept(mediaId);
+                    }
+                }
+        );
+        messageList.setCellRenderer(renderer);
+
         JScrollPane scrollPane = new JScrollPane(messageList);
         scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         add(scrollPane, BorderLayout.CENTER);
@@ -182,11 +213,19 @@ public class ConversationPanel extends JPanel {
         bottomContainer.add(replyPreviewPanel, BorderLayout.NORTH);
 
         // Input panel
-        JPanel inputPanel = new JPanel(new BorderLayout(8, 8));
+        JPanel inputPanel = new JPanel(new BorderLayout(4, 4));
         inputPanel.setBorder(new EmptyBorder(8, 8, 8, 8));
 
-        sendButton.setFocusable(false);
+        // Left side: attach button
+        attachFileButton.setToolTipText("Joindre un fichier");
+        attachFileButton.setFocusable(false);
+        inputPanel.add(attachFileButton, BorderLayout.WEST);
+
+        // Center: text input
         inputPanel.add(inputField, BorderLayout.CENTER);
+
+        // Right side: send button
+        sendButton.setFocusable(false);
         inputPanel.add(sendButton, BorderLayout.EAST);
 
         bottomContainer.add(inputPanel, BorderLayout.SOUTH);
@@ -223,6 +262,8 @@ public class ConversationPanel extends JPanel {
         optionsButton.addActionListener(openActionMenu);
 
         cancelReplyButton.addActionListener(e -> clearReplyPreview());
+
+        attachFileButton.addActionListener(e -> handleAttachFile());
     }
 
     private void setupContextMenu() {
@@ -320,14 +361,28 @@ public class ConversationPanel extends JPanel {
         }
     }
 
+    private void handleAttachFile() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Sélectionner un fichier à envoyer");
+
+        int result = fileChooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            if (onFileSend != null) {
+                onFileSend.accept(selectedFile);
+            }
+        }
+    }
+
     private void showReplyPreview(MessageItem message) {
         replyingTo = message;
-        String previewText = message.getText();
-        if (previewText != null && previewText.length() > 50) {
-            previewText = previewText.substring(0, 50) + "...";
+        String preview = message.getAuthor() != null
+                ? message.getAuthor() + ": " + message.getText()
+                : message.getText();
+        if (preview.length() > 50) {
+            preview = preview.substring(0, 50) + "...";
         }
-        String author = message.isMine() ? "Vous" : (message.getAuthor() != null ? message.getAuthor() : "??");
-        replyPreviewLabel.setText("Répondre à " + author + ": " + previewText);
+        replyPreviewLabel.setText(preview);
         replyPreviewPanel.setVisible(true);
         inputField.requestFocus();
     }
@@ -341,16 +396,6 @@ public class ConversationPanel extends JPanel {
         int size = messageModel.getSize();
         if (size > 0) {
             messageList.ensureIndexIsVisible(size - 1);
-        }
-    }
-
-    private void rebuildMessageCache() {
-        messageCache.clear();
-        for (int i = 0; i < messageModel.getSize(); i++) {
-            MessageItem item = messageModel.getElementAt(i);
-            if (item.getMessageId() != null) {
-                messageCache.put(item.getMessageId(), item);
-            }
         }
     }
 
@@ -372,12 +417,15 @@ public class ConversationPanel extends JPanel {
      */
     public void setMessages(List<MessageItem> messages) {
         messageModel.clear();
+        messageCache.clear();
         if (messages != null) {
             for (MessageItem item : messages) {
                 messageModel.addElement(item);
+                if (item.getMessageId() != null) {
+                    messageCache.put(item.getMessageId(), item);
+                }
             }
         }
-        rebuildMessageCache();
         ensureLastVisible();
     }
 
@@ -441,124 +489,229 @@ public class ConversationPanel extends JPanel {
         clearReplyPreview();
     }
 
+    /**
+     * Set the callback for file attachment.
+     */
+    public void setOnFileSend(Consumer<File> callback) {
+        this.onFileSend = callback;
+    }
+
+    /**
+     * Set the callback for file download.
+     */
+    public void setOnFileDownload(Consumer<String> callback) {
+        this.onFileDownload = callback;
+    }
+
+    /**
+     * Set the callback for file opening.
+     */
+    public void setOnFileOpen(Consumer<String> callback) {
+        this.onFileOpen = callback;
+    }
+
     // ----------------------- Cell Renderer -----------------------
 
     /**
      * Custom renderer for message items with bubble style, reply references, and hover effect.
      */
-    private final class MessageRenderer extends JPanel implements ListCellRenderer<MessageItem> {
-        private static final Color COLOR_MY_MESSAGE = new Color(225, 248, 238);
-        private static final Color COLOR_OTHER_MESSAGE = new Color(240, 240, 240);
-        private static final Color COLOR_MY_MESSAGE_HOVER = new Color(210, 243, 228);
-        private static final Color COLOR_OTHER_MESSAGE_HOVER = new Color(230, 230, 230);
-        private static final Color COLOR_REPLY_REF = new Color(200, 200, 200);
+    private class MessageRenderer extends JPanel implements ListCellRenderer<MessageItem> {
+        private final JLabel authorLabel;
+        private final JTextArea contentArea;
+        private final JPanel replyIndicator;
+        private final JLabel replyText;
+        private final JPanel filePanel;
+        private final JLabel fileIconLabel;
+        private final JLabel fileNameLabel;
+        private final JLabel fileSizeLabel;
+        private final JButton downloadButton;
+        private final JButton openButton;
 
-        private final JLabel headerLabel;
-        private final JTextArea bubbleArea;
-        private final JPanel replyRefPanel;
-        private final JLabel replyRefLabel;
+        private Consumer<String> onFileDownloadCallback;
+        private Consumer<String> onFileOpenCallback;
 
-        MessageRenderer() {
-            setLayout(new BorderLayout());
-            setBorder(new EmptyBorder(6, 8, 6, 8));
+        public MessageRenderer() {
+            super(new BorderLayout(8, 4));
+            setBorder(new EmptyBorder(8, 8, 8, 8));
 
-            headerLabel = new JLabel();
-            headerLabel.setFont(headerLabel.getFont().deriveFont(Font.PLAIN, 11f));
-            headerLabel.setForeground(new Color(0, 0, 0, 130));
+            // Author label
+            authorLabel = new JLabel();
+            authorLabel.setFont(authorLabel.getFont().deriveFont(Font.BOLD, 11f));
+            add(authorLabel, BorderLayout.NORTH);
 
-            bubbleArea = new JTextArea();
-            bubbleArea.setLineWrap(true);
-            bubbleArea.setWrapStyleWord(true);
-            bubbleArea.setEditable(false);
-            bubbleArea.setBorder(new EmptyBorder(8, 12, 8, 12));
+            // Center panel for reply indicator + content + file
+            JPanel centerPanel = new JPanel(new BorderLayout(4, 4));
+            centerPanel.setOpaque(false);
 
-            // Reply reference panel
-            replyRefPanel = new JPanel(new BorderLayout(4, 0));
-            replyRefPanel.setBorder(new EmptyBorder(4, 12, 4, 12));
-            replyRefPanel.setOpaque(true);
+            // Reply indicator (hidden by default)
+            replyIndicator = new JPanel(new BorderLayout(6, 0));
+            replyIndicator.setOpaque(false);
+            replyIndicator.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createMatteBorder(0, 3, 0, 0, new Color(100, 149, 237)),
+                    new EmptyBorder(4, 6, 4, 0)
+            ));
+            replyText = new JLabel();
+            replyText.setFont(replyText.getFont().deriveFont(Font.ITALIC, 10f));
+            replyText.setForeground(new Color(100, 100, 100));
+            replyIndicator.add(replyText, BorderLayout.CENTER);
+            replyIndicator.setVisible(false);
+            centerPanel.add(replyIndicator, BorderLayout.NORTH);
 
-            JLabel replyIcon = new JLabel("↩");
-            replyIcon.setFont(replyIcon.getFont().deriveFont(Font.PLAIN, 10f));
-            replyIcon.setForeground(new Color(100, 100, 100));
-            replyRefPanel.add(replyIcon, BorderLayout.WEST);
+            // Content area (text)
+            contentArea = new JTextArea();
+            contentArea.setLineWrap(true);
+            contentArea.setWrapStyleWord(true);
+            contentArea.setEditable(false);
+            contentArea.setOpaque(false);
+            contentArea.setFont(contentArea.getFont().deriveFont(13f));
+            centerPanel.add(contentArea, BorderLayout.CENTER);
 
-            replyRefLabel = new JLabel();
-            replyRefLabel.setFont(replyRefLabel.getFont().deriveFont(Font.ITALIC, 11f));
-            replyRefLabel.setForeground(new Color(80, 80, 80));
-            replyRefPanel.add(replyRefLabel, BorderLayout.CENTER);
+            // File panel (for attached files)
+            filePanel = new JPanel(new BorderLayout(8, 4));
+            filePanel.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1),
+                    new EmptyBorder(8, 8, 8, 8)
+            ));
+            filePanel.setBackground(new Color(245, 245, 250));
+
+            // File icon and info
+            JPanel fileInfoPanel = new JPanel(new BorderLayout(8, 2));
+            fileInfoPanel.setOpaque(false);
+
+            fileIconLabel = new JLabel();
+            fileIconLabel.setFont(new Font("Dialog", Font.PLAIN, 32));
+            fileInfoPanel.add(fileIconLabel, BorderLayout.WEST);
+
+            JPanel fileDetailsPanel = new JPanel(new GridLayout(2, 1, 0, 2));
+            fileDetailsPanel.setOpaque(false);
+            fileNameLabel = new JLabel();
+            fileNameLabel.setFont(fileNameLabel.getFont().deriveFont(Font.BOLD, 12f));
+            fileSizeLabel = new JLabel();
+            fileSizeLabel.setFont(fileSizeLabel.getFont().deriveFont(10f));
+            fileSizeLabel.setForeground(Color.GRAY);
+            fileDetailsPanel.add(fileNameLabel);
+            fileDetailsPanel.add(fileSizeLabel);
+            fileInfoPanel.add(fileDetailsPanel, BorderLayout.CENTER);
+
+            filePanel.add(fileInfoPanel, BorderLayout.CENTER);
+
+            // Action buttons
+            JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+            buttonPanel.setOpaque(false);
+
+            downloadButton = new JButton("Télécharger");
+            downloadButton.setFont(downloadButton.getFont().deriveFont(11f));
+            downloadButton.setFocusPainted(false);
+
+            openButton = new JButton("Ouvrir");
+            openButton.setFont(openButton.getFont().deriveFont(11f));
+            openButton.setFocusPainted(false);
+
+            buttonPanel.add(downloadButton);
+            buttonPanel.add(openButton);
+            filePanel.add(buttonPanel, BorderLayout.SOUTH);
+
+            centerPanel.add(filePanel, BorderLayout.SOUTH);
+            filePanel.setVisible(false); // Hidden by default
+
+            add(centerPanel, BorderLayout.CENTER);
+        }
+
+        public void setFileActionCallbacks(Consumer<String> onDownload, Consumer<String> onOpen) {
+            this.onFileDownloadCallback = onDownload;
+            this.onFileOpenCallback = onOpen;
         }
 
         @Override
-        public Component getListCellRendererComponent(JList<? extends MessageItem> list,
-                                                      MessageItem value,
-                                                      int index,
-                                                      boolean isSelected,
-                                                      boolean cellHasFocus) {
-            removeAll();
+        public Component getListCellRendererComponent(
+                JList<? extends MessageItem> list,
+                MessageItem item,
+                int index,
+                boolean isSelected,
+                boolean cellHasFocus) {
 
-            boolean isMine = value.isMine();
-            boolean isHovered = (index == hoveredIndex);
-            String author = isMine ? "Vous" : ((value.getAuthor() == null) ? "??" : value.getAuthor());
-
-            headerLabel.setText(author);
-            bubbleArea.setText((value.getText() == null) ? "" : value.getText());
-
-            Color bgColor;
-            if (isHovered) {
-                bgColor = isMine ? COLOR_MY_MESSAGE_HOVER : COLOR_OTHER_MESSAGE_HOVER;
+            // Author
+            if (item.isMine()) {
+                authorLabel.setText("Vous");
+                authorLabel.setForeground(new Color(0, 100, 200));
             } else {
-                bgColor = isMine ? COLOR_MY_MESSAGE : COLOR_OTHER_MESSAGE;
+                String author = item.getAuthor() != null ? item.getAuthor() : "Unknown";
+                authorLabel.setText(author);
+                authorLabel.setForeground(new Color(100, 100, 100));
             }
-            bubbleArea.setBackground(bgColor);
-            bubbleArea.setForeground(Color.DARK_GRAY);
-            bubbleArea.setOpaque(true);
 
-            // Build message box
-            JPanel messageBox = new JPanel();
-            messageBox.setLayout(new BoxLayout(messageBox, BoxLayout.Y_AXIS));
-            messageBox.setOpaque(false);
-            messageBox.add(headerLabel);
-            messageBox.add(Box.createVerticalStrut(2));
-
-            // Add reply reference if present
-            if (value.getReplyToMessageId() != null) {
-                MessageItem referencedMessage = messageCache.get(value.getReplyToMessageId());
-                if (referencedMessage != null) {
-                    String refText = referencedMessage.getText();
-                    if (refText != null && refText.length() > 40) {
-                        refText = refText.substring(0, 40) + "...";
+            // Reply indicator
+            if (item.getReplyToMessageId() != null) {
+                MessageItem repliedTo = messageCache.get(item.getReplyToMessageId());
+                if (repliedTo != null) {
+                    String replyAuthor = repliedTo.isMine() ? "Vous" :
+                            (repliedTo.getAuthor() != null ? repliedTo.getAuthor() : "Unknown");
+                    String replyContent = repliedTo.getText();
+                    if (replyContent.length() > 30) {
+                        replyContent = replyContent.substring(0, 30) + "...";
                     }
-                    String refAuthor = referencedMessage.isMine() ? "Vous" :
-                            (referencedMessage.getAuthor() != null ? referencedMessage.getAuthor() : "??");
-                    replyRefLabel.setText(refAuthor + ": " + refText);
-
-                    // Couleur de référence adaptée au hover
-                    Color refBgColor;
-                    if (isHovered) {
-                        refBgColor = isMine ? COLOR_MY_MESSAGE_HOVER.darker() : COLOR_OTHER_MESSAGE_HOVER.darker();
-                    } else {
-                        refBgColor = isMine ? COLOR_MY_MESSAGE.darker() : COLOR_OTHER_MESSAGE.darker();
-                    }
-                    replyRefPanel.setBackground(refBgColor);
-                    messageBox.add(replyRefPanel);
-                    messageBox.add(Box.createVerticalStrut(2));
+                    replyText.setText("↩ " + replyAuthor + ": " + replyContent);
+                    replyIndicator.setVisible(true);
+                } else {
+                    replyIndicator.setVisible(false);
                 }
-            }
-
-            messageBox.add(bubbleArea);
-
-            // Position based on sender
-            JPanel linePanel = new JPanel(new BorderLayout());
-            linePanel.setOpaque(false);
-
-            if (isMine) {
-                linePanel.add(messageBox, BorderLayout.EAST);
             } else {
-                linePanel.add(messageBox, BorderLayout.WEST);
+                replyIndicator.setVisible(false);
             }
 
-            setOpaque(true);
-            add(linePanel, BorderLayout.CENTER);
+            // Content (text)
+            contentArea.setText(item.getText());
+
+            // File attachment
+            Media media = item.getAttachedMedia();
+            if (media instanceof VirtualMedia virtualMedia) {
+                filePanel.setVisible(true);
+
+                // File icon
+                fileIconLabel.setText(virtualMedia.getIcon());
+
+                // File name and size
+                fileNameLabel.setText(virtualMedia.getFileName());
+                fileSizeLabel.setText(virtualMedia.getFormattedFileSize());
+
+                // Button actions
+                String mediaId = virtualMedia.getMediaId();
+
+                // Remove old listeners
+                for (ActionListener al : downloadButton.getActionListeners()) {
+                    downloadButton.removeActionListener(al);
+                }
+                for (ActionListener al : openButton.getActionListeners()) {
+                    openButton.removeActionListener(al);
+                }
+
+                // Add new listeners
+                downloadButton.addActionListener(e -> {
+                    if (onFileDownloadCallback != null) {
+                        onFileDownloadCallback.accept(mediaId);
+                    }
+                });
+
+                openButton.addActionListener(e -> {
+                    if (onFileOpenCallback != null) {
+                        onFileOpenCallback.accept(mediaId);
+                    }
+                });
+
+            } else {
+                filePanel.setVisible(false);
+            }
+
+            // Background color
+            Color bgColor;
+            if (isSelected) {
+                bgColor = list.getSelectionBackground();
+            } else if (index == hoveredIndex) {
+                bgColor = item.isMine() ? new Color(200, 230, 255) : new Color(245, 245, 245);
+            } else {
+                bgColor = item.isMine() ? new Color(220, 240, 255) : Color.WHITE;
+            }
+            setBackground(bgColor);
 
             return this;
         }

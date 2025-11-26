@@ -29,7 +29,7 @@ import java.security.GeneralSecurityException;
  */
 public class Client {
 
-    private static final int MAX_SIZE_CHUNK_FILE = 8192;
+    public static final int MAX_SIZE_CHUNK_FILE = 8192;
     private int clientId;
     private Socket cnx;
     private DataOutputStream dos;

@@ -8,6 +8,7 @@ import fr.uga.im2ag.m1info.chatservice.client.event.types.ErrorEvent;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.GroupCreateEvent;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.ClientHandlerContext;
 import fr.uga.im2ag.m1info.chatservice.client.handlers.KeyExchangeHandler;
+import fr.uga.im2ag.m1info.chatservice.client.media.MediaManager;
 import fr.uga.im2ag.m1info.chatservice.client.model.*;
 import fr.uga.im2ag.m1info.chatservice.client.processor.DecryptingPacketProcessor;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
@@ -17,6 +18,11 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 import fr.uga.im2ag.m1info.chatservice.common.repository.GroupRepository;
 import fr.uga.im2ag.m1info.chatservice.crypto.keyexchange.KeyExchangeMessageData;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
@@ -37,6 +43,7 @@ public class ClientController {
     private final EventBus eventBus;
     private ClientEncryptionService encryptionService;
     private KeyExchangeHandler keyExchangeHandler;
+    private final MediaManager mediaManager;
 
     /* ----------------------- Constructor ----------------------- */
 
@@ -61,6 +68,7 @@ public class ClientController {
         this.groupRepository = groupRepository;
         this.activeUser = user;
         this.eventBus = EventBus.getInstance();
+        this.mediaManager = new MediaManager(client.getClientId());
     }
 
     /**
@@ -149,6 +157,7 @@ public class ClientController {
     public void initializeHandlers() {
         ClientHandlerContext handlerContext = ClientHandlerContext.builder()
                 .commandManager(client.getCommandManager())
+                .mediaManager(mediaManager)
                 .build();
 
         ClientPaquetRouter router = ClientPaquetRouter.createWithServiceLoader(
@@ -184,6 +193,7 @@ public class ClientController {
 
         ClientHandlerContext handlerContext = ClientHandlerContext.builder()
                 .commandManager(client.getCommandManager())
+                .mediaManager(mediaManager)
                 .build();
 
         ClientPaquetRouter router = ClientPaquetRouter.createWithServiceLoader(
@@ -259,6 +269,15 @@ public class ClientController {
      */
     public PendingCommandManager getCommandManager() {
         return client.getCommandManager();
+    }
+
+    /**
+     * Get the media manager.
+     *
+     * @return the media manager
+     */
+    public MediaManager getMediaManager() {
+        return mediaManager;
     }
 
     /**
@@ -539,13 +558,85 @@ public class ClientController {
     }
 
     /**
-     * Send a text message to a recipient.
+     * Send a file to a recipient without progress callback
      *
-     * @param msg the message content
-     * @param to the recipient ID
+     * @param filePath path to the file
+     * @param to recipient ID
+     * @return true if sending started successfully
      */
-    public void sendMedia(String msg, int to) {
-        client.sendMedia(msg, to);
+    public boolean sendFile(String filePath, int to) {
+        return sendFile(filePath, to, null);
+    }
+
+    /**
+     * Send a file to a recipient with progress callback
+     *
+     * @param filePath path to the file
+     * @param to recipient ID
+     * @param progressCallback callback for progress updates (can be null)
+     * @return true if sending started successfully
+     */
+    public boolean sendFile(String filePath, int to, FileProgressCallback progressCallback) {
+        try {
+            Path path = Paths.get(filePath);
+            if (!Files.exists(path)) {
+                System.err.println("[ClientController] File not found: " + filePath);
+                return false;
+            }
+
+            long fileSize = Files.size(path);
+            String fileName = path.getFileName().toString();
+
+            new Thread(() -> {
+                try (InputStream fileStream = Files.newInputStream(path)) {
+                    int count;
+                    byte[] buffer = new byte[Client.MAX_SIZE_CHUNK_FILE];
+                    long bytesSent = 0;
+                    int chunkIndex = 0;
+
+                    while ((count = fileStream.read(buffer)) > 0) {
+                        MediaMessage mediaMsg = (MediaMessage) MessageFactory.create(MessageType.MEDIA, client.getClientId(), to);
+                        mediaMsg.setMediaName(fileName);
+                        mediaMsg.setContent(buffer);
+                        mediaMsg.setSizeContent(count);
+
+                        boolean sent = client.sendPacket(mediaMsg.toPacket());
+
+                        if (sent) {
+                            bytesSent += count;
+                            chunkIndex++;
+
+                            // Notify progress
+                            if (progressCallback != null) {
+                                progressCallback.onProgress(bytesSent, fileSize, chunkIndex);
+                            }
+                        } else {
+                            System.err.println("[ClientController] Failed to send chunk " + chunkIndex);
+                            if (progressCallback != null) {
+                                progressCallback.onError("Failed to send chunk " + chunkIndex);
+                            }
+                            return;
+                        }
+                    }
+
+                    if (progressCallback != null) {
+                        progressCallback.onComplete(fileName, bytesSent, chunkIndex);
+                    }
+                    System.out.printf("[ClientController] File sent: %s (%d chunks, %d bytes)%n", fileName, chunkIndex, bytesSent);
+                } catch (IOException e) {
+                    System.err.println("[ClientController] Failed to send file: " + e.getMessage());
+                    if (progressCallback != null) {
+                        progressCallback.onError(e.getMessage());
+                    }
+                }
+            }, "FileSender-" + fileName).start();
+
+            return true;
+
+        } catch (IOException e) {
+            System.err.println("[ClientController] Failed to access file: " + e.getMessage());
+            return false;
+        }
     }
 
     /* ----------------------- ACK System Message Sending ----------------------- */
@@ -954,5 +1045,26 @@ public class ClientController {
      */
     public ClientEncryptionService getEncryptionService() {
         return encryptionService;
+    }
+
+    public interface FileProgressCallback {
+        /**
+         * Called when a chunk is sent
+         *
+         * @param bytesSent bytes sent so far
+         * @param totalBytes total file size
+         * @param chunksSent number of chunks sent
+         */
+        void onProgress(long bytesSent, long totalBytes, int chunksSent);
+
+        /**
+         * Called when file sending completes
+         */
+        void onComplete(String fileName, long totalBytes, int totalChunks);
+
+        /**
+         * Called when an error occurs
+         */
+        void onError(String errorMessage);
     }
 }

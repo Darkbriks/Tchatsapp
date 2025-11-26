@@ -35,7 +35,7 @@ public class GuiEventHandler {
     private Consumer<ManagementOperationSucceededEvent> onManagementOperationSucceeded;
     private Consumer<ManagementOperationFailedEvent> onManagementOperationFailed;
     private Consumer<UpdateGroupNameEvent> onUpdateGroupName;
-
+    private Consumer<FileTransferProgressEvent> onFileTransferProgress;
 
 
     public GuiEventHandler(ClientController controller) {
@@ -149,6 +149,12 @@ public class GuiEventHandler {
                 this::handleUpdateGroupName,
                 ExecutionMode.ASYNC
         ));
+
+        subscriptions.add(controller.subscribeToEvent(
+                FileTransferProgressEvent.class,
+                this::handleFileTransferProgress,
+                ExecutionMode.SYNC
+        ));
     }
 
     /**
@@ -228,6 +234,11 @@ public class GuiEventHandler {
         dispatchToEDT(onUpdateGroupName, event);
     }
 
+    private void handleFileTransferProgress(FileTransferProgressEvent event) {
+        if (onFileTransferProgress != null) {
+            onFileTransferProgress.accept(event);
+        }
+    }
 
     // ----------------------- Utility -----------------------
 
@@ -301,5 +312,9 @@ public class GuiEventHandler {
 
     public void setOnUpdateGroupName(Consumer<UpdateGroupNameEvent> callback) {
         this.onUpdateGroupName = callback;
+    }
+
+    public void setOnFileTransferProgress(Consumer<FileTransferProgressEvent> callback) {
+        this.onFileTransferProgress = callback;
     }
 }

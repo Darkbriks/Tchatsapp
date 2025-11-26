@@ -341,7 +341,7 @@ public class CliClient {
         if (msg.startsWith("/file ")) {
             String filePath = msg.substring(6).trim();
             if (!filePath.isEmpty()) {
-                clientController.sendMedia(filePath, to);
+                clientController.sendFile(filePath, to);
             } else {
                 System.err.println("File path cannot be empty.");
             }

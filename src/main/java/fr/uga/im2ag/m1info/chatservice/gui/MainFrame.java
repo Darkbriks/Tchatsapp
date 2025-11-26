@@ -2,10 +2,9 @@ package fr.uga.im2ag.m1info.chatservice.gui;
 
 import fr.uga.im2ag.m1info.chatservice.client.Client;
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
-import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
-import fr.uga.im2ag.m1info.chatservice.client.model.ContactRequest;
-import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
-import fr.uga.im2ag.m1info.chatservice.client.model.Message;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.FileTransferProgressEvent;
+import fr.uga.im2ag.m1info.chatservice.client.media.MediaManager;
+import fr.uga.im2ag.m1info.chatservice.client.model.*;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
 import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
@@ -14,6 +13,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -92,6 +95,10 @@ public class MainFrame extends JFrame {
         homePanel.setOnViewContacts(e -> generateContactView());
         homePanel.setOnShowPendingRequest(e -> showPendingContactRequests());
         homePanel.setOnUpdatePseudo(e -> handleUpdatePseudoRequest());
+
+        conversationPanel.setOnFileSend(this::handleFileSend);
+        conversationPanel.setOnFileDownload(this::handleFileDownload);
+        conversationPanel.setOnFileOpen(this::handleFileOpen);
     }
 
     
@@ -161,7 +168,12 @@ public class MainFrame extends JFrame {
         });
 
         eventHandler.setOnMediaMessageReceived(event -> {
-            //toDO implem
+            refreshHomeConversations();
+            String convId = event.getConversationId();
+            if (currentConversationId != null && currentConversationId.equals(convId)) {
+                ConversationClient conv = controller.getConversationRepository().findById(convId);
+                refreshMessages(conv);
+            }
         });
 
         eventHandler.setOnMessageStatusChanged(event -> {
@@ -190,6 +202,7 @@ public class MainFrame extends JFrame {
             }  
         });
 
+        eventHandler.setOnFileTransferProgress(this::handleFileTransferProgress);
     }
 
     // ----------------------- Login Flow -----------------------
@@ -739,6 +752,139 @@ public class MainFrame extends JFrame {
         }
     }
 
+    private void handleFileSend(File file) {
+        if (currentConversationId == null) {
+            JOptionPane.showMessageDialog(this,
+                    "Aucune conversation sélectionnée",
+                    "Erreur",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        int recipientId = controller.getConversationRepository().findById(currentConversationId).getPeerId();
+
+        JProgressBar progressBar = new JProgressBar(0, 100);
+        progressBar.setStringPainted(true);
+        progressBar.setString("Envoi en cours... 0%");
+
+        JPanel progressPanel = new JPanel(new BorderLayout(10, 10));
+        progressPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        progressPanel.add(new JLabel("Envoi de : " + file.getName()), BorderLayout.NORTH);
+        progressPanel.add(progressBar, BorderLayout.CENTER);
+
+        JDialog progressDialog = new JDialog(this, "Envoi de fichier", false);
+        progressDialog.setContentPane(progressPanel);
+        progressDialog.pack();
+        progressDialog.setLocationRelativeTo(this);
+        progressDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        progressDialog.setVisible(true);
+
+        ClientController.FileProgressCallback callback = new ClientController.FileProgressCallback() {
+            @Override
+            public void onProgress(long bytesSent, long totalBytes, int chunksSent) {
+                SwingUtilities.invokeLater(() -> {
+                    int percentage = (int) ((bytesSent * 100) / totalBytes);
+                    progressBar.setValue(percentage);
+                    progressBar.setString(String.format("Envoi en cours... %d%% (%d chunks)",
+                            percentage, chunksSent));
+                });
+            }
+
+            @Override
+            public void onComplete(String fileName, long totalBytes, int totalChunks) {
+                SwingUtilities.invokeLater(() -> {
+                    progressDialog.dispose();
+                    String sizeStr = formatFileSize(totalBytes);
+                    JOptionPane.showMessageDialog(
+                            MainFrame.this,
+                            String.format("Fichier '%s' envoyé avec succès!\nTaille: %s\nChunks: %d",
+                                    fileName, sizeStr, totalChunks),
+                            "Envoi terminé",
+                            JOptionPane.INFORMATION_MESSAGE
+                    );
+                });
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                SwingUtilities.invokeLater(() -> {
+                    progressDialog.dispose();
+                    JOptionPane.showMessageDialog(
+                            MainFrame.this,
+                            "Erreur lors de l'envoi du fichier:\n" + errorMessage,
+                            "Erreur",
+                            JOptionPane.ERROR_MESSAGE
+                    );
+                });
+            }
+        };
+
+        controller.sendFile(String.valueOf(file.toPath()), recipientId, callback);
+    }
+
+    private String formatFileSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
+        if (bytes < 1024 * 1024 * 1024) return String.format("%.1f MB", bytes / (1024.0 * 1024));
+        return String.format("%.1f GB", bytes / (1024.0 * 1024 * 1024));
+    }
+
+    private void handleFileDownload(String mediaId) {
+        MediaManager mediaManager = controller.getMediaManager();
+        VirtualMedia media = mediaManager.getVirtualMedia(mediaId);
+
+        if (media == null) {
+            JOptionPane.showMessageDialog(this, "Fichier introuvable", "Erreur", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Enregistrer le fichier");
+        fileChooser.setSelectedFile(new File(media.getFileName()));
+
+        int result = fileChooser.showSaveDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File destination = fileChooser.getSelectedFile();
+            Path destPath = destination.toPath();
+
+            boolean success = mediaManager.saveMediaTo(mediaId, destPath);
+
+            if (success) {
+                JOptionPane.showMessageDialog(this, "Fichier enregistré: " + destination.getAbsolutePath(), "Succès", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, "Erreur lors de l'enregistrement du fichier", "Erreur", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void handleFileOpen(String mediaId) {
+        MediaManager mediaManager = controller.getMediaManager();
+        Path filePath = mediaManager.getMediaPath(mediaId);
+
+        if (filePath == null || !Files.exists(filePath)) {
+            JOptionPane.showMessageDialog(this, "Fichier introuvable", "Erreur", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (Desktop.isDesktopSupported()) {
+            try {
+                Desktop.getDesktop().open(filePath.toFile());
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(this, "Impossible d'ouvrir le fichier: " + e.getMessage(), "Erreur", JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Ouverture de fichier non supportée sur ce système", "Erreur", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void handleFileTransferProgress(FileTransferProgressEvent event) {
+        if (event.isComplete()) {
+            System.out.printf("[MainFrame] File transfer complete: %s (%s)%n", event.getFileName(), event.getFormattedProgress());
+        } else {
+            System.out.printf("[MainFrame] File transfer progress: %s - %s (%d chunks)%n", event.getFileName(), event.getFormattedProgress(), event.getChunksReceived());
+        }
+    }
+
 
     public List<ConversationPanel.MessageItem> loadMessages(ConversationClient conversation){
         List<Message> messagesFromConv = conversation.getMessagesFrom(null, -1, true, true);
@@ -758,7 +904,14 @@ public class MainFrame extends JFrame {
                     pseudo = (groupPseudo != null) ? groupPseudo : "User " + message.getFromUserId();
                 }
             }
-            messageItems.add(new ConversationPanel.MessageItem(isOwnMessage, pseudo, message.getContent(), message.getMessageId(), message.getReplyToMessageId()));
+            messageItems.add(new ConversationPanel.MessageItem(
+                    isOwnMessage,
+                    pseudo,
+                    message.getContent(),
+                    message.getMessageId(),
+                    message.getReplyToMessageId(),
+                    message.getAttachedMedia()
+            ));
         }
         return messageItems;
     }
