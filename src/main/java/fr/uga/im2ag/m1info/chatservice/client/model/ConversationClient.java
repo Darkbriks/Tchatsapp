@@ -146,4 +146,11 @@ public class ConversationClient implements Serializable{
         return messages.get(lastMessageId);
     }
 
+    public void addReactionToMessage(String messageId, String reaction, int userId) {
+        Message message = messages.get(messageId);
+        if (message != null) {
+            message.addReaction(reaction, userId);
+        }
+    }
+
 }

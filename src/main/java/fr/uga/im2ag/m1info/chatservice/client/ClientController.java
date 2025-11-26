@@ -746,6 +746,8 @@ public class ClientController {
                 conversationRepository
         );
 
+        conversation.addReactionToMessage(reactionToMessageId, content, getClientId());
+
         client.getCommandManager().addPendingCommand(command);
         return reactMsg.getMessageId();
     }
