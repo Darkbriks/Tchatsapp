@@ -447,19 +447,57 @@ public class TchatsAppServer {
         // désérialiser vers ProtocolMessage via MessageFactory
         final Packet finalPkt = pkt;
         final ConnectionState finalState = state;
-        workers.submit(() -> {
+
+        boolean requiresSynchronousProcessing = requiresSynchronousProcessing(finalPkt, finalState);
+
+        if (requiresSynchronousProcessing) {
             try {
                 serverContext.setCurrentConnectionState(finalState);
                 ProtocolMessage message = MessageFactory.fromPacket(finalPkt);
-                LOG.info("packet converted to ProtocolMessage of type " + message.getMessageType() + " from client " + finalState.clientId);
+                LOG.info("packet converted to ProtocolMessage of type " + message.getMessageType() + " from client " + finalState.clientId + " (synchronous)");
                 processMessage(message);
             } catch (RuntimeException e) {
                 LOG.warning("Failed to convert packet to ProtocolMessage: " + e.getMessage());
             } finally {
                 serverContext.clearCurrentConnectionState();
             }
-        });
+        } else {
+            workers.submit(() -> {
+                try {
+                    serverContext.setCurrentConnectionState(finalState);
+                    ProtocolMessage message = MessageFactory.fromPacket(finalPkt);
+                    LOG.info("packet converted to ProtocolMessage of type " + message.getMessageType() + " from client " + finalState.clientId);
+                    processMessage(message);
+                } catch (RuntimeException e) {
+                    LOG.warning("Failed to convert packet to ProtocolMessage: " + e.getMessage());
+                } finally {
+                    serverContext.clearCurrentConnectionState();
+                }
+            });
+        }
+
         LOG.info("packet read from client " + state.clientId);
+    }
+
+    /**
+     * Détermine si un message doit être traité de manière synchrone.
+     * Les messages critiques pour l'établissement de connexion doivent être
+     * traités dans l'ordre et de manière synchrone.
+     */
+    private boolean requiresSynchronousProcessing(Packet pkt, ConnectionState state) {
+        MessageType type = pkt.messageType();
+
+        if (!state.isEncryptionEstablished()) {
+            return type == MessageType.SERVER_KEY_EXCHANGE_RESPONSE;
+        }
+
+        if (!state.identified.get()) {
+            return type == MessageType.SERVER_ENCRYPTED
+                    || type == MessageType.CREATE_USER
+                    || type == MessageType.CONNECT_USER;
+        }
+
+        return false;
     }
 
     private void readPacketHeader(ByteBuffer buf, ConnectionState state) {

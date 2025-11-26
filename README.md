@@ -8,7 +8,7 @@ TchatsApp messenger service. This is the basis for a object oriented programming
 
 ### Prerequisites
 
-Java 17 or higher
+Java 21 or higher
 Maven
 
 ### Installation
@@ -41,9 +41,14 @@ Launch server
 
 If you obtain a "build failure" with the exception "java.net.BindException", it means that there already a server running. 
 
-Launch client
+Launch client in CLI
    ```sh
-      mvn package exec:java -Dexec.mainClass="fr.uga.im2ag.m1info.chatservice.client.Client"
+      mvn package exec:java -Dexec.mainClass="fr.uga.im2ag.m1info.chatservice.client.CliClient"
+   ```
+
+Launch client in GUI 
+   ```sh
+      mvn package exec:java -Dexec.mainClass="fr.uga.im2ag.m1info.chatservice.gui.MainFrame"
    ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
