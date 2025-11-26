@@ -13,9 +13,9 @@ public class LeaveGroupEvent extends Event {
      * @param source The source object that generated the event.
      * @param groupId The new pseudo/username.
      */
-    public LeaveGroupEvent(Object source, int groupID) {
+    public LeaveGroupEvent(Object source, int groupId) {
         super(source);
-        this.groupId = groupID;
+        this.groupId = groupId;
     }
 
     /** Gets the new pseudo.
@@ -32,7 +32,7 @@ public class LeaveGroupEvent extends Event {
      */
     @Override
     public Class<? extends Event> getEventType() {
-        return GroupCreateEvent.class;
+        return LeaveGroupEvent.class;
     }
 }
 

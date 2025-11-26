@@ -1,16 +1,25 @@
 package fr.uga.im2ag.m1info.chatservice.common.messagefactory;
 
+import com.google.gson.Gson;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
+import fr.uga.im2ag.m1info.chatservice.common.TypeConverter;
+
+import java.lang.reflect.Type;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Message representing an acknowledgment for another message.
  * Used to track message delivery and read status.
  */
 public class AckMessage extends AbstractSerializableMessage {
+    private static final Gson gson = new Gson();
+
     private String acknowledgedMessageId;
     private MessageStatus ackType;
     private String errorReason;
+    private final Map<String, Object> additionalData;
 
     /**
      * Constructor for AckMessage.
@@ -23,6 +32,7 @@ public class AckMessage extends AbstractSerializableMessage {
         this.acknowledgedMessageId = "";
         this.ackType = MessageStatus.SENT;
         this.errorReason = null;
+        this.additionalData = new HashMap<>();
     }
 
     // ========================= Getters/Setters =========================
@@ -87,6 +97,56 @@ public class AckMessage extends AbstractSerializableMessage {
         return this;
     }
 
+    /** Get a parameter by key.
+     *
+     * @param key the parameter key
+     * @return the parameter value
+     */
+    public Object getParam(String key) {
+        return additionalData.get(key);
+    }
+
+    /** Get a parameter by key and cast it to the specified type.
+     *
+     * @param key the parameter key
+     * @param clazz the class of the type to cast to
+     * @param <T> the type to cast to
+     * @return the parameter value cast to the specified type, or null if not found or cannot be cast
+     */
+    public <T> T getParamAsType(String key, Class<T> clazz) {
+        return TypeConverter.convert(additionalData.get(key), clazz);
+    }
+
+    /** Add a parameter to the message.
+     *
+     * @param key the parameter key
+     * @param value the parameter value
+     * @return the ManagementMessage instance (for chaining)
+     */
+    public AckMessage addParam(String key, Object value) {
+        additionalData.put(key, value);
+        return this;
+    }
+
+    /** Remove a parameter from the message.
+     *
+     * @param key the parameter key
+     * @return the ManagementMessage instance (for chaining)
+     */
+    public AckMessage removeParam(String key) {
+        additionalData.remove(key);
+        return this;
+    }
+
+    /**
+     * Get all additional data as a map.
+     *
+     * @return the additional data map
+     */
+    public Map<String, Object> getAdditionalData() {
+        return Map.copyOf(additionalData);
+    }
+
     // ========================= Serialization Methods =========================
 
     @Override
@@ -94,7 +154,8 @@ public class AckMessage extends AbstractSerializableMessage {
         joinFields(sb,
                 acknowledgedMessageId,
                 Byte.toString(ackType.toByte()),
-                ackType == MessageStatus.FAILED && errorReason != null ? errorReason : ""
+                ackType == MessageStatus.FAILED && errorReason != null ? errorReason : "",
+                gson.toJson(additionalData)
         );
     }
 
@@ -107,10 +168,16 @@ public class AckMessage extends AbstractSerializableMessage {
         } else {
             this.errorReason = null;
         }
+        if (parts.length > startIndex + 3 && !parts[startIndex + 3].isEmpty()) {
+            Type type = new com.google.gson.reflect.TypeToken<Map<String, Object>>(){}.getType();
+            Map<String, Object> parsed = gson.fromJson(parts[startIndex + 3], type);
+            additionalData.clear();
+            additionalData.putAll(parsed);
+        }
     }
 
     @Override
     protected int getExpectedPartCount() {
-        return 5;
+        return 6;
     }
 }

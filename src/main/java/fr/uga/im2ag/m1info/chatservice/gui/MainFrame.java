@@ -2,16 +2,21 @@ package fr.uga.im2ag.m1info.chatservice.gui;
 
 import fr.uga.im2ag.m1info.chatservice.client.Client;
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
-import fr.uga.im2ag.m1info.chatservice.client.model.ContactClient;
-import fr.uga.im2ag.m1info.chatservice.client.model.ConversationClient;
-import fr.uga.im2ag.m1info.chatservice.client.model.Message;
+import fr.uga.im2ag.m1info.chatservice.client.event.types.FileTransferProgressEvent;
+import fr.uga.im2ag.m1info.chatservice.client.media.MediaManager;
+import fr.uga.im2ag.m1info.chatservice.client.model.*;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ContactClientRepository;
 import fr.uga.im2ag.m1info.chatservice.client.repository.ConversationClientRepository;
+import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -87,7 +92,16 @@ public class MainFrame extends JFrame {
         });
         homePanel.setOnNewConversation(e -> handleNewConversationRequest());
         homePanel.setOnNewContact(e -> handleNewContactRequest());
+        homePanel.setOnViewContacts(e -> generateContactView());
+        homePanel.setOnShowPendingRequest(e -> showPendingContactRequests());
+        homePanel.setOnUpdatePseudo(e -> handleUpdatePseudoRequest());
+
+        conversationPanel.setOnFileSend(this::handleFileSend);
+        conversationPanel.setOnFileDownload(this::handleFileDownload);
+        conversationPanel.setOnFileOpen(this::handleFileOpen);
     }
+
+    
 
     private void setupEventHandlerCallbacks() {
         eventHandler.setOnConnectionEstablished(event -> {
@@ -97,15 +111,6 @@ public class MainFrame extends JFrame {
             }
         });
 
-        /*eventHandler.setOnError(event -> {
-            if (awaitingConnection && event.getErrorLevel() == ErrorMessage.ErrorLevel.CRITICAL) {
-                awaitingConnection = false;
-                onConnectionError(event.getErrorMessage());
-            } else {
-                showErrorDialog(event.getErrorLevel().toString(), event.getErrorMessage());
-            }
-        });*/
-
         eventHandler.setOnGroupCreated(event -> {
             int groupId = event.getGroupInfo().getGroupId();
             String groupName = event.getGroupInfo().getGroupName();
@@ -113,45 +118,91 @@ public class MainFrame extends JFrame {
                 for (Integer participantId : pendingGroupParticipants.get(groupName)){
                     controller.addMemberToGroup(groupId, participantId);
                 }
-                controller.getOrCreateGroupConversation(groupId, pendingGroupParticipants.get(groupName));
+                controller.getOrCreateGroupConversation(groupId);
                 pendingGroupParticipants.remove(groupName);
             }
-            
+            controller.getOrCreateGroupConversation(groupId);
             refreshHomeConversations();
         });
 
         eventHandler.setOnGroupMemberChanged(event -> {
             int groupId = event.getGroupId();
-            if (controller.getGroupRepository().findById(groupId) != null) 
-                controller.getGroupRepository().findById(groupId).addMember(event.getMemberId());
+            GroupInfo group;
+            if ((group = controller.getGroupRepository().findById(groupId)) != null){
+                ConversationClient open = controller.getConversationRepository().findById(currentConversationId);
+                if (open != null && open.getPeerId() == event.getGroupId()) {
+                    refreshMessages(open);
+                }
+            }    
         });
 
         eventHandler.setOnContactRequestResponse(event -> {
-            showContactRequestResponseDialog(event.isAccepted(), event.getOtherUserId());    
+            showContactRequestResponseDialog(event.isAccepted(), event.getOtherUserId());
         });
 
         eventHandler.setOnContactRequestReceived(event -> {
-            boolean choice = showContactRequestReceivedDialog(event.getSenderId());
-            controller.respondToContactRequest(event.getSenderId(), choice);   
+            Boolean choice = showContactRequestReceivedDialog(event.getSenderId());
+            if (choice != null) {
+                controller.respondToContactRequest(event.getSenderId(), choice);
+            } 
         });
 
         eventHandler.setOnUserPseudoUpdated(event -> {
             String newPseudo = event.getNewPseudo();
             setTitle("TchatApp - " + newPseudo);
+            homePanel.setUserPseudo(newPseudo);
             homePanel.repaint();
-
         });
 
         eventHandler.setOnContactUpdated(event -> {
             refreshHomeConversations();
-            homePanel.repaint();
         });
 
         eventHandler.setOnTextMessageReceived(event -> {
             refreshHomeConversations();
-            refreshMessages(controller.getConversationRepository().findById(event.getConversationId()));
-            conversationPanel.repaint();
+            String convId = event.getConversationId();
+            if (currentConversationId != null && currentConversationId.equals(convId)) {
+                ConversationClient conv = controller.getConversationRepository().findById(convId);
+                refreshMessages(conv);
+            }
         });
+
+        eventHandler.setOnMediaMessageReceived(event -> {
+            refreshHomeConversations();
+            String convId = event.getConversationId();
+            if (currentConversationId != null && currentConversationId.equals(convId)) {
+                ConversationClient conv = controller.getConversationRepository().findById(convId);
+                refreshMessages(conv);
+            }
+        });
+
+        eventHandler.setOnMessageStatusChanged(event -> {
+
+        });
+
+        eventHandler.setOnContactAdded(event -> {
+            int contactId = event.getContactId();
+            controller.getOrCreatePrivateConversation(contactId);
+            refreshHomeConversations();
+        });
+
+        eventHandler.setOnContactRemoved(event -> {
+
+        });
+
+        eventHandler.setOnUpdateGroupName(event -> {
+            int groupId = event.getGroupId();
+            GroupInfo group;
+            if ((group = controller.getGroupRepository().findById(groupId)) != null){
+                refreshHomeConversations();
+                ConversationClient open = controller.getConversationRepository().findById(currentConversationId);
+                if (open != null && open.getPeerId() == event.getGroupId()) {
+                    refreshMessages(open);
+                }
+            }  
+        });
+
+        eventHandler.setOnFileTransferProgress(this::handleFileTransferProgress);
     }
 
     // ----------------------- Login Flow -----------------------
@@ -222,7 +273,7 @@ public class MainFrame extends JFrame {
         eventHandler.registerSubscriptions();
 
         // Initialize group member pending for a group created on the request of the user
-        this.pendingGroupParticipants = new HashMap<String, Set<Integer>>();
+        this.pendingGroupParticipants = new HashMap<>();
     }
 
     private void onConnectionSuccess(int clientId, String pseudo, boolean isNewUser) {
@@ -239,6 +290,7 @@ public class MainFrame extends JFrame {
         }
 
         setTitle("TchatApp - " + pseudo);
+        homePanel.setUserPseudo(pseudo);
         showHome();
     }
 
@@ -279,13 +331,12 @@ public class MainFrame extends JFrame {
     private void showLogin() {
         cardLayout.show(cards, CARD_LOGIN);
         setSize(420, 360);
-        setLocationRelativeTo(null);
     }
 
     private void showHome() {
         cardLayout.show(cards, CARD_HOME);
         setSize(900, 600);
-        setLocationRelativeTo(null);
+        homePanel.clearSelection();   // <--- important pour pouvoir réouvrir la conv !!!
     }
 
     private void showConversation() {
@@ -293,6 +344,30 @@ public class MainFrame extends JFrame {
     }
 
     // ----------------------- Home Panel Actions -----------------------
+
+    /**
+     * Handle user request to update their pseudo
+     */
+    private void handleUpdatePseudoRequest() {
+        String currentPseudo = controller.getActiveUser().getPseudo();
+
+        String newPseudo;
+        do {
+            newPseudo = JOptionPane.showInputDialog(this, "Nouveau pseudo :", currentPseudo);
+            if (newPseudo == null) { return; }
+            newPseudo = newPseudo.trim();
+
+            if (newPseudo.isEmpty()) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Le pseudo ne peut pas être vide.",
+                        "Erreur",
+                        JOptionPane.ERROR_MESSAGE
+                );
+            }
+        } while (newPseudo.isEmpty());
+        controller.updatePseudo(newPseudo);
+    }
 
     private void handleNewConversationRequest() {
 
@@ -318,7 +393,6 @@ public class MainFrame extends JFrame {
             controller.createGroup(res.getConversationName());
 
             pendingGroupParticipants.put(res.getConversationName(), res.getParticipantIds());
-            
         }
         else {
             int otherParticipantId = res.getParticipantIds().iterator().next();
@@ -369,21 +443,158 @@ public class MainFrame extends JFrame {
         String idToAdd;
         try {
             do {
-            idToAdd = JOptionPane.showInputDialog(
-                    this,
-                    "Envoyer une demande de contact à :",
-                    "Nouveau contact",
-                    JOptionPane.QUESTION_MESSAGE
-            );
-            if (idToAdd == null) {}
-        } while (idToAdd.isEmpty());
-        controller.sendContactRequest(Integer.parseInt(idToAdd));
+                idToAdd = JOptionPane.showInputDialog(this, "Envoyer une demande de contact à :", "Nouveau contact", JOptionPane.QUESTION_MESSAGE);
+                if (idToAdd == null) { return; }
+                idToAdd = idToAdd.trim();
+            } while (idToAdd.isEmpty());
 
-
-        } catch (NullPointerException e) {}
-        
-
+            int otherUserId = Integer.parseInt(idToAdd);
+            controller.sendContactRequest(otherUserId);
+        } catch (NumberFormatException e) {
+            showErrorDialog("Identifiant invalide", "Veuillez entrer un nombre valide.");
+        }
     }
+
+    private void generateContactView() {
+        JDialog dialog = new JDialog(this, "Your contacts", true);
+        dialog.setLayout(new BorderLayout(8, 8));
+
+        JPanel listPanel = new JPanel();
+        listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
+
+        Set<ContactClient> contacts = controller.getContactRepository().findAll();
+
+        if (contacts.isEmpty()) {
+            listPanel.add(new JLabel("You have no contacts."));
+        } else {
+            for (ContactClient contact : contacts) {
+                String label = "- " + contact.getPseudo()
+                            + " (" + contact.getContactId() + ")";
+                listPanel.add(new JLabel(label));
+            }
+        }
+
+        JScrollPane scroll = new JScrollPane(listPanel);
+        scroll.setPreferredSize(new Dimension(300, 200));
+
+        dialog.add(scroll, BorderLayout.CENTER);
+
+        JButton closeBtn = new JButton("Close");
+        closeBtn.addActionListener(e -> dialog.dispose());
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(closeBtn);
+
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private void showPendingContactRequests() {
+
+        ContactClientRepository repo = controller.getContactRepository();
+        repo.cleanupExpiredRequests();
+
+        Set<ContactRequest> received = repo.getPendingReceivedRequests();
+        Set<ContactRequest> sent = repo.getPendingSentRequests();
+
+        if (received.isEmpty() && sent.isEmpty()) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "no pending contact requests",
+                    "pending contact requests",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+            return;
+        }
+
+        JDialog dialog = new JDialog(this, "Pending contact requests", true);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.setLayout(new BorderLayout(10, 10));
+
+        JPanel receivedListPanel = new JPanel();
+        receivedListPanel.setLayout(new BoxLayout(receivedListPanel, BoxLayout.Y_AXIS));
+
+        for (ContactRequest request : received) {
+            int senderId = request.getSenderId();
+
+            String pseudo = "User #" + senderId;
+            ContactClient contact = repo.findById(senderId);
+            if (contact != null && contact.getPseudo() != null && !contact.getPseudo().isEmpty()) {
+                pseudo = contact.getPseudo();
+            }
+
+            JPanel item = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            item.add(new JLabel(pseudo + " (" + senderId + ")"));
+
+            JButton acceptBtn = new JButton("Accept");
+            JButton denyBtn = new JButton("Deny");
+
+            acceptBtn.addActionListener(ev -> {
+                controller.respondToContactRequest(senderId, true);
+                dialog.dispose();
+                refreshHomeConversations();
+            });
+
+            denyBtn.addActionListener(ev -> {
+                controller.respondToContactRequest(senderId, false);
+                dialog.dispose();
+                refreshHomeConversations();
+            });
+
+            item.add(acceptBtn);
+            item.add(denyBtn);
+
+            receivedListPanel.add(item);
+        }
+
+        JScrollPane receivedScroll = new JScrollPane(receivedListPanel);
+
+        JPanel receivedPanel = new JPanel(new BorderLayout(4, 4));
+        receivedPanel.setBorder(BorderFactory.createTitledBorder("Received"));
+        receivedPanel.add(receivedScroll, BorderLayout.CENTER);
+
+        JPanel sentListPanel = new JPanel();
+        sentListPanel.setLayout(new BoxLayout(sentListPanel, BoxLayout.Y_AXIS));
+
+        for (ContactRequest request : sent) {
+            int receiverId = request.getReceiverId();
+
+            String pseudo = "User #" + receiverId;
+            ContactClient contact = repo.findById(receiverId);
+            if (contact != null && contact.getPseudo() != null && !contact.getPseudo().isEmpty()) {
+                pseudo = contact.getPseudo();
+            }
+
+            JPanel item = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            item.add(new JLabel(pseudo + " (" + receiverId + ")"));
+            sentListPanel.add(item);
+        }
+
+        JScrollPane sentScroll = new JScrollPane(sentListPanel);
+
+        JPanel sentPanel = new JPanel(new BorderLayout(4, 4));
+        sentPanel.setBorder(BorderFactory.createTitledBorder("Sent"));
+        sentPanel.add(sentScroll, BorderLayout.CENTER);
+
+        JPanel center = new JPanel(new GridLayout(1, 2, 8, 8));
+        center.add(receivedPanel);
+        center.add(sentPanel);
+        dialog.add(center, BorderLayout.CENTER);
+
+        JPanel south = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton closeBtn = new JButton("Close");
+        closeBtn.addActionListener(e -> dialog.dispose());
+        south.add(closeBtn);
+        dialog.add(south, BorderLayout.SOUTH);
+
+        dialog.setSize(600, 400);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+
 
 
     // ----------------------- Conversation Panel Actions -----------------------
@@ -395,47 +606,349 @@ public class MainFrame extends JFrame {
                                          .findById(conversation.getId());
 
         currentConversationId = conv.getConversationId();
-        if (conv.isGroupConversation()) 
+        if (conv.isGroupConversation()) {
             conversationPanel.setConversationTitle(conv.getConversationName());
-
+        }
 
         refreshMessages(conv);
- 
-        conversationPanel.setOnSend(text -> {
+
+        conversationPanel.setOnSend((text, replyId) -> {
             if (text == null || text.trim().isEmpty()) {
                 return;
             }
             String trimmed = text.trim();
 
-            if (conv.isGroupConversation()) {
-                int toUserId = Integer.parseInt(conv.getConversationId().substring("group_".length()));
-                controller.sendTextMessage(trimmed, toUserId);
-            } else {
-                int selfId = controller.getClientId();
-                int toUserId = conv.getParticipantIds()
-                                .stream()
-                                .filter(id -> id != selfId)
-                                .findFirst()
-                                .orElseThrow();
-                controller.sendTextMessage(trimmed, toUserId);
-            }
+            int toUserId = conv.getPeerId();
+            controller.sendTextMessage(trimmed, toUserId, replyId);
+            refreshMessages(conv);
         });
 
-        conversationPanel.setOnBack(e -> cl.show(cards, "home"));
+        conversationPanel.setOnOption(() -> {
+            if (conv.isGroupConversation()) {
+                showGroupOptions(conv);
+            }
+        });
+        conversationPanel.setOnBack(e -> showHome());
         cl.show(cards, "conversation");
-        setLocationRelativeTo(null);
     }
+
+    private void showGroupOptions(ConversationClient conv) {
+
+        // show members
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem viewMembers = new JMenuItem("Show members");
+        viewMembers.addActionListener(e -> showGroupMembersDialog(conv));
+        menu.add(viewMembers);
+
+        // add memebr by id
+        JMenuItem addMemberItem = new JMenuItem("Add a member");
+        addMemberItem.addActionListener(e -> handleAddMemberToGroup(conv));
+        menu.add(addMemberItem);
+
+        // remove member by id
+        JMenuItem removeMemberItem = new JMenuItem("Remove a member");
+        removeMemberItem.addActionListener(e -> handleRemoveMemberFromGroup(conv));
+        menu.add(removeMemberItem);
+
+        // rename group
+        JMenuItem renameItem = new JMenuItem("Rename group");
+        renameItem.addActionListener(e -> handleRenameGroup(conv));
+        menu.add(renameItem);
+
+        menu.show(conversationPanel, conversationPanel.getWidth() - 10, 35);
+
+        
+    }
+
+    private void handleRenameGroup(ConversationClient conv) {
+        if (!ensureAdminOrWarn(conv)) {
+            return;
+        }
+
+        String input = JOptionPane.showInputDialog(
+                this,
+                "New group name ?",
+                "Renaming group",
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (input == null) return; // cancel
+        input = input.trim();
+        if (input.isEmpty()) return;
+        controller.renameGroup(input, conv.getPeerId());
+    }
+
+    private void handleRemoveMemberFromGroup(ConversationClient conv) {
+        if (!ensureAdminOrWarn(conv)) {
+            return;
+        }
+
+        String input = JOptionPane.showInputDialog(
+                this,
+                "ID of member to be removed :",
+                "Remove a member",
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (input == null) return; // cancel
+        input = input.trim();
+        if (input.isEmpty()) return;
+
+        try {
+            int memberId = Integer.parseInt(input);
+            controller.removeMemberToGroup(conv.getPeerId(), memberId);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Invalid ID, choose an int",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    private void showGroupMembersDialog(ConversationClient conv) {
+        ContactClientRepository contacts = controller.getContactRepository();
+
+        StringBuilder sb = new StringBuilder();
+        for (var entry : controller.getGroupRepository().findById(conv.getPeerId()).getMembers().entrySet()) {
+            sb.append("- ").append(entry.getValue()).append(" (").append(entry.getKey()).append(")").append("\n");
+        }
+
+        JOptionPane.showMessageDialog(
+                this,
+                sb.toString(),
+                "Membres du groupe : " + conv.getConversationName(),
+                JOptionPane.INFORMATION_MESSAGE
+        );
+    }
+
+    private void handleAddMemberToGroup(ConversationClient conv) {
+        if (!ensureAdminOrWarn(conv)) {
+            return;
+        }
+
+        String input = JOptionPane.showInputDialog(
+                this,
+                "ID of member to be added :",
+                "Add a member",
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (input == null) return; // cancel
+        input = input.trim();
+        if (input.isEmpty()) return;
+
+        try {
+            int memberId = Integer.parseInt(input);
+            controller.addMemberToGroup(conv.getPeerId(), memberId);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Invalid ID, choose an int",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    private void handleFileSend(File file) {
+        if (currentConversationId == null) {
+            JOptionPane.showMessageDialog(this,
+                    "Aucune conversation sélectionnée",
+                    "Erreur",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        int recipientId = controller.getConversationRepository().findById(currentConversationId).getPeerId();
+
+        JProgressBar progressBar = new JProgressBar(0, 100);
+        progressBar.setStringPainted(true);
+        progressBar.setString("Envoi en cours... 0%");
+
+        JPanel progressPanel = new JPanel(new BorderLayout(10, 10));
+        progressPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        progressPanel.add(new JLabel("Envoi de : " + file.getName()), BorderLayout.NORTH);
+        progressPanel.add(progressBar, BorderLayout.CENTER);
+
+        JDialog progressDialog = new JDialog(this, "Envoi de fichier", false);
+        progressDialog.setContentPane(progressPanel);
+        progressDialog.pack();
+        progressDialog.setLocationRelativeTo(this);
+        progressDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        progressDialog.setVisible(true);
+
+        ClientController.FileProgressCallback callback = new ClientController.FileProgressCallback() {
+            @Override
+            public void onProgress(long bytesSent, long totalBytes, int chunksSent) {
+                SwingUtilities.invokeLater(() -> {
+                    int percentage = (int) ((bytesSent * 100) / totalBytes);
+                    progressBar.setValue(percentage);
+                    progressBar.setString(String.format("Envoi en cours... %d%% (%d chunks)",
+                            percentage, chunksSent));
+                });
+            }
+
+            @Override
+            public void onComplete(String fileName, long totalBytes, int totalChunks) {
+                SwingUtilities.invokeLater(() -> {
+                    progressDialog.dispose();
+
+                    try {
+                        String mediaId = java.util.UUID.randomUUID().toString();
+                        VirtualMedia virtualMedia = new VirtualMedia(
+                                mediaId,
+                                fileName,
+                                totalBytes,
+                                Instant.now(),
+                                controller.getClientId()
+                        );
+
+                        ConversationClient conversation = controller.getConversationRepository().findById(currentConversationId);
+                        if (conversation != null) {
+                            // TODO: Use real info
+                            Message message = new Message(
+                                    java.util.UUID.randomUUID().toString(),
+                                    controller.getClientId(),
+                                    recipientId,
+                                    "[Media Message]",
+                                    Instant.now(),
+                                    null
+                            );
+                            message.setAttachedMedia(virtualMedia);
+
+                            conversation.addMessage(message);
+                            controller.getConversationRepository().update(currentConversationId, conversation);
+
+                            if (currentConversationId != null) {
+                                List<ConversationPanel.MessageItem> messages = loadMessages(conversation);
+                                conversationPanel.setMessages(messages);
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.err.println("[MainFrame] Error creating local media message: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+
+                    String sizeStr = formatFileSize(totalBytes);
+                    JOptionPane.showMessageDialog(
+                            MainFrame.this,
+                            String.format("Fichier '%s' envoyé avec succès!\nTaille: %s\nChunks: %d",
+                                    fileName, sizeStr, totalChunks),
+                            "Envoi terminé",
+                            JOptionPane.INFORMATION_MESSAGE
+                    );
+                });
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                SwingUtilities.invokeLater(() -> {
+                    progressDialog.dispose();
+                    JOptionPane.showMessageDialog(
+                            MainFrame.this,
+                            "Erreur lors de l'envoi du fichier:\n" + errorMessage,
+                            "Erreur",
+                            JOptionPane.ERROR_MESSAGE
+                    );
+                });
+            }
+        };
+
+        controller.sendFile(String.valueOf(file.toPath()), recipientId, callback);
+    }
+
+    private String formatFileSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
+        if (bytes < 1024 * 1024 * 1024) return String.format("%.1f MB", bytes / (1024.0 * 1024));
+        return String.format("%.1f GB", bytes / (1024.0 * 1024 * 1024));
+    }
+
+    private void handleFileDownload(String mediaId) {
+        MediaManager mediaManager = controller.getMediaManager();
+        VirtualMedia media = mediaManager.getVirtualMedia(mediaId);
+
+        if (media == null) {
+            JOptionPane.showMessageDialog(this, "Fichier introuvable", "Erreur", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Enregistrer le fichier");
+        fileChooser.setSelectedFile(new File(media.getFileName()));
+
+        int result = fileChooser.showSaveDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File destination = fileChooser.getSelectedFile();
+            Path destPath = destination.toPath();
+
+            boolean success = mediaManager.saveMediaTo(mediaId, destPath);
+
+            if (success) {
+                JOptionPane.showMessageDialog(this, "Fichier enregistré: " + destination.getAbsolutePath(), "Succès", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, "Erreur lors de l'enregistrement du fichier", "Erreur", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void handleFileOpen(String mediaId) {
+        MediaManager mediaManager = controller.getMediaManager();
+        Path filePath = mediaManager.getMediaPath(mediaId);
+
+        if (filePath == null || !Files.exists(filePath)) {
+            JOptionPane.showMessageDialog(this, "Fichier introuvable", "Erreur", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (Desktop.isDesktopSupported()) {
+            try {
+                Desktop.getDesktop().open(filePath.toFile());
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(this, "Impossible d'ouvrir le fichier: " + e.getMessage(), "Erreur", JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Ouverture de fichier non supportée sur ce système", "Erreur", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void handleFileTransferProgress(FileTransferProgressEvent event) {
+        if (event.isComplete()) {
+            System.out.printf("[MainFrame] File transfer complete: %s (%s)%n", event.getFileName(), event.getFormattedProgress());
+        } else {
+            System.out.printf("[MainFrame] File transfer progress: %s - %s (%d chunks)%n", event.getFileName(), event.getFormattedProgress(), event.getChunksReceived());
+        }
+    }
+
 
     public List<ConversationPanel.MessageItem> loadMessages(ConversationClient conversation){
         List<Message> messagesFromConv = conversation.getMessagesFrom(null, -1, true, true);
         ContactClientRepository contactClientRepository = controller.getContactRepository();
-        List<ConversationPanel.MessageItem> messageItems = new ArrayList<ConversationPanel.MessageItem>();
+        List<ConversationPanel.MessageItem> messageItems = new ArrayList<>();
         for (Message message : messagesFromConv) {
-            messageItems.add(new ConversationPanel.MessageItem (
-                             message.getFromUserId() == controller.getClientId(),
-                             contactClientRepository.findById(message.getFromUserId())
-                                                    .getPseudo(),
-                             message.getContent()));
+            boolean isOwnMessage = message.getFromUserId() == controller.getClientId();
+            String pseudo;
+            if (isOwnMessage) {
+                pseudo = "Vous";
+            } else {
+                ContactClient contact = contactClientRepository.findById(message.getFromUserId());
+                if (contact != null) {
+                    pseudo = contact.getPseudo();
+                } else {
+                    String groupPseudo = controller.getGroupRepository().findById(conversation.getPeerId()).getMemberName(message.getFromUserId());
+                    pseudo = (groupPseudo != null) ? groupPseudo : "User " + message.getFromUserId();
+                }
+            }
+            messageItems.add(new ConversationPanel.MessageItem(
+                    isOwnMessage,
+                    pseudo,
+                    message.getContent(),
+                    message.getMessageId(),
+                    message.getReplyToMessageId(),
+                    message.getAttachedMedia()
+            ));
         }
         return messageItems;
     }
@@ -472,7 +985,6 @@ public class MainFrame extends JFrame {
         JOptionPane.showMessageDialog(this, message, title, JOptionPane.ERROR_MESSAGE);
     }
 
-
     private void showContactRequestResponseDialog (boolean isAccepted, int otherUserId) {
 
         String user = "User " + otherUserId;
@@ -492,9 +1004,9 @@ public class MainFrame extends JFrame {
         );
 
     }
-    
-    private boolean showContactRequestReceivedDialog (int senderID) {
-        String [] options = {"Add user as contact", "Deny contact request"};
+
+    private Boolean showContactRequestReceivedDialog (int senderID) {
+        String [] options = {"Add user as contact", "Deny contact request", "Decide later"};
         int selection = JOptionPane.showOptionDialog(this,
                                                     "Contact request from " + senderID + "received",
                                                     "Contact Request received",
@@ -502,15 +1014,37 @@ public class MainFrame extends JFrame {
                                                     JOptionPane.INFORMATION_MESSAGE,
                                                     null,
                                                     options,
-                                                    options[0]                          
+                                                    options[0]
         );
-        boolean choice = (selection == 0);
-        return choice;
+        if (selection == JOptionPane.CLOSED_OPTION || selection == 2) {
+        // null means do nothing, keep request pending
+            return null;
+        }
+        return (selection == 0);
     }
 
     private void refreshMessages(ConversationClient conv) {
         List<ConversationPanel.MessageItem> messageItems = loadMessages(conv);
         conversationPanel.setMessages(messageItems);
+    }
+
+    private boolean isGroupAdmin(ConversationClient conv) {
+        GroupInfo group = controller.getGroupRepository().findById(conv.getPeerId());
+        if (group == null) {return false; }
+        return group.getAdminId() == controller.getClientId();
+    }
+
+    private boolean ensureAdminOrWarn(ConversationClient conv) {
+        if (isGroupAdmin(conv)) {
+            return true;
+        }
+        JOptionPane.showMessageDialog(
+                this,
+                "Admin only, fool",
+                "You're not supposed to do that",
+                JOptionPane.WARNING_MESSAGE
+        );
+        return false;
     }
 
     // ----------------------- Entry Point -----------------------

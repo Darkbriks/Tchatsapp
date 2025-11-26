@@ -29,6 +29,9 @@ public enum MessageType {
     FILE_TRANSFER_ACK,
     GROUP_KEY_DISTRIBUTION,
     MESSAGE_ACK,
+    SERVER_KEY_EXCHANGE,
+    SERVER_KEY_EXCHANGE_RESPONSE,
+    SERVER_ENCRYPTED,
     NONE;
 
     /** Convert an integer to a MessageType enum.
@@ -69,5 +72,28 @@ public enum MessageType {
     @Override
     public String toString() {
         return this.name();
+    }
+
+    /**
+     * Check if this message type is related to server key exchange.
+     *
+     * @return true if this is a server key exchange message type
+     */
+    public boolean isServerKeyExchange() {
+        return this == SERVER_KEY_EXCHANGE || this == SERVER_KEY_EXCHANGE_RESPONSE;
+    }
+
+    /**
+     * Check if this message type should be encrypted for server communication.
+     * Messages to/from the server (management messages) should be encrypted.
+     *
+     * @return true if this message type should use server encryption
+     */
+    public boolean requiresServerEncryption() {
+        return switch (this) {
+            case SERVER_KEY_EXCHANGE, SERVER_KEY_EXCHANGE_RESPONSE,
+                 KEY_EXCHANGE, KEY_EXCHANGE_RESPONSE, NONE -> false;
+            default -> true;
+        };
     }
 }

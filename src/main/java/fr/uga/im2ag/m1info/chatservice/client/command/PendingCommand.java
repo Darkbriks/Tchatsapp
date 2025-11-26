@@ -2,6 +2,8 @@ package fr.uga.im2ag.m1info.chatservice.client.command;
 
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 
+import java.util.Map;
+
 /**
  * Interface for commands that await acknowledgment from the server.
  * Implements the Command pattern for tracking pending operations.
@@ -18,9 +20,10 @@ public interface PendingCommand {
      * Called when an acknowledgment is received for this command.
      *
      * @param ackType the type of acknowledgment received
+     * @param params  additional parameters related to the acknowledgment
      * @return true if the command can be considered complete, and removed from pending list, false otherwise
      */
-    boolean onAckReceived(MessageStatus ackType);
+    boolean onAckReceived(MessageStatus ackType, Map<String, Object> params);
 
     /**
      * Called when the command fails.

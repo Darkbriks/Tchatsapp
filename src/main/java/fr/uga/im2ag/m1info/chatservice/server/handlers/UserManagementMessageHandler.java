@@ -4,9 +4,13 @@ import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ManagementMessage;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.MessageFactory;
 import fr.uga.im2ag.m1info.chatservice.common.messagefactory.ProtocolMessage;
+import fr.uga.im2ag.m1info.chatservice.common.model.GroupInfo;
 import fr.uga.im2ag.m1info.chatservice.server.TchatsAppServer;
 import fr.uga.im2ag.m1info.chatservice.server.model.UserInfo;
 import fr.uga.im2ag.m1info.chatservice.server.util.AckHelper;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Handler for user management messages such as user creation, connection, and contact management.
@@ -69,7 +73,7 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
             connectionFailed(serverContext, state, newClientId, "Failed to register connection");
             return;
         }
-
+        
         ManagementMessage response = ((ManagementMessage) MessageFactory.create(MessageType.ACK_CONNECTION, 0, newClientId))
                 .addParam("clientId", newClientId)
                 .addParam("pseudo", pseudo)
@@ -196,9 +200,19 @@ public class UserManagementMessageHandler extends ValidatingServerPacketHandler 
         serverContext.getUserRepository().update(user.getId(), user);
         ServerPacketHandler.LOG.info(String.format("User %d updated pseudo to %s", from, newPseudo));
 
-        for (int contactId : user.getContacts()) {
-            if (serverContext.isClientConnected(contactId)) {
-                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, from, contactId))
+        // TODO: Find a less barbaric way to notify groups members of pseudo change
+        // Maintaining a list of which users are in which groups would be more civilized
+        Set<Integer> recipients = new HashSet<>(user.getContacts());
+        for (GroupInfo group : serverContext.getGroupRepository().findAll()) {
+            if (group.hasMember(from)) {
+                recipients.addAll(group.getMembersId());
+            }
+        }
+        recipients.remove(from);
+
+        for (int recipientId : recipients) {
+            if (serverContext.isClientConnected(recipientId)) {
+                serverContext.sendPacketToClient(((ManagementMessage) MessageFactory.create(MessageType.UPDATE_PSEUDO, from, recipientId))
                         .addParam("contactId", from)
                         .addParam("newPseudo", newPseudo)
                         .toPacket()

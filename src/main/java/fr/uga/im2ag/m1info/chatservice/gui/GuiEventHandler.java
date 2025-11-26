@@ -32,6 +32,11 @@ public class GuiEventHandler {
     private Consumer<ContactRequestResponseEvent> onContactRequestResponse;
     private Consumer<GroupCreateEvent> onGroupCreated;
     private Consumer<ChangeMemberInGroupEvent> onGroupMemberChanged;
+    private Consumer<ManagementOperationSucceededEvent> onManagementOperationSucceeded;
+    private Consumer<ManagementOperationFailedEvent> onManagementOperationFailed;
+    private Consumer<UpdateGroupNameEvent> onUpdateGroupName;
+    private Consumer<FileTransferProgressEvent> onFileTransferProgress;
+
 
     public GuiEventHandler(ClientController controller) {
         this.controller = controller;
@@ -126,6 +131,30 @@ public class GuiEventHandler {
                 this::handleError,
                 ExecutionMode.ASYNC
         ));
+
+        subscriptions.add(controller.subscribeToEvent(
+                ManagementOperationSucceededEvent.class,
+                this::handleManagementOperationSucceeded,
+                ExecutionMode.ASYNC
+        ));
+
+        subscriptions.add(controller.subscribeToEvent(
+                ManagementOperationFailedEvent.class,
+                this::handleManagementOperationFailed,
+                ExecutionMode.ASYNC
+        ));
+
+        subscriptions.add(controller.subscribeToEvent(
+                UpdateGroupNameEvent.class,
+                this::handleUpdateGroupName,
+                ExecutionMode.ASYNC
+        ));
+
+        subscriptions.add(controller.subscribeToEvent(
+                FileTransferProgressEvent.class,
+                this::handleFileTransferProgress,
+                ExecutionMode.SYNC
+        ));
     }
 
     /**
@@ -193,6 +222,24 @@ public class GuiEventHandler {
         dispatchToEDT(onError, event);
     }
 
+    private void handleManagementOperationSucceeded (ManagementOperationSucceededEvent event) {
+        dispatchToEDT(onManagementOperationSucceeded, event);
+    }
+
+    private void handleManagementOperationFailed (ManagementOperationFailedEvent event) {
+        dispatchToEDT(onManagementOperationFailed, event);
+    }
+
+    private void handleUpdateGroupName (UpdateGroupNameEvent event) {
+        dispatchToEDT(onUpdateGroupName, event);
+    }
+
+    private void handleFileTransferProgress(FileTransferProgressEvent event) {
+        if (onFileTransferProgress != null) {
+            onFileTransferProgress.accept(event);
+        }
+    }
+
     // ----------------------- Utility -----------------------
 
     private <T> void dispatchToEDT(Consumer<T> callback, T event) {
@@ -253,5 +300,21 @@ public class GuiEventHandler {
 
     public void setOnGroupMemberChanged(Consumer<ChangeMemberInGroupEvent> callback) {
         this.onGroupMemberChanged = callback;
+    }
+
+    public void setOnManagementOperationSucceeded(Consumer<ManagementOperationSucceededEvent> callback) {
+        this.onManagementOperationSucceeded = callback;
+    }
+
+    public void setOnManagementOperationFailed(Consumer<ManagementOperationFailedEvent> callback) {
+        this.onManagementOperationFailed = callback;
+    }
+
+    public void setOnUpdateGroupName(Consumer<UpdateGroupNameEvent> callback) {
+        this.onUpdateGroupName = callback;
+    }
+
+    public void setOnFileTransferProgress(Consumer<FileTransferProgressEvent> callback) {
+        this.onFileTransferProgress = callback;
     }
 }

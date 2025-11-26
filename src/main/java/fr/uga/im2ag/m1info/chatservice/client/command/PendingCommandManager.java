@@ -64,7 +64,7 @@ public class PendingCommandManager {
             command.onAckFailed(reason);
             pendingCommands.remove(msgId);
         } else {
-            if (command.onAckReceived(ack.getAckType()) || ack.getAckType() == MessageStatus.READ) {
+            if (command.onAckReceived(ack.getAckType(), ack.getAdditionalData()) || ack.getAckType() == MessageStatus.READ) {
                 pendingCommands.remove(msgId);
             }
         }

@@ -285,7 +285,7 @@ public class CliClient {
      */
     private void displayGroupMenu() {
         System.out.println("\n╔════════════════════════════════════════════════╗");
-        System.out.println("║              TCHATSAPP MAIN MENU               ║");
+        System.out.println("║             TCHATSAPP GROUP MENU               ║");
         System.out.println("╠════════════════════════════════════════════════╣");
         System.out.println("║ 1. Create a group                              ║");
         System.out.println("║ 2. Leave a group                               ║");
@@ -335,21 +335,25 @@ public class CliClient {
             return;
         }
 
-        System.out.print("Your message (start with '/' for file path): ");
+        System.out.print("Your message (/file <path> for file, /reply <msgId> <text> for reply): ");
         String msg = scanner.nextLine();
 
-        if(!msg.isEmpty() && msg.startsWith("/reaction")){
+        if(!msg.isEmpty() && msg.startsWith("/reply")){
             String[] parts = msg.split(" ", 3);
-            if(parts.length >= 3) { 
+            if(parts.length >= 3) {
                 String messageId = parts[1];
                 String reaction = parts[2];
                 clientController.sendReactionMessage(reaction, to, messageId);
             } else {
-                System.out.println("Correct format : /reaction <messageId> <reaction>");
+                System.out.println("Correct format : /reply <messageId> <reaction>");
             }
-        }
-        else if (!msg.isEmpty() && msg.charAt(0) == '/') {
-            clientController.sendMedia(msg, to);
+        } else if (msg.startsWith("/file ")) {
+            String filePath = msg.substring(6).trim();
+            if (!filePath.isEmpty()) {
+                clientController.sendFile(filePath, to);
+            } else {
+                System.err.println("File path cannot be empty.");
+            }
         } else {
             clientController.sendTextMessage(msg, to);
         }
@@ -560,11 +564,13 @@ public class CliClient {
         for (GroupInfo group : groups) {
             System.out.println("║ ID: " + group.getGroupId());
             System.out.println("║ NAME: " + group.getGroupName());
-            for ( int member : group.getMembers()){
-                if (clientController.getContactRepository().isContact(member)){
-                    System.out.println("║ MENBER_NAME: " + clientController.getContactRepository().findById(member).getPseudo());
+            for (var entry : group.getMembers().entrySet()) {
+                int memberId = entry.getKey();
+                String memberName = entry.getValue();
+                if (memberName.isEmpty()) {
+                    System.out.println("║ MEMBER_ID: " + memberId);
                 } else {
-                    System.out.println("║ MENBER_ID: " + member);
+                    System.out.println("║ MEMBER_NAME: " + memberName + " (ID: " + memberId + ")");
                 }
             }
             System.out.println("╚════════════════════════════════════════════════╝");
@@ -617,7 +623,7 @@ public class CliClient {
             System.out.println("║ ID: " + conv.getConversationId());
             System.out.println("║ Name: " + conv.getConversationName());
             System.out.println("║ Type: " + (conv.isGroupConversation() ? "Group" : "Private"));
-            System.out.println("║ Participants: " + conv.getParticipantIds().size());
+            System.out.println("║ Participants: " + conv.getParticipantIds(clientController.getGroupRepository()).size());
 
             // Get message count
             var messages = conv.getMessagesFrom(null, -1, true, true);
@@ -638,7 +644,7 @@ public class CliClient {
      * View conversation history.
      */
     private void handleViewConversationHistory() {
-        System.out.print("Enter conversation ID (or recipient user ID for private chat): ");
+        System.out.print("Enter conversation ID or user/group ID directly: ");
         String input = scanner.nextLine().trim();
 
         ConversationClient conversation;
@@ -646,9 +652,12 @@ public class CliClient {
         // Try to parse as user ID first
         try {
             int userId = Integer.parseInt(input);
-            String conversationId = ClientController.generatePrivateConversationId(
-                    clientController.getClientId(), userId);
+            String conversationId = ClientController.generatePrivateConversationId(clientController.getClientId(), userId);
             conversation = clientController.getConversationRepository().findById(conversationId);
+            if (conversation == null) {
+                conversationId = ClientController.generateGroupConversationId(userId);
+                conversation = clientController.getConversationRepository().findById(conversationId);
+            }
         } catch (NumberFormatException e) {
             // Not a number, use as conversation ID directly
             conversation = clientController.getConversationRepository().findById(input);
@@ -682,6 +691,7 @@ public class CliClient {
         System.out.println("╠════════════════════════════════════════════════╣");
 
         for (Message msg : messages) {
+            System.out.println("║ message ID: " + msg.getMessageId());
             String fromLabel = (msg.getFromUserId() == clientController.getClientId())
                     ? "You"
                     : "User #" + msg.getFromUserId();

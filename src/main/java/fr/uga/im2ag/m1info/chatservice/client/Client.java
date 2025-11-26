@@ -12,6 +12,7 @@
 package fr.uga.im2ag.m1info.chatservice.client;
 
 import fr.uga.im2ag.m1info.chatservice.client.command.PendingCommandManager;
+import fr.uga.im2ag.m1info.chatservice.client.encryption.ClientServerEncryptionService;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 import fr.uga.im2ag.m1info.chatservice.common.Packet;
@@ -20,6 +21,7 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 
 import java.io.*;
 import java.net.Socket;
+import java.security.GeneralSecurityException;
 
 /**
  * A basic client for Tchatsapp.
@@ -27,7 +29,7 @@ import java.net.Socket;
  */
 public class Client {
 
-    private static final int MAX_SIZE_CHUNK_FILE = 8192;
+    public static final int MAX_SIZE_CHUNK_FILE = 8192;
     private int clientId;
     private Socket cnx;
     private DataOutputStream dos;
@@ -35,6 +37,7 @@ public class Client {
     private PacketProcessor processor;
     private Thread receptionThread;
     private final PendingCommandManager commandManager;
+    private final ClientServerEncryptionService serverEncryption;
 
     /**
      * Creates a new Client with clientId 0 (for user creation).
@@ -51,6 +54,7 @@ public class Client {
     public Client(int clientId) {
         this.clientId = clientId;
         this.commandManager = new PendingCommandManager();
+        this.serverEncryption = new ClientServerEncryptionService();
     }
 
     /**
@@ -89,6 +93,16 @@ public class Client {
         dos = new DataOutputStream(cnx.getOutputStream());
         dis = new DataInputStream(cnx.getInputStream());
 
+        Packet serverKeyExchange = Packet.readFrom(dis);
+        if (serverKeyExchange.messageType() != MessageType.SERVER_KEY_EXCHANGE) {
+            throw new IOException("Expected SERVER_KEY_EXCHANGE, got: " + serverKeyExchange.messageType());
+        }
+
+        Packet keyExchangeResponse = serverEncryption.handleServerKeyExchange(serverKeyExchange);
+        keyExchangeResponse.writeTo(dos);
+
+        System.out.println("[Client] Server encryption established");
+
         Packet connectionPacket;
         if (clientId == 0) {
             ManagementMessage createMsg = (ManagementMessage) MessageFactory.create(MessageType.CREATE_USER, 0, 0);
@@ -99,6 +113,7 @@ public class Client {
             connectionPacket = connectMsg.toPacket();
         }
 
+        connectionPacket = serverEncryption.encryptForServer(connectionPacket);
         connectionPacket.writeTo(dos);
 
         startReceptionThread(dis);
@@ -162,7 +177,18 @@ public class Client {
      * @param m the received packet
      */
     private void processReceivedPacket(Packet m) {
-        if (processor != null) { processor.process(MessageFactory.fromPacket(m)); }
+        if (serverEncryption.needsDecryption(m)) {
+            try {
+                m = serverEncryption.decryptFromServer(m);
+            } catch (GeneralSecurityException e) {
+                System.err.println("[Client] Failed to decrypt packet: " + e.getMessage());
+                return;
+            }
+        }
+
+        if (processor != null) {
+            processor.process(MessageFactory.fromPacket(m));
+        }
     }
 
     /**
@@ -212,8 +238,9 @@ public class Client {
     public boolean sendPacket(Packet m) {
         System.out.println("[Client] Sending packet: " + m);
         try {
+            Packet toSend = serverEncryption.encryptForServer(m);
             synchronized (dos) {
-                m.writeTo(dos);
+                toSend.writeTo(dos);
             }
             return true;
         } catch (IOException e) {

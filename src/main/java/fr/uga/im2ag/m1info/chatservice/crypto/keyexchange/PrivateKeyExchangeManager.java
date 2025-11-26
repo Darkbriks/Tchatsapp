@@ -356,14 +356,31 @@ public class PrivateKeyExchangeManager implements IKeyExchangeManager {
         }
     }
 
+    /**
+     * Derives a session key from ECDH shared secret using HKDF.
+     * <p>
+     * Uses a canonical conversation ID (smaller ID first) as context for domain separation.
+     * This ensures both parties derive the same key regardless of who initiated the exchange.
+     * Follows NIST SP 800-56C recommendations for key derivation.
+     *
+     * @param ourKeyPair     our ephemeral key pair
+     * @param peerPublicKey  the peer's public key
+     * @param peerId         the peer ID
+     * @return the derived AES-256 session key
+     * @throws GeneralSecurityException if key derivation fails
+     */
     private SecretKey deriveSessionKey(KeyPair ourKeyPair, PublicKey peerPublicKey, int peerId) throws GeneralSecurityException {
         byte[] sharedSecret = keyExchange.deriveSharedSecret(
                 ourKeyPair.getPrivate(), peerPublicKey
         );
 
-        // Use SHA-256 to derive AES key from shared secret
-        MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-        byte[] keyBytes = sha256.digest(sharedSecret);
+        // Create canonical conversation ID: always use the smaller ID first
+        // This ensures both parties derive the same key from the shared secret
+        int smallerId = Math.min(localClientId, peerId);
+        int largerId = Math.max(localClientId, peerId);
+        String canonicalConversationId = PRIVATE_PREFIX + smallerId + "_" + largerId;
+
+        byte[] keyBytes = keyExchange.deriveSessionKey(sharedSecret, canonicalConversationId);
 
         return new SecretKeySpec(keyBytes, "AES");
     }

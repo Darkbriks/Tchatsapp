@@ -6,6 +6,8 @@ import fr.uga.im2ag.m1info.chatservice.client.model.UserClient;
 import fr.uga.im2ag.m1info.chatservice.common.MessageStatus;
 import fr.uga.im2ag.m1info.chatservice.common.MessageType;
 
+import java.util.Map;
+
 public class UpdatePseudoCommand extends SendManagementMessageCommand {
     private final String newPseudo;
     private final UserClient userClient;
@@ -17,7 +19,7 @@ public class UpdatePseudoCommand extends SendManagementMessageCommand {
     }
 
     @Override
-    public boolean onAckReceived(MessageStatus ackType) {
+    public boolean onAckReceived(MessageStatus ackType, Map<String, Object> params) {
         userClient.setPseudo(newPseudo);
         EventBus.getInstance().publish(new UserPseudoUpdatedEvent(this, newPseudo));
         System.out.printf("[Client] User pseudo has been updated to '%s'.%n", newPseudo);

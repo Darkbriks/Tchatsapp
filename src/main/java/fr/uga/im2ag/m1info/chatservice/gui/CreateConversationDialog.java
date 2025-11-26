@@ -52,6 +52,10 @@ public class CreateConversationDialog extends JDialog {
     private final JButton btnOk = new JButton("Créer");
     private final JButton btnCancel = new JButton("Annuler");
 
+    private final java.util.List<ContactItem> items = new ArrayList<>();
+    private final JTextField manualIdField = new JTextField(8);
+    private final JButton addIdButton = new JButton("Ajouter ID");
+
     private Result result;
 
     /** Create a conversation dialog which will allow to create a new conversation from the selected participants
@@ -106,7 +110,7 @@ public class CreateConversationDialog extends JDialog {
         c.weighty = 1.0;
 
         // load contacts from repo
-        List<ContactItem> items = new ArrayList<>();
+        items.clear();
         for (ContactClient contact : contactRepo.findAll()) {
             if (contact.getContactId() == currentUserId) {
                 continue; // we don't show the client itself if it has been added by mistake
@@ -114,10 +118,26 @@ public class CreateConversationDialog extends JDialog {
             items.add(new ContactItem(contact.getContactId(), contact.getPseudo()));
         }
         contactList.setListData(items.toArray(new ContactItem[0]));
+
+        contactList.setListData(items.toArray(new ContactItem[0]));
         contactList.setVisibleRowCount(8);
         contactList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         JScrollPane scroll = new JScrollPane(contactList);
         content.add(scroll, c);
+
+        // add member by ID (for groups, but we don't enforce here)
+        c.gridy++; 
+        c.gridwidth = 2;
+        c.weighty = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+
+        JPanel addIdPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        addIdPanel.add(new JLabel("Add member by ID :"));
+        manualIdField.setColumns(8);
+        addIdPanel.add(manualIdField);
+        addIdButton.setFocusable(false);
+        addIdPanel.add(addIdButton);
+        content.add(addIdPanel, c);
 
         // 4) boottom panel
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -138,6 +158,10 @@ public class CreateConversationDialog extends JDialog {
                 contactList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
             }
         });
+
+        addIdButton.addActionListener(e -> onAddManualId(currentUserId));
+        manualIdField.addActionListener(e -> onAddManualId(currentUserId)); // Enter key
+
 
         btnCancel.addActionListener(e -> {
             result = null;
@@ -207,6 +231,64 @@ public class CreateConversationDialog extends JDialog {
         result = new Result(name, ids, isGroup);
         dispose();
     }
+
+    private void onAddManualId(int currentUserId) {
+
+        if (!rbGroup.isSelected()) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Adding by ID is reserved for group conv",
+                    "Information",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+            return;
+        }
+
+        String txt = manualIdField.getText().trim();
+        if (txt.isEmpty()) {
+            return;
+        }
+
+        int id;
+        try {
+            id = Integer.parseInt(txt);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "invalid ID, please enter an INT",
+                    "Erreur",
+                    JOptionPane.ERROR_MESSAGE
+            );
+            return;
+        }
+
+        // Check if already present
+        for (ContactItem ci : items) {
+            if (ci.getId() == id) {
+                // Already in the list: just select it and exit
+                int index = items.indexOf(ci);
+                if (index >= 0) {
+                    contactList.addSelectionInterval(index, index);
+                }
+                manualIdField.setText("");
+                return;
+            }
+        }
+
+        // Not present: create a temporary entry "User #id"
+        ContactItem newItem = new ContactItem(id, "User #" + id);
+        items.add(newItem);
+
+        // Refresh the JList data
+        contactList.setListData(items.toArray(new ContactItem[0]));
+
+        // Select the newly added item
+        int newIndex = items.size() - 1;
+        contactList.addSelectionInterval(newIndex, newIndex);
+
+        manualIdField.setText("");
+    }
+
 
     public Result showDialog() {
         setVisible(true); // block until dispose

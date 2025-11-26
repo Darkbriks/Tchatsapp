@@ -1,13 +1,10 @@
 package fr.uga.im2ag.m1info.chatservice.gui;
 
+import fr.uga.im2ag.m1info.chatservice.gui.ConversationPanel.MessageItem;
+
+import javax.swing.*;
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.swing.JFrame;
-import javax.swing.SwingUtilities;
-import javax.swing.WindowConstants;
-
-import fr.uga.im2ag.m1info.chatservice.gui.ConversationPanel.MessageItem;
 
 public class ConversationPanelTest {
     public static void main(String[] args) {
@@ -27,7 +24,7 @@ public class ConversationPanelTest {
             p.setMessages(demo);
 
             p.setOnBack(e -> System.out.println("GoBackHomeSweeeeeeeetHome"));
-            p.setOnSend(text -> p.appendMessage(new MessageItem(true, null, text)));
+            p.setOnSend((text, replyId) -> p.appendMessage(new MessageItem(true, null, text)));
 
             f.setContentPane(p);
             f.setSize(520, 560);
@@ -35,5 +32,5 @@ public class ConversationPanelTest {
             f.setVisible(true);
         });
     }
-    
+
 }

@@ -1,0 +1,51 @@
+@startuml Group Chat Encryption
+!theme plain
+title End-to-End Group Chat Encryption
+
+participant "Client A" as CA
+participant "Server" as S
+participant "Client B" as CB
+participant "Client C" as CC
+
+note over CA,CC: All clients connected with server encryption established
+
+== Creating Encrypted Group ==
+
+CA -> S: Encrypted(CREATE_GROUP\nwith participants B, C)
+S -> S: Create conversation
+
+S -> S: Generate group key
+S -> S: Encrypt group key\nfor each participant
+
+S -> CB: Encrypted(GROUP_KEY_DISTRIBUTION)
+S -> CC: Encrypted(GROUP_KEY_DISTRIBUTION)
+S -> CA: Encrypted(Success)
+
+note over CA,CC: All clients have the group key
+
+== Sending Group Message ==
+
+CA -> CA: Encrypt message\nwith group key
+CA -> S: Encrypted(TEXT\nwith encrypted payload)
+
+S -> S: Decrypt outer layer\n(server encryption)
+S -> S: Relay encrypted group message\n(stays encrypted)
+
+S -> CB: Encrypted(TEXT)
+S -> CC: Encrypted(TEXT)
+
+CB -> CB: Decrypt outer layer\n(server encryption)
+CB -> CB: Decrypt group message\n(group key)
+CB -> CB: Display message
+
+CC -> CC: Decrypt outer layer\n(server encryption)
+CC -> CC: Decrypt group message\n(group key)
+CC -> CC: Display message
+
+note over CA,CC
+Double encryption:
+- Inner: Group message encrypted with group key
+- Outer: Server transport encrypted with session key
+end note
+
+@enduml

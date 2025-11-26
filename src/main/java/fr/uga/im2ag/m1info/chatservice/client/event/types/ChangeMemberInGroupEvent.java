@@ -8,6 +8,7 @@ import fr.uga.im2ag.m1info.chatservice.client.event.system.Event;
 public class ChangeMemberInGroupEvent extends Event {
     private final int groupId;
     private final int memberId;
+    private final String memberPseudo;
     private final boolean isAdded; // true if member is added, false if removed
 
     /** Constructor for the UserPseudoUpdatedEvent class.
@@ -17,10 +18,11 @@ public class ChangeMemberInGroupEvent extends Event {
      * @param memberId The member being added or removed.
      * @param isAdded True if the member is added, false if removed.
      */
-    public ChangeMemberInGroupEvent(Object source, int groupId, int memberId, boolean isAdded) {
+    public ChangeMemberInGroupEvent(Object source, int groupId, int memberId, String memberPseudo, boolean isAdded) {
         super(source);
         this.groupId = groupId;
         this.memberId = memberId;
+        this.memberPseudo = memberPseudo;
         this.isAdded = isAdded;
     }
 
@@ -38,6 +40,14 @@ public class ChangeMemberInGroupEvent extends Event {
      */
     public int getMemberId() {
         return memberId;
+    }
+
+    /** Gets the member pseudo that was added or removed.
+     *
+     * @return The member pseudo.
+     */
+    public String getMemberPseudo() {
+        return memberPseudo;
     }
 
     /** Indicates whether the member was added or removed.
