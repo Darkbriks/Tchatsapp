@@ -1,6 +1,7 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
+import fr.uga.im2ag.m1info.chatservice.client.event.system.Event;
 import fr.uga.im2ag.m1info.chatservice.client.event.system.EventBus;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.FileTransferProgressEvent;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.MediaMessageReceivedEvent;
@@ -33,6 +34,8 @@ public class ConversationMessageHandler extends ClientPacketHandler {
             handleMediaMessage((MediaMessage) message, context);
         } else if (message instanceof TextMessage) {
             handleTextMessage((TextMessage) message, context);
+        } else if (message instanceof ReactionMessage) {
+            handleReactionMessage((ReactionMessage) message, context);
         } else {
             throw new IllegalArgumentException("Invalid message type for ConversationMessageHandler");
         }
@@ -103,30 +106,33 @@ public class ConversationMessageHandler extends ClientPacketHandler {
         }
         String conversationId = conversation.getConversationId();
 
-        Message msg;
-        Event event;
-        if (message instanceof TextMessage textMsg) {
-            msg = new Message(
-                    textMsg.getMessageId(),
-                    textMsg.getFrom(),
-                    textMsg.getTo(),
-                    textMsg.getContent(),
-                    textMsg.getTimestamp(),
-                    textMsg.getReplyToMessageId()
-            );
-            event = new TextMessageReceivedEvent(this, conversationId, msg);
-        } else if (message instanceof MediaMessage mediaMsg) {
-            msg = new Message(
-                    mediaMsg.getMessageId(),
-                    mediaMsg.getFrom(),
-                    mediaMsg.getTo(),
-                    "[Media: " + mediaMsg.getMediaName() + "]",
-                    mediaMsg.getTimestamp(),
-                    mediaMsg.getReplyToMessageId()
-            );
-            event = new MediaMessageReceivedEvent(this, conversationId, msg);
-        } else if (message instanceof ReactionMessage reactionMsg) {
-            msg = new Message(
+        Message msg = new Message(
+                textMsg.getMessageId(),
+                textMsg.getFrom(),
+                textMsg.getTo(),
+                textMsg.getContent(),
+                textMsg.getTimestamp(),
+                textMsg.getReplyToMessageId()
+                );
+        conversation.addMessage(msg);
+        context.getConversationRepository().update(conversationId, conversation);
+        EventBus.getInstance().publish(new TextMessageReceivedEvent(this, conversationId, msg));
+
+        context.sendAck(textMsg, MessageStatus.DELIVERED);
+        context.sendAck(textMsg, MessageStatus.READ); // TODO: Remove this line when read receipts are implemented properly
+    }
+
+    private void handleReactionMessage(ReactionMessage reactionMsg, ClientController context){
+        int recipientId = reactionMsg.getTo();
+        ConversationClient conversation;
+        if (recipientId == context.getClientId()) {
+            conversation = context.getOrCreatePrivateConversation(reactionMsg.getFrom());
+        } else if (context.getGroupRepository().findById(recipientId) != null) {
+            conversation = context.getOrCreateGroupConversation(recipientId);
+        } else {
+            throw new IllegalArgumentException("Message recipient not recognized by ConversationMessageHandler");
+        }
+        Message msg = new Message(
                     reactionMsg.getMessageId(),
                     reactionMsg.getFrom(),
                     reactionMsg.getTo(),
@@ -134,18 +140,14 @@ public class ConversationMessageHandler extends ClientPacketHandler {
                     reactionMsg.getTimestamp(),
                     reactionMsg.getReactionToMessageId()
             );
-            event = new ReactionMessageReceivedEvent(this, conversationId, msg);
-
-        } else {
-            throw new IllegalArgumentException("Unsupported message type for ConversationMessageHandler");
-        }
-
+        String conversationId = conversation.getConversationId();
         conversation.addMessage(msg);
         context.getConversationRepository().update(conversationId, conversation);
-        EventBus.getInstance().publish(new TextMessageReceivedEvent(this, conversationId, msg));
+        EventBus.getInstance().publish(new ReactionMessageReceivedEvent(this, conversationId, msg));
 
-        context.sendAck(textMsg, MessageStatus.DELIVERED);
-        context.sendAck(textMsg, MessageStatus.READ); // TODO: Remove this line when read receipts are implemented properly
+        context.sendAck(reactionMsg, MessageStatus.DELIVERED);
+        context.sendAck(reactionMsg, MessageStatus.READ); // TODO: Remove this line when read receipts are implemented properly
+
     }
 
     @Override
