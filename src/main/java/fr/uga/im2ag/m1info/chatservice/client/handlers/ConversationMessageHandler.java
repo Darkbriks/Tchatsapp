@@ -1,7 +1,6 @@
 package fr.uga.im2ag.m1info.chatservice.client.handlers;
 
 import fr.uga.im2ag.m1info.chatservice.client.ClientController;
-import fr.uga.im2ag.m1info.chatservice.client.event.system.Event;
 import fr.uga.im2ag.m1info.chatservice.client.event.system.EventBus;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.FileTransferProgressEvent;
 import fr.uga.im2ag.m1info.chatservice.client.event.types.MediaMessageReceivedEvent;
@@ -132,22 +131,18 @@ public class ConversationMessageHandler extends ClientPacketHandler {
         } else {
             throw new IllegalArgumentException("Message recipient not recognized by ConversationMessageHandler");
         }
-        Message msg = new Message(
-                    reactionMsg.getMessageId(),
-                    reactionMsg.getFrom(),
-                    reactionMsg.getTo(),
-                    "[Reaction: " + reactionMsg.getContent() + "]",
-                    reactionMsg.getTimestamp(),
-                    reactionMsg.getReactionToMessageId()
-            );
+
         String conversationId = conversation.getConversationId();
-        conversation.addMessage(msg);
+        conversation.addReactionToMessage(
+                reactionMsg.getReactionToMessageId(),
+                reactionMsg.getContent(),
+                reactionMsg.getFrom()
+        );
         context.getConversationRepository().update(conversationId, conversation);
-        EventBus.getInstance().publish(new ReactionMessageReceivedEvent(this, conversationId, msg));
+        EventBus.getInstance().publish(new ReactionMessageReceivedEvent(this, conversationId, conversation.getMessage(reactionMsg.getReactionToMessageId())));
 
         context.sendAck(reactionMsg, MessageStatus.DELIVERED);
         context.sendAck(reactionMsg, MessageStatus.READ); // TODO: Remove this line when read receipts are implemented properly
-
     }
 
     @Override

@@ -75,6 +75,10 @@ public class ConversationClient implements Serializable{
         }
     }
 
+    public Message getMessage(String messageId) {
+        return messages.get(messageId);
+    }
+
     /** Get a sublist of n (all if n is -1) messages, ordered by timestamp,
      * from the message with id startMessageId (inclusive if specified),
      * or from the beginning if startMessageId is null.
@@ -162,5 +166,4 @@ public class ConversationClient implements Serializable{
             message.addReaction(reaction, userId);
         }
     }
-
 }

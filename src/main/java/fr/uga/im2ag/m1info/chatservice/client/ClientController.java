@@ -721,6 +721,7 @@ public class ClientController {
                 getClientId(),
                 toUserId
         );
+        reactMsg.setReactionToMessageId(reactionToMessageId);
         reactMsg.setContent(content);
 
         if (!sendEncryptedMessage(reactMsg)) {
