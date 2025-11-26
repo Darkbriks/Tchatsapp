@@ -165,18 +165,6 @@ public class ConversationPanel extends JPanel {
         // Message list
         messageList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         MessageRenderer renderer = new MessageRenderer();
-        renderer.setFileActionCallbacks(
-                mediaId -> {
-                    if (onFileDownload != null) {
-                        onFileDownload.accept(mediaId);
-                    }
-                },
-                mediaId -> {
-                    if (onFileOpen != null) {
-                        onFileOpen.accept(mediaId);
-                    }
-                }
-        );
         messageList.setCellRenderer(renderer);
 
         JScrollPane scrollPane = new JScrollPane(messageList);
@@ -295,30 +283,63 @@ public class ConversationPanel extends JPanel {
         });
         contextMenu.add(copyItem);
 
-        messageList.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                handleMouseEvent(e);
-            }
+        contextMenu.addSeparator();
 
-            @Override
-            public void mouseReleased(MouseEvent e) {
-                handleMouseEvent(e);
-            }
-
-            private void handleMouseEvent(MouseEvent e) {
-                if (e.isPopupTrigger()) {
-                    int index = messageList.locationToIndex(e.getPoint());
-                    if (index >= 0) {
-                        Rectangle bounds = messageList.getCellBounds(index, index);
-                        if (bounds != null && bounds.contains(e.getPoint())) {
-                            messageList.setSelectedIndex(index);
-                            contextMenu.show(messageList, e.getX(), e.getY());
-                        }
+        JMenuItem downloadItem = new JMenuItem("Télécharger le fichier");
+        downloadItem.addActionListener(e -> {
+            int index = messageList.getSelectedIndex();
+            if (index >= 0) {
+                MessageItem message = messageModel.getElementAt(index);
+                if (message.getAttachedMedia() instanceof VirtualMedia virtualMedia) {
+                    String mediaId = virtualMedia.getMediaId();
+                    if (onFileDownload != null) {
+                        System.out.println("[ConversationPanel] Downloading file: " + mediaId);
+                        onFileDownload.accept(mediaId);
                     }
                 }
             }
         });
+        contextMenu.add(downloadItem);
+
+        JMenuItem openItem = new JMenuItem("Ouvrir le fichier");
+        openItem.addActionListener(e -> {
+            int index = messageList.getSelectedIndex();
+            if (index >= 0) {
+                MessageItem message = messageModel.getElementAt(index);
+                if (message.getAttachedMedia() instanceof VirtualMedia virtualMedia) {
+                    String mediaId = virtualMedia.getMediaId();
+                    if (onFileOpen != null) {
+                        System.out.println("[ConversationPanel] Opening file: " + mediaId);
+                        onFileOpen.accept(mediaId);
+                    }
+                }
+            }
+        });
+        contextMenu.add(openItem);
+
+        contextMenu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                int index = messageList.getSelectedIndex();
+                boolean hasMedia = false;
+
+                if (index >= 0) {
+                    MessageItem message = messageModel.getElementAt(index);
+                    hasMedia = (message.getAttachedMedia() instanceof VirtualMedia);
+                }
+
+                downloadItem.setEnabled(hasMedia);
+                openItem.setEnabled(hasMedia);
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {}
+
+            @Override
+            public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {}
+        });
+
+        messageList.setComponentPopupMenu(contextMenu);
     }
 
     private void setupHoverEffect() {
@@ -524,11 +545,6 @@ public class ConversationPanel extends JPanel {
         private final JLabel fileIconLabel;
         private final JLabel fileNameLabel;
         private final JLabel fileSizeLabel;
-        private final JButton downloadButton;
-        private final JButton openButton;
-
-        private Consumer<String> onFileDownloadCallback;
-        private Consumer<String> onFileOpenCallback;
 
         public MessageRenderer() {
             super(new BorderLayout(8, 4));
@@ -595,31 +611,10 @@ public class ConversationPanel extends JPanel {
 
             filePanel.add(fileInfoPanel, BorderLayout.CENTER);
 
-            // Action buttons
-            JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-            buttonPanel.setOpaque(false);
-
-            downloadButton = new JButton("Télécharger");
-            downloadButton.setFont(downloadButton.getFont().deriveFont(11f));
-            downloadButton.setFocusPainted(false);
-
-            openButton = new JButton("Ouvrir");
-            openButton.setFont(openButton.getFont().deriveFont(11f));
-            openButton.setFocusPainted(false);
-
-            buttonPanel.add(downloadButton);
-            buttonPanel.add(openButton);
-            filePanel.add(buttonPanel, BorderLayout.SOUTH);
-
             centerPanel.add(filePanel, BorderLayout.SOUTH);
             filePanel.setVisible(false); // Hidden by default
 
             add(centerPanel, BorderLayout.CENTER);
-        }
-
-        public void setFileActionCallbacks(Consumer<String> onDownload, Consumer<String> onOpen) {
-            this.onFileDownloadCallback = onDownload;
-            this.onFileOpenCallback = onOpen;
         }
 
         @Override
@@ -673,31 +668,6 @@ public class ConversationPanel extends JPanel {
                 // File name and size
                 fileNameLabel.setText(virtualMedia.getFileName());
                 fileSizeLabel.setText(virtualMedia.getFormattedFileSize());
-
-                // Button actions
-                String mediaId = virtualMedia.getMediaId();
-
-                // Remove old listeners
-                for (ActionListener al : downloadButton.getActionListeners()) {
-                    downloadButton.removeActionListener(al);
-                }
-                for (ActionListener al : openButton.getActionListeners()) {
-                    openButton.removeActionListener(al);
-                }
-
-                // Add new listeners
-                downloadButton.addActionListener(e -> {
-                    if (onFileDownloadCallback != null) {
-                        onFileDownloadCallback.accept(mediaId);
-                    }
-                });
-
-                openButton.addActionListener(e -> {
-                    if (onFileOpenCallback != null) {
-                        onFileOpenCallback.accept(mediaId);
-                    }
-                });
-
             } else {
                 filePanel.setVisible(false);
             }
