@@ -794,6 +794,43 @@ public class MainFrame extends JFrame {
             public void onComplete(String fileName, long totalBytes, int totalChunks) {
                 SwingUtilities.invokeLater(() -> {
                     progressDialog.dispose();
+
+                    try {
+                        String mediaId = java.util.UUID.randomUUID().toString();
+                        VirtualMedia virtualMedia = new VirtualMedia(
+                                mediaId,
+                                fileName,
+                                totalBytes,
+                                Instant.now(),
+                                controller.getClientId()
+                        );
+
+                        ConversationClient conversation = controller.getConversationRepository().findById(currentConversationId);
+                        if (conversation != null) {
+                            // TODO: Use real info
+                            Message message = new Message(
+                                    java.util.UUID.randomUUID().toString(),
+                                    controller.getClientId(),
+                                    recipientId,
+                                    "[Media Message]",
+                                    Instant.now(),
+                                    null
+                            );
+                            message.setAttachedMedia(virtualMedia);
+
+                            conversation.addMessage(message);
+                            controller.getConversationRepository().update(currentConversationId, conversation);
+
+                            if (currentConversationId != null) {
+                                List<ConversationPanel.MessageItem> messages = loadMessages(conversation);
+                                conversationPanel.setMessages(messages);
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.err.println("[MainFrame] Error creating local media message: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+
                     String sizeStr = formatFileSize(totalBytes);
                     JOptionPane.showMessageDialog(
                             MainFrame.this,
