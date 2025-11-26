@@ -6,7 +6,10 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,12 +60,16 @@ public class HomePanel extends JPanel {
     private final JButton pendingContactRequestButton;
     private final JButton viewContactsButton;
 
+    private final JPanel userPanel;
+    private final JLabel pseudoLabel;
+    private final JPopupMenu userContextMenu;
 
     private final List<ConversationItem> masterList;
     private ActionListener onNewConversation;
     private ActionListener onNewContact;
     private ActionListener onViewContacts;
     private ActionListener onShowPendingRequest;
+    private ActionListener onUpdatePseudo;
 
     public HomePanel() {
         super(new BorderLayout(8, 8));
@@ -77,8 +84,13 @@ public class HomePanel extends JPanel {
         this.viewContactsButton = new JButton("Show contacts");
         this.masterList = new ArrayList<>();
 
+        this.userPanel = new JPanel();
+        this.pseudoLabel = new JLabel();
+        this.userContextMenu = new JPopupMenu();
+
         setupLayout();
         setupListeners();
+        setupUserPanel();
     }
 
     private void setupLayout() {
@@ -99,16 +111,17 @@ public class HomePanel extends JPanel {
         scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         add(scrollPane, BorderLayout.CENTER);
 
-        // Bottom panel with new contact button & new conversation button
-        JPanel bottomPanel = new JPanel();
-        bottomPanel.setLayout(new BoxLayout(bottomPanel, BoxLayout.X_AXIS));
-        bottomPanel.add(newContactButton);
-        bottomPanel.add(Box.createHorizontalGlue());
-        bottomPanel.add(viewContactsButton);
-        bottomPanel.add(Box.createHorizontalGlue());
-        bottomPanel.add(pendingContactRequestButton);
-        bottomPanel.add(Box.createHorizontalGlue());
-        bottomPanel.add(newConversationButton);
+        JPanel bottomPanel = new JPanel(new BorderLayout(6, 6));
+
+        JPanel buttonsPanel = new JPanel(new GridLayout(1, 2, 6, 0));
+        buttonsPanel.add(newContactButton);
+        buttonsPanel.add(viewContactsButton);
+        buttonsPanel.add(pendingContactRequestButton);
+        buttonsPanel.add(newConversationButton);
+        bottomPanel.add(buttonsPanel, BorderLayout.EAST);
+
+        bottomPanel.add(userPanel, BorderLayout.WEST);
+
         add(bottomPanel, BorderLayout.SOUTH);
     }
 
@@ -159,6 +172,55 @@ public class HomePanel extends JPanel {
         });
     }
 
+    private void setupUserPanel() {
+        userPanel.setLayout(new BorderLayout(8, 0));
+        userPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, Color.LIGHT_GRAY),
+                new EmptyBorder(8, 8, 8, 8)
+        ));
+        userPanel.setBackground(new Color(220, 220, 220));
+
+        pseudoLabel.setFont(pseudoLabel.getFont().deriveFont(Font.BOLD, 13f));
+        userPanel.add(pseudoLabel, BorderLayout.CENTER);
+
+        JMenuItem updatePseudoItem = new JMenuItem("Modifier le pseudo");
+        updatePseudoItem.addActionListener(e -> {
+            if (onUpdatePseudo != null) {
+                onUpdatePseudo.actionPerformed(e);
+            }
+        });
+        userContextMenu.add(updatePseudoItem);
+
+        JMenuItem copyPseudoItem = new JMenuItem("Copier le pseudo");
+        copyPseudoItem.addActionListener(e -> {
+            StringSelection stringSelection = new StringSelection(pseudoLabel.getText());
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(stringSelection, null);
+        });
+        userContextMenu.add(copyPseudoItem);
+
+        MouseAdapter mouseAdapter = new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    showContextMenu(e);
+                }
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    showContextMenu(e);
+                }
+            }
+
+            private void showContextMenu(MouseEvent e) {
+                userContextMenu.show(e.getComponent(), e.getX(), e.getY());
+            }
+        };
+
+        pseudoLabel.addMouseListener(mouseAdapter);
+    }
+
     private void applyFilter(String query) {
         String q = (query == null) ? "" : query.trim().toLowerCase();
         listModel.clear();
@@ -171,6 +233,14 @@ public class HomePanel extends JPanel {
     }
 
     // ----------------------- Public API -----------------------
+
+    /**
+     * Set the displayed pseudo in the user panel
+     * @param pseudo the user's pseudo
+     */
+    public void setUserPseudo(String pseudo) {
+        pseudoLabel.setText(pseudo);
+    }
 
     /**
      * Set the list of conversations to display.
@@ -241,6 +311,12 @@ public class HomePanel extends JPanel {
         this.onShowPendingRequest = l;
     }
 
+    /**
+     * Set listener for update pseudo action
+     */
+    public void setOnUpdatePseudo(ActionListener listener) {
+        this.onUpdatePseudo = listener;
+    }
 
     // ----------------------- Cell Renderer -----------------------
 
