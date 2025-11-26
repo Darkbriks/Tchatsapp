@@ -127,8 +127,7 @@ public class MainFrame extends JFrame {
 
         eventHandler.setOnGroupMemberChanged(event -> {
             int groupId = event.getGroupId();
-            GroupInfo group;
-            if ((group = controller.getGroupRepository().findById(groupId)) != null){
+            if (controller.getGroupRepository().findById(groupId) != null && currentConversationId != null) {
                 ConversationClient open = controller.getConversationRepository().findById(currentConversationId);
                 if (open != null && open.getPeerId() == event.getGroupId()) {
                     refreshMessages(open);

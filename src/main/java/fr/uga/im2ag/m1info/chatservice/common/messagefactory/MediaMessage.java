@@ -54,7 +54,7 @@ public class MediaMessage extends AbstractSerializableMessage {
      * @param content the media content to set
      */
     public void setContent(byte[] content) {
-        this.content = content;
+        this.content = content != null ? content.clone() : null;
     }
 
     /** Set the size of the content.
@@ -108,7 +108,7 @@ public class MediaMessage extends AbstractSerializableMessage {
 
     @Override
     protected int getExpectedPartCount() {
-        return 6;
+        return 5;
     }
 
     @Override

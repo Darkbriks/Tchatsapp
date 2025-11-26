@@ -22,6 +22,7 @@ import fr.uga.im2ag.m1info.chatservice.common.messagefactory.*;
 import java.io.*;
 import java.net.Socket;
 import java.security.GeneralSecurityException;
+import java.util.Arrays;
 
 /**
  * A basic client for Tchatsapp.
@@ -264,8 +265,7 @@ public class Client {
             while ((count = fileStream.read(buffer)) > 0) {
                 MediaMessage mediaMsg = (MediaMessage) MessageFactory.create(MessageType.MEDIA, clientId, to);
                 mediaMsg.setMediaName(fileName);
-                mediaMsg.setContent(buffer);
-                mediaMsg.setSizeContent(count);
+                mediaMsg.setContent(Arrays.copyOfRange(buffer, 0, count));
                 sendPacket(mediaMsg.toPacket());
             }
         } catch (IOException e) {
