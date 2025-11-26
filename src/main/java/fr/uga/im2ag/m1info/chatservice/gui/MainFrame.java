@@ -607,6 +607,8 @@ public class MainFrame extends JFrame {
         currentConversationId = conv.getConversationId();
         if (conv.isGroupConversation()) {
             conversationPanel.setConversationTitle(conv.getConversationName());
+        } else {
+            conversationPanel.setConversationTitle("Conversation avec " + controller.getContactRepository().findById(conv.getPeerId()).getPseudo());
         }
 
         refreshMessages(conv);
