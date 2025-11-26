@@ -22,6 +22,7 @@ public class GuiEventHandler {
     private Consumer<ConnectionEstablishedEvent> onConnectionEstablished;
     private Consumer<TextMessageReceivedEvent> onTextMessageReceived;
     private Consumer<MediaMessageReceivedEvent> onMediaMessageReceived;
+    private Consumer<ReactionMessageReceivedEvent> onReactionMessageReceived;
     private Consumer<ErrorEvent> onError;
     private Consumer<ContactAddedEvent> onContactAdded;
     private Consumer<ContactRemovedEvent> onContactRemoved;
@@ -71,6 +72,12 @@ public class GuiEventHandler {
         subscriptions.add(controller.subscribeToEvent(
                 MessageStatusChangedEvent.class,
                 this::handleMessageStatusChanged,
+                ExecutionMode.ASYNC
+        ));
+
+        subscriptions.add(controller.subscribeToEvent(
+                ReactionMessageReceivedEvent.class,
+                this::handleReactionMessageReceived,
                 ExecutionMode.ASYNC
         ));
 
@@ -182,6 +189,10 @@ public class GuiEventHandler {
         dispatchToEDT(onMediaMessageReceived, event);
     }
 
+    private void handleReactionMessageReceived(ReactionMessageReceivedEvent event) {
+        dispatchToEDT(onReactionMessageReceived, event);
+    }
+
     private void handleMessageStatusChanged(MessageStatusChangedEvent event) {
         dispatchToEDT(onMessageStatusChanged, event);
     }
@@ -260,6 +271,10 @@ public class GuiEventHandler {
 
     public void setOnMediaMessageReceived(Consumer<MediaMessageReceivedEvent> callback) {
         this.onMediaMessageReceived = callback;
+    }
+
+    public void setOnReactionMessageReceived(Consumer<ReactionMessageReceivedEvent> callback) {
+        this.onReactionMessageReceived = callback;
     }
 
     public void setOnError(Consumer<ErrorEvent> callback) {

@@ -175,6 +175,15 @@ public class MainFrame extends JFrame {
             }
         });
 
+        eventHandler.setOnReactionMessageReceived(event -> {
+            refreshHomeConversations();
+            String convId = event.getConversationId();
+            if (currentConversationId != null && currentConversationId.equals(convId)) {
+                ConversationClient conv = controller.getConversationRepository().findById(convId);
+                refreshMessages(conv);
+            }
+        });
+
         eventHandler.setOnMessageStatusChanged(event -> {
 
         });
@@ -622,6 +631,13 @@ public class MainFrame extends JFrame {
             refreshMessages(conv);
         });
 
+        conversationPanel.setOnReact((messageId, reaction) -> {
+            if (currentConversationId != null) {
+                int recipientId = conv.getPeerId();
+                controller.sendReactionMessage(reaction, recipientId, messageId);
+            }
+        });
+
         conversationPanel.setOnOption(() -> {
             if (conv.isGroupConversation()) {
                 showGroupOptions(conv);
@@ -946,7 +962,8 @@ public class MainFrame extends JFrame {
                     message.getContent(),
                     message.getMessageId(),
                     message.getReplyToMessageId(),
-                    message.getAttachedMedia()
+                    message.getAttachedMedia(),
+                    message.getReactions()
             ));
         }
         return messageItems;

@@ -15,6 +15,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -34,22 +35,28 @@ public class ConversationPanel extends JPanel {
         private final String messageId;
         private final String replyToMessageId;
         private final Media attachedMedia;
+        private final Map<String, Set<Integer>> reactions;
 
-        public MessageItem(boolean mine, String author, String text, String messageId, String replyToMessageId, Media attachedMedia) {
+        public MessageItem(boolean mine, String author, String text, String messageId, String replyToMessageId, Media attachedMedia, Map<String, Set<Integer>> reactions) {
             this.mine = mine;
             this.author = author;
             this.text = text;
             this.messageId = messageId;
             this.replyToMessageId = replyToMessageId;
             this.attachedMedia = attachedMedia;
+            this.reactions = reactions != null ? new HashMap<>(reactions) : new HashMap<>();
+        }
+
+        public MessageItem(boolean mine, String author, String text, String messageId, String replyToMessageId, Media attachedMedia) {
+            this(mine, author, text, messageId, replyToMessageId, attachedMedia, null);
         }
 
         public MessageItem(boolean mine, String author, String text, String messageId, String replyToMessageId) {
-            this(mine, author, text, messageId, replyToMessageId, null);
+            this(mine, author, text, messageId, replyToMessageId, null, null);
         }
 
         public MessageItem(boolean mine, String author, String text) {
-            this(mine, author, text, null, null, null);
+            this(mine, author, text, null, null, null, null);
         }
 
         public boolean isMine() {
@@ -74,6 +81,10 @@ public class ConversationPanel extends JPanel {
 
         public Media getAttachedMedia() {
             return attachedMedia;
+        }
+
+        public Map<String, Set<Integer>> getReactions() {
+            return Map.copyOf(reactions);
         }
     }
 
@@ -101,6 +112,14 @@ public class ConversationPanel extends JPanel {
         void onOption();
     }
 
+    /**
+     * Callback interface for reacting to a message.
+     */
+    @FunctionalInterface
+    public interface OnReactListener {
+        void onReact(String messageId, String reaction);
+    }
+
     private final JButton backButton;
     private final JLabel titleLabel;
     private final DefaultListModel<MessageItem> messageModel;
@@ -118,6 +137,7 @@ public class ConversationPanel extends JPanel {
     private OnSendListener onSend;
     private OnReplyListener onReply;
     private OnOptionListener onOption;
+    private OnReactListener onReact;
     private Consumer<File> onFileSend;
     private Consumer<String> onFileDownload;
     private Consumer<String> onFileOpen;
@@ -270,76 +290,58 @@ public class ConversationPanel extends JPanel {
         });
         contextMenu.add(replyItem);
 
+        JMenuItem reactItem = new JMenuItem("Réagir");
+        reactItem.addActionListener(e -> {
+            int index = messageList.getSelectedIndex();
+            if (index >= 0) {
+                MessageItem message = messageModel.getElementAt(index);
+                if (message.getMessageId() != null) {
+                    showReactionSelector(message);
+                }
+            }
+        });
+        contextMenu.add(reactItem);
+
         JMenuItem copyItem = new JMenuItem("Copier le texte");
         copyItem.addActionListener(e -> {
             int index = messageList.getSelectedIndex();
             if (index >= 0) {
                 MessageItem message = messageModel.getElementAt(index);
                 if (message.getText() != null) {
-                    StringSelection selection = new StringSelection(message.getText());
-                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
+                    Toolkit.getDefaultToolkit()
+                            .getSystemClipboard()
+                            .setContents(new StringSelection(message.getText()), null);
                 }
             }
         });
         contextMenu.add(copyItem);
 
-        contextMenu.addSeparator();
-
-        JMenuItem downloadItem = new JMenuItem("Télécharger le fichier");
-        downloadItem.addActionListener(e -> {
-            int index = messageList.getSelectedIndex();
-            if (index >= 0) {
-                MessageItem message = messageModel.getElementAt(index);
-                if (message.getAttachedMedia() instanceof VirtualMedia virtualMedia) {
-                    String mediaId = virtualMedia.getMediaId();
-                    if (onFileDownload != null) {
-                        System.out.println("[ConversationPanel] Downloading file: " + mediaId);
-                        onFileDownload.accept(mediaId);
-                    }
-                }
-            }
-        });
-        contextMenu.add(downloadItem);
-
-        JMenuItem openItem = new JMenuItem("Ouvrir le fichier");
-        openItem.addActionListener(e -> {
-            int index = messageList.getSelectedIndex();
-            if (index >= 0) {
-                MessageItem message = messageModel.getElementAt(index);
-                if (message.getAttachedMedia() instanceof VirtualMedia virtualMedia) {
-                    String mediaId = virtualMedia.getMediaId();
-                    if (onFileOpen != null) {
-                        System.out.println("[ConversationPanel] Opening file: " + mediaId);
-                        onFileOpen.accept(mediaId);
-                    }
-                }
-            }
-        });
-        contextMenu.add(openItem);
-
-        contextMenu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+        messageList.addMouseListener(new MouseAdapter() {
             @Override
-            public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
-                int index = messageList.getSelectedIndex();
-                boolean hasMedia = false;
+            public void mousePressed(MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    showMenu(e);
+                }
+            }
 
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    showMenu(e);
+                }
+            }
+
+            private void showMenu(MouseEvent e) {
+                int index = messageList.locationToIndex(e.getPoint());
                 if (index >= 0) {
-                    MessageItem message = messageModel.getElementAt(index);
-                    hasMedia = (message.getAttachedMedia() instanceof VirtualMedia);
+                    Rectangle bounds = messageList.getCellBounds(index, index);
+                    if (bounds != null && bounds.contains(e.getPoint())) {
+                        messageList.setSelectedIndex(index);
+                        contextMenu.show(messageList, e.getX(), e.getY());
+                    }
                 }
-
-                downloadItem.setEnabled(hasMedia);
-                openItem.setEnabled(hasMedia);
             }
-
-            @Override
-            public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {}
-
-            @Override
-            public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {}
         });
-
-        messageList.setComponentPopupMenu(contextMenu);
     }
 
     private void setupHoverEffect() {
@@ -413,6 +415,18 @@ public class ConversationPanel extends JPanel {
         replyPreviewPanel.setVisible(false);
     }
 
+    private void showReactionSelector(MessageItem message) {
+        ReactionSelectorDialog dialog = new ReactionSelectorDialog(
+                SwingUtilities.getWindowAncestor(this)
+        );
+        dialog.setVisible(true);
+
+        String selectedReaction = dialog.getSelectedReaction();
+        if (selectedReaction != null && onReact != null) {
+            onReact.onReact(message.getMessageId(), selectedReaction);
+        }
+    }
+
     private void ensureLastVisible() {
         int size = messageModel.getSize();
         if (size > 0) {
@@ -464,6 +478,24 @@ public class ConversationPanel extends JPanel {
     }
 
     /**
+     * Update a message in the conversation (for reactions).
+     *
+     * @param messageId the ID of the message to update
+     * @param updatedMessage the updated message
+     */
+    public void updateMessage(String messageId, MessageItem updatedMessage) {
+        for (int i = 0; i < messageModel.getSize(); i++) {
+            MessageItem item = messageModel.getElementAt(i);
+            if (messageId.equals(item.getMessageId())) {
+                messageModel.set(i, updatedMessage);
+                messageCache.put(messageId, updatedMessage);
+                messageList.repaint(messageList.getCellBounds(i, i));
+                break;
+            }
+        }
+    }
+
+    /**
      * Set the callback for the back button.
      *
      * @param listener the action listener
@@ -492,6 +524,15 @@ public class ConversationPanel extends JPanel {
 
     public void setOnOption(OnOptionListener listener) {
         this.onOption = listener;
+    }
+
+    /**
+     * Set the callback for reacting to a message.
+     *
+     * @param listener the react listener
+     */
+    public void setOnReact(OnReactListener listener) {
+        this.onReact = listener;
     }
 
     /**
@@ -534,7 +575,7 @@ public class ConversationPanel extends JPanel {
     // ----------------------- Cell Renderer -----------------------
 
     /**
-     * Custom renderer for message items with bubble style, reply references, and hover effect.
+     * Custom renderer for message items with bubble style, reply references, hover effect, and reactions.
      */
     private class MessageRenderer extends JPanel implements ListCellRenderer<MessageItem> {
         private final JLabel authorLabel;
@@ -545,6 +586,7 @@ public class ConversationPanel extends JPanel {
         private final JLabel fileIconLabel;
         private final JLabel fileNameLabel;
         private final JLabel fileSizeLabel;
+        private final JPanel reactionsPanel;
 
         public MessageRenderer() {
             super(new BorderLayout(8, 4));
@@ -555,7 +597,7 @@ public class ConversationPanel extends JPanel {
             authorLabel.setFont(authorLabel.getFont().deriveFont(Font.BOLD, 11f));
             add(authorLabel, BorderLayout.NORTH);
 
-            // Center panel for reply indicator + content + file
+            // Center panel for reply indicator + content + file + reactions
             JPanel centerPanel = new JPanel(new BorderLayout(4, 4));
             centerPanel.setOpaque(false);
 
@@ -610,9 +652,20 @@ public class ConversationPanel extends JPanel {
             fileInfoPanel.add(fileDetailsPanel, BorderLayout.CENTER);
 
             filePanel.add(fileInfoPanel, BorderLayout.CENTER);
-
-            centerPanel.add(filePanel, BorderLayout.SOUTH);
             filePanel.setVisible(false); // Hidden by default
+
+            // Reactions panel
+            reactionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 4));
+            reactionsPanel.setOpaque(false);
+            reactionsPanel.setVisible(false);
+
+            // Bottom panel for file and reactions
+            JPanel bottomPanel = new JPanel(new BorderLayout(0, 4));
+            bottomPanel.setOpaque(false);
+            bottomPanel.add(filePanel, BorderLayout.NORTH);
+            bottomPanel.add(reactionsPanel, BorderLayout.SOUTH);
+
+            centerPanel.add(bottomPanel, BorderLayout.SOUTH);
 
             add(centerPanel, BorderLayout.CENTER);
         }
@@ -670,6 +723,38 @@ public class ConversationPanel extends JPanel {
                 fileSizeLabel.setText(virtualMedia.getFormattedFileSize());
             } else {
                 filePanel.setVisible(false);
+            }
+
+            // Reactions
+            Map<String, Set<Integer>> reactions = item.getReactions();
+            reactionsPanel.removeAll();
+            if (!reactions.isEmpty()) {
+                for (Map.Entry<String, Set<Integer>> entry : reactions.entrySet()) {
+                    String reaction = entry.getKey();
+                    Set<Integer> userIds = entry.getValue();
+
+                    JLabel reactionLabel = new JLabel(reaction + " " + userIds.size());
+                    reactionLabel.setFont(reactionLabel.getFont().deriveFont(11f));
+                    reactionLabel.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true),
+                            new EmptyBorder(2, 6, 2, 6)
+                    ));
+                    reactionLabel.setBackground(new Color(245, 245, 245));
+                    reactionLabel.setOpaque(true);
+
+                    // Tooltip pour voir qui a réagi
+                    StringBuilder tooltip = new StringBuilder("<html>");
+                    for (Integer userId : userIds) {
+                        tooltip.append("User ").append(userId).append("<br>");
+                    }
+                    tooltip.append("</html>");
+                    reactionLabel.setToolTipText(tooltip.toString());
+
+                    reactionsPanel.add(reactionLabel);
+                }
+                reactionsPanel.setVisible(true);
+            } else {
+                reactionsPanel.setVisible(false);
             }
 
             // Background color
