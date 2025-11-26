@@ -416,7 +416,7 @@ public class ClientController {
             if (groupRepository.findById(groupId) == null) {
                 throw new IllegalArgumentException("Group with ID " + groupId + " does not exist");
             }
-            conversation = new ConversationClient(conversationId, groupId, true);
+            conversation = new ConversationClient(conversationId, groupId, true, groupRepository.findById(groupId));
             conversationRepository.add(conversation);
         }
 
