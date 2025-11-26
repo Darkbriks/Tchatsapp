@@ -392,7 +392,7 @@ public class ClientController {
         ConversationClient conversation = conversationRepository.findById(conversationId);
 
         if (conversation == null) {
-            conversation = new ConversationClient(conversationId, otherUserId, false);
+            conversation = new ConversationClient(conversationId, contactRepository.findById(otherUserId), otherUserId, false);
             conversationRepository.add(conversation);
             if (encryptionService != null) {
                 encryptionService.initiateSecureConversation(otherUserId);

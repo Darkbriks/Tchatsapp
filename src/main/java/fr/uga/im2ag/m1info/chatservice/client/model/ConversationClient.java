@@ -17,6 +17,7 @@ public class ConversationClient implements Serializable{
     private final int peerId;
     private final boolean isGroupConversation;
     private GroupInfo group;
+    private ContactClient other;
 
     public ConversationClient(String conversationId, String conversationName, Map<String, Message> messages, SortedMap<Instant, String> messageOrder, int peerId, boolean isGroupConversation) {
         this.conversationId = conversationId;
@@ -28,8 +29,9 @@ public class ConversationClient implements Serializable{
         this.group = null;
     }
 
-    public ConversationClient(String conversationId, int peerId, boolean isGroupConversation) {
-        this(conversationId, "Conversation " + conversationId, new HashMap<>(), new TreeMap<>(), peerId, isGroupConversation);
+    public ConversationClient(String conversationId, ContactClient user, int peerId, boolean isGroupConversation) {
+        this(conversationId, "Conversation avec " + user.getPseudo(), new HashMap<>(), new TreeMap<>(), peerId, isGroupConversation);
+        other = user;
     }
 
     public ConversationClient(String conversationId, int peerId, boolean isGroupConversation, GroupInfo group) {
@@ -45,7 +47,7 @@ public class ConversationClient implements Serializable{
         if (isGroupConversation() && group != null){
             return group.getGroupName();
         }
-        return conversationName;
+        return other.getPseudo();
     }
 
     public void setConversationName(String conversationName) {

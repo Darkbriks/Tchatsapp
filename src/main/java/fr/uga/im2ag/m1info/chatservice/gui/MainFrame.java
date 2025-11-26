@@ -614,11 +614,7 @@ public class MainFrame extends JFrame {
                                          .findById(conversation.getId());
 
         currentConversationId = conv.getConversationId();
-        if (conv.isGroupConversation()) {
-            conversationPanel.setConversationTitle(conv.getConversationName());
-        } else {
-            conversationPanel.setConversationTitle("Conversation avec " + controller.getContactRepository().findById(conv.getPeerId()).getPseudo());
-        }
+        conversationPanel.setConversationTitle(conv.getConversationName());
 
         refreshMessages(conv);
 
