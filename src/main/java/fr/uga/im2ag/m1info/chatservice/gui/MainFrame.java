@@ -119,12 +119,13 @@ public class MainFrame extends JFrame {
 
         eventHandler.setOnGroupMemberChanged(event -> {
             int groupId = event.getGroupId();
-            GroupInfo group = controller.getGroupRepository().findById(groupId);
-            if (group != null && event.isAdded()) {
-                group.addMember(event.getMemberId(), event.getMemberPseudo());
-                controller.getOrCreateGroupConversation(groupId);
-                refreshHomeConversations();
-            }
+            GroupInfo group;
+            if ((group = controller.getGroupRepository().findById(groupId)) != null){
+                ConversationClient open = controller.getConversationRepository().findById(currentConversationId);
+                if (open != null && open.getPeerId() == event.getGroupId()) {
+                    refreshMessages(open);
+                }
+            }    
         });
 
         eventHandler.setOnContactRequestResponse(event -> {
@@ -156,9 +157,7 @@ public class MainFrame extends JFrame {
         });
 
         eventHandler.setOnMediaMessageReceived(event -> {
-            Message msg = event.getMessage();
-            String conversationId = event.getConversationId();
-
+            //toDO implem
         });
 
         eventHandler.setOnMessageStatusChanged(event -> {
@@ -173,6 +172,18 @@ public class MainFrame extends JFrame {
 
         eventHandler.setOnContactRemoved(event -> {
 
+        });
+
+        eventHandler.setOnUpdateGroupName(event -> {
+            int groupId = event.getGroupId();
+            GroupInfo group;
+            if ((group = controller.getGroupRepository().findById(groupId)) != null){
+                refreshHomeConversations();
+                ConversationClient open = controller.getConversationRepository().findById(currentConversationId);
+                if (open != null && open.getPeerId() == event.getGroupId()) {
+                    refreshMessages(open);
+                }
+            }  
         });
 
     }
@@ -460,7 +471,6 @@ public class MainFrame extends JFrame {
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         dialog.setLayout(new BorderLayout(10, 10));
 
-        // ---------- RECEIVED REQUESTS ----------
         JPanel receivedListPanel = new JPanel();
         receivedListPanel.setLayout(new BoxLayout(receivedListPanel, BoxLayout.Y_AXIS));
 
@@ -481,7 +491,7 @@ public class MainFrame extends JFrame {
 
             acceptBtn.addActionListener(ev -> {
                 controller.respondToContactRequest(senderId, true);
-                dialog.dispose();              // simple behavior: close after action
+                dialog.dispose();
                 refreshHomeConversations();
             });
 
@@ -576,24 +586,83 @@ public class MainFrame extends JFrame {
                 showGroupOptions(conv);
             }
         });
-<<<<<<< HEAD
         conversationPanel.setOnBack(e -> showHome());
-=======
-
-        conversationPanel.setOnBack(e -> {
-            homePanel.clearSelection();
-            cl.show(cards, "home");
-        });
->>>>>>> e895f3f6703ca1ea29eae16e87f7a0e47c8db6fa
         cl.show(cards, "conversation");
     }
 
     private void showGroupOptions(ConversationClient conv) {
+
+        // show members
         JPopupMenu menu = new JPopupMenu();
-        JMenuItem viewMembers = new JMenuItem("Voir les membres");
+        JMenuItem viewMembers = new JMenuItem("Show members");
         viewMembers.addActionListener(e -> showGroupMembersDialog(conv));
         menu.add(viewMembers);
+
+        // add memebr by id
+        JMenuItem addMemberItem = new JMenuItem("Add a member");
+        addMemberItem.addActionListener(e -> handleAddMemberToGroup(conv));
+        menu.add(addMemberItem);
+
+        // remove member by id
+        JMenuItem removeMemberItem = new JMenuItem("Remove a member");
+        removeMemberItem.addActionListener(e -> handleRemoveMemberFromGroup(conv));
+        menu.add(removeMemberItem);
+
+        // rename group
+        JMenuItem renameItem = new JMenuItem("Rename group");
+        renameItem.addActionListener(e -> handleRenameGroup(conv));
+        menu.add(renameItem);
+
         menu.show(conversationPanel, conversationPanel.getWidth() - 10, 35);
+
+        
+    }
+
+    private void handleRenameGroup(ConversationClient conv) {
+        if (!ensureAdminOrWarn(conv)) {
+            return;
+        }
+
+        String input = JOptionPane.showInputDialog(
+                this,
+                "New group name ?",
+                "Renaming group",
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (input == null) return; // cancel
+        input = input.trim();
+        if (input.isEmpty()) return;
+        controller.renameGroup(input, conv.getPeerId());
+    }
+
+    private void handleRemoveMemberFromGroup(ConversationClient conv) {
+        if (!ensureAdminOrWarn(conv)) {
+            return;
+        }
+
+        String input = JOptionPane.showInputDialog(
+                this,
+                "ID of member to be removed :",
+                "Remove a member",
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (input == null) return; // cancel
+        input = input.trim();
+        if (input.isEmpty()) return;
+
+        try {
+            int memberId = Integer.parseInt(input);
+            controller.removeMemberToGroup(conv.getPeerId(), memberId);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Invalid ID, choose an int",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
     }
 
     private void showGroupMembersDialog(ConversationClient conv) {
@@ -611,6 +680,36 @@ public class MainFrame extends JFrame {
                 JOptionPane.INFORMATION_MESSAGE
         );
     }
+
+    private void handleAddMemberToGroup(ConversationClient conv) {
+        if (!ensureAdminOrWarn(conv)) {
+            return;
+        }
+
+        String input = JOptionPane.showInputDialog(
+                this,
+                "ID of member to be added :",
+                "Add a member",
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (input == null) return; // cancel
+        input = input.trim();
+        if (input.isEmpty()) return;
+
+        try {
+            int memberId = Integer.parseInt(input);
+            controller.addMemberToGroup(conv.getPeerId(), memberId);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Invalid ID, choose an int",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
 
     public List<ConversationPanel.MessageItem> loadMessages(ConversationClient conversation){
         List<Message> messagesFromConv = conversation.getMessagesFrom(null, -1, true, true);
@@ -708,6 +807,25 @@ public class MainFrame extends JFrame {
     private void refreshMessages(ConversationClient conv) {
         List<ConversationPanel.MessageItem> messageItems = loadMessages(conv);
         conversationPanel.setMessages(messageItems);
+    }
+
+    private boolean isGroupAdmin(ConversationClient conv) {
+        GroupInfo group = controller.getGroupRepository().findById(conv.getPeerId());
+        if (group == null) {return false; }
+        return group.getAdminId() == controller.getClientId();
+    }
+
+    private boolean ensureAdminOrWarn(ConversationClient conv) {
+        if (isGroupAdmin(conv)) {
+            return true;
+        }
+        JOptionPane.showMessageDialog(
+                this,
+                "Admin only, fool",
+                "You're not supposed to do that",
+                JOptionPane.WARNING_MESSAGE
+        );
+        return false;
     }
 
     // ----------------------- Entry Point -----------------------

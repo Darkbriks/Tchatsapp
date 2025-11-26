@@ -34,6 +34,8 @@ public class GuiEventHandler {
     private Consumer<ChangeMemberInGroupEvent> onGroupMemberChanged;
     private Consumer<ManagementOperationSucceededEvent> onManagementOperationSucceeded;
     private Consumer<ManagementOperationFailedEvent> onManagementOperationFailed;
+    private Consumer<UpdateGroupNameEvent> onUpdateGroupName;
+
 
 
     public GuiEventHandler(ClientController controller) {
@@ -141,6 +143,12 @@ public class GuiEventHandler {
                 this::handleManagementOperationFailed,
                 ExecutionMode.ASYNC
         ));
+
+        subscriptions.add(controller.subscribeToEvent(
+                UpdateGroupNameEvent.class,
+                this::handleUpdateGroupName,
+                ExecutionMode.ASYNC
+        ));
     }
 
     /**
@@ -216,6 +224,11 @@ public class GuiEventHandler {
         dispatchToEDT(onManagementOperationFailed, event);
     }
 
+    private void handleUpdateGroupName (UpdateGroupNameEvent event) {
+        dispatchToEDT(onUpdateGroupName, event);
+    }
+
+
     // ----------------------- Utility -----------------------
 
     private <T> void dispatchToEDT(Consumer<T> callback, T event) {
@@ -284,5 +297,9 @@ public class GuiEventHandler {
 
     public void setOnManagementOperationFailed(Consumer<ManagementOperationFailedEvent> callback) {
         this.onManagementOperationFailed = callback;
+    }
+
+    public void setOnUpdateGroupName(Consumer<UpdateGroupNameEvent> callback) {
+        this.onUpdateGroupName = callback;
     }
 }

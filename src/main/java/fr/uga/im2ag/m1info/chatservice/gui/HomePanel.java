@@ -170,10 +170,6 @@ public class HomePanel extends JPanel {
         }
     }
 
-    public void clearSelection() {
-        conversationList.clearSelection();
-    }
-
     // ----------------------- Public API -----------------------
 
     /**
